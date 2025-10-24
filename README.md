@@ -24,11 +24,25 @@ The Derkino deployment system has been refactored to use a declarative Ansible/H
 - **Secret scanning**: CI pipeline includes TruffleHog to detect accidental secret commits
 - **StatefulSet for databases**: MongoDB and PostgreSQL use StatefulSet for stable storage and network identity
 
-### Setup Instructions
+## Requirements
+
+Install these locally to match CI:
+
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| Python | 3.11 | Runtime environment |
+| Helm | 3.14.0 | Kubernetes package manager |
+| ansible-core | 2.19.3 | Core Ansible functionality |
+| ansible | 12.1.0 | Infrastructure automation |
+| ansible-lint | 25.9.2 | Ansible code quality |
+| yamllint | 1.37.1 | YAML file validation |
+
+For detailed infrastructure requirements and validation workflow, see [infrastructure/README.md](infrastructure/README.md).
+
+## Setup Instructions
 
 1. **Install dependencies** (one-time setup):
-   - Ansible 2.9+
-   - Helm 3+
+   - See the [Requirements](#requirements) table above for specific versions
    - kubectl
    - minikube
 

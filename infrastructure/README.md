@@ -2,7 +2,31 @@
 
 This directory contains the Ansible and Helm-based deployment system for Derkino infrastructure.
 
-## New Standard CI Validation Pipeline
+## Requirements
+
+Install these locally to match CI:
+
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| Python | 3.11 | Runtime environment |
+| Helm | 3.14.0 | Kubernetes package manager |
+| ansible-core | 2.19.3 | Core Ansible functionality |
+| ansible | 12.1.0 | Infrastructure automation |
+| ansible-lint | 25.9.2 | Ansible code quality |
+| yamllint | 1.37.1 | YAML file validation |
+
+Run the same checks locally:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install yamllint==1.37.1 ansible==12.1.0 ansible-lint==25.9.2
+helm dependency build infrastructure/helm-charts/derkino-infrastructure/
+yamllint infrastructure/ -c infrastructure/ansible/.yamllint
+ansible-galaxy collection install -r infrastructure/ansible/collections/requirements.yml
+ansible-playbook --syntax-check infrastructure/ansible/deploy.yml -e "deployment_environment=local"
+```
+
+## CI Validation Pipeline
 
 ### Prerequisites
 - Helm 3.14+
@@ -56,8 +80,6 @@ helm template --debug .
 ### File Structure
 
 ```
-### File Structure
-
 infrastructure/
 ├── ansible/                    # Ansible playbooks and roles
 │   ├── deploy.yml             # Main deployment playbook
@@ -80,41 +102,15 @@ infrastructure/
 └── secrets/                   # Encrypted secrets (not in repo)
 ```
 
-### Environment Configuration
+### Smoke Tests
 
-#### Local Development
+Run comprehensive smoke tests to validate infrastructure:
+
 ```bash
-cd infrastructure/ansible
-ansible-playbook deploy.yml -e env=local
+./infrastructure/smoke-tests.sh
 ```
 
-#### Dev Environment
-```bash
-ansible-playbook deploy.yml -e env=dev
-```
-
-### Validation Commands
-
-#### Helm Validation
-```bash
-# Lint all charts
-helm lint --with-subcharts .
-
-# Dry-run installation
-helm install test-install . --dry-run
-```
-
-#### Ansible Validation
-```bash
-# Syntax check
-ansible-playbook --syntax-check deploy.yml
-
-# Dry-run deployment
-ansible-playbook --check deploy.yml
-
-# Lint validation
-ansible-lint deploy.yml
-```
+This validates Helm chart linting, template generation, and Ansible syntax/idempotency.
 
 ### Security
 
@@ -125,6 +121,38 @@ ansible-lint deploy.yml
 - **Downloaded Helm dependencies excluded** via `.gitignore`
 - **All configurations version-controlled**
 - **Dependencies pinned** via `Chart.lock` for reproducible builds
+
+### Pre-commit Hooks
+
+Install and configure pre-commit hooks for automated code quality checks:
+
+```bash
+# Install pre-commit and detect-secrets
+pip install pre-commit detect-secrets
+
+# Install the pre-commit hooks
+pre-commit install
+
+# Run pre-commit on all files
+pre-commit run --all-files
+```
+
+### Molecule Testing
+
+Run Molecule tests for Ansible roles to ensure role functionality:
+
+```bash
+# Navigate to the role directory
+cd infrastructure/ansible/roles/common
+
+# Run Molecule tests (requires Docker)
+molecule test
+
+# Run specific scenario
+molecule test -s default
+```
+
+The Molecule configuration includes comprehensive testing for the common role with proper Docker driver setup.
 
 ### Troubleshooting
 

@@ -24,7 +24,7 @@ statefulset:
   replicas: 1
   image:
     repository: postgres
-    tag: latest
+    tag: "15"
   containerPort: 5432
   volumeMounts:
     data:

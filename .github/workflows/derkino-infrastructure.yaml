@@ -20,10 +20,14 @@ on:
 jobs:
   validate-infrastructure:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -40,13 +44,13 @@ jobs:
 
       - name: Lint YAML Files
         run: |
-          pip install yamllint
+          pip install yamllint==1.30.0
           yamllint infrastructure/ -c infrastructure/ansible/.yamllint
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
-          version: 'v3.14.0'
+          version: '3.14.0'
 
       - name: Set up Helm Repositories
         run: |
@@ -78,7 +82,7 @@ jobs:
 
       - name: Ansible Playbook Syntax Check
         run: |
-          pip install ansible
+          pip install ansible==7.10.2
           ansible-galaxy collection install -r infrastructure/ansible/collections/requirements.yml
           cd infrastructure/ansible
           ansible-playbook --syntax-check deploy.yml -e "deployment_environment=local"

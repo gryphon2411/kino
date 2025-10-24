@@ -1,1 +1,18 @@
+# Infrastructure-specific .gitignore
+# Secrets directory
 infrastructure/secrets/
+
+# Ansible Vault password files
+*.vault_pass
+vault_pass.txt
+
+# Local configuration files
+local_vars.yml
+
+# Test files for CI/CD testing
+test-*.yml
+test-vault-password
+
+# Backup files
+*.bak
+*.backup

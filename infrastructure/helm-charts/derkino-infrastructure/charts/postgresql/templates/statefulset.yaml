@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ .Values.statefulset.name }}
-  namespace: {{ .Values.namespace.name }}
+  name: {{ .Values.statefulset.name | required "statefulset.name is required" }}
+  namespace: {{ .Values.namespace.name | required "namespace.name is required" }}
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -10,8 +10,8 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: {{ .Values.statefulset.name }}
-  serviceName: {{ .Values.service.name }}
+      app: {{ .Values.statefulset.name | required "statefulset.name is required" }}
+  serviceName: {{ .Values.service.name | required "service.name is required" }}
   replicas: {{ .Values.statefulset.replicas }}
   template:
     metadata:
@@ -25,7 +25,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: {{ .Values.statefulset.name }}
-        image: {{ .Values.statefulset.image.repository }}:{{ .Values.statefulset.image.tag }}
+        image: {{ .Values.statefulset.image.repository | required "statefulset.image.repository is required" }}:{{ .Values.statefulset.image.tag | required "statefulset.image.tag is required" }}
         securityContext:
           runAsNonRoot: true
           runAsUser: 1000
@@ -41,12 +41,12 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.namespace.secret.name }}
+              name: {{ .Values.secret.name | required "secret.name is required" }}
               key: password
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.namespace.secret.name }}
+              name: {{ .Values.secret.name | required "secret.name is required" }}
               key: username
         - name: POSTGRES_DB
           value: postgres

@@ -57,32 +57,6 @@ ansible-playbook -i inventory/local deploy.yml --ask-vault-pass
 ansible-playbook -i inventory/local deploy.yml -e "migration_enabled=true" --vault-password-file ~/.derkino-vault-password
 ```
 
-## Environment Configuration
-
-### Environment Variables
-
-Environment-specific configuration is managed through:
-
-- `environments/local.yml` - Local development settings
-- `environments/dev.yml` - Development environment settings
-- `group_vars/all/vars.yml` - Global variables across all environments
-
-**Key Configuration Variables:**
-
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `deployment_environment` | Target environment (local, dev, prod) | local |
-| `migration_enabled` | Enable/disable migration mode | false |
-| `helm_infrastructure_namespace` | Kubernetes namespace | infrastructure |
-| `secrets_namespace` | Secrets namespace | infrastructure |
-
-### Inventory Files
-
-Inventory files define target hosts for deployment:
-
-- `inventory/local` - Local Minikube/Kubernetes cluster
-- `inventory/dev` - Development cluster
-
 ## Directory Structure
 
 ```
@@ -101,50 +75,6 @@ infrastructure/ansible/
 ├── .venv/                # Python virtual environment (gitignored)
 └── .gitignore            # Git ignore rules
 ```
-
-## Deployment Workflow
-
-### Standard Deployment (Helm Charts Only)
-
-This is the primary deployment method for new installations or when migrating 
-from kubectl manifests is not required.
-
-```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Deploy infrastructure using Helm charts
-ansible-playbook -i inventory/local deploy.yml -e "deployment_environment=local"
-```
-
-### Migration Deployment (Zero-Downtime)
-
-Use this method when migrating from existing kubectl manifests to Helm charts 
-without downtime.
-
-```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Enable migration mode
-ansible-playbook -i inventory/local deploy.yml -e "deployment_environment=local 
-migration_enabled=true"
-```
-
-### Infrastructure Components
-
-The playbook deploys these core infrastructure components:
-
-| Component | Helm Chart | Purpose |
-|-----------|------------|---------|
-| **MongoDB** | `derkino-infrastructure/mongodb` | Document database for titles 
-and metadata |
-| **PostgreSQL** | `derkino-infrastructure/postgresql` | Relational database 
-for auth and transactions |
-| **Redis-Stack** | `derkino-infrastructure/redis-stack` | Caching and session 
-management |
-| **Kafka** | `derkino-infrastructure/kafka` | Event streaming and message 
-broker |
 
 ## Development Workflow
 
