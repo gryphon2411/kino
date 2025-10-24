@@ -82,7 +82,7 @@ jobs:
 
       - name: Ansible Playbook Syntax Check
         run: |
-          pip install ansible==12.1.10
+          pip install ansible==12.1.0
           ansible-galaxy collection install -r infrastructure/ansible/collections/requirements.yml
           cd infrastructure/ansible
           ansible-playbook --syntax-check deploy.yml -e "deployment_environment=local"
