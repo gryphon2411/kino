@@ -1,0 +1,38 @@
+# Default values for Redis-Stack subchart
+
+# Namespace configuration
+namespace:
+  create: true
+  name: redis-stack-system
+
+# Secret configuration
+secret:
+  name: redis-stack-default-user-credentials
+  username: default
+  # Password provided via Kubernetes Secret
+
+# Service configuration
+service:
+  name: redis-stack
+  type: NodePort
+  ports:
+    default:
+      port: 6379
+      targetPort: 6379
+    http:
+      port: 8001
+      targetPort: 8001
+
+# StatefulSet configuration
+statefulset:
+  name: redis-stack
+  replicas: 1
+  image:
+    repository: redis/redis-stack
+    tag: latest
+  containerPorts:
+    default: 6379
+    http: 8001
+  env:
+    REDIS_DEFAULT_PASS: "{{ .Values.secret.password }}"
+    REDIS_ARGS: "--requirepass $(REDIS_DEFAULT_PASS)"

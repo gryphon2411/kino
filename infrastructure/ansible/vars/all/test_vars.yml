@@ -1,0 +1,47 @@
+# group_vars/all/test_vars.yml
+# This file contains non-sensitive mock variables for CI/CD testing.
+
+# MongoDB secrets
+vault_mongodb_root_username: "root"
+vault_mongodb_root_password: "dummy-mongodb-password"
+
+# PostgreSQL secrets
+vault_postgres_root_username: "postgres"
+vault_postgres_root_password: "dummy-postgres-password"
+
+# Redis-Stack secrets
+vault_redis_default_username: "default"
+vault_redis_default_password: "dummy-redis-password"
+
+# Kafka secrets
+vault_kafka_sasl_username: "root"
+vault_kafka_sasl_password: "dummy-kafka-password"
+
+# General secrets for testing
+secrets_vault_password: "dummy-vault-password"
+secrets_vault_password_file: "/tmp/dummy-vault-password-file"
+secrets_file_encrypted: false
+
+# Environment-specific variables
+deployment_environment: "local"
+api_host_url: "http://local.derkino.com"
+kubernetes_context: "minikube"
+
+# Namespace variables
+helm_infrastructure_namespace: "infrastructure"
+migration_infrastructure_namespace: "infrastructure"
+secrets_namespace: "infrastructure"
+migration_parallel_namespace: "infrastructure-parallel"
+
+# Path variables
+helm_charts_path: "/home/eido/code/derkino/infrastructure/helm-charts/derkino-infrastructure"
+migration_helm_charts_path: "/home/eido/code/derkino/infrastructure/helm-charts/derkino-infrastructure"
+migration_kubectl_manifests_path: "/home/eido/code/derkino/orchestrators/k8s"
+migration_patches_path: "/home/eido/code/derkino/infrastructure/ansible/roles/migration/files/patches"
+helm_cache_dir: "/home/eido/.cache/helm"
+
+# Secrets file path
+secrets_file: "/home/eido/code/derkino/infrastructure/ansible/secrets/local/secrets.yml"
+
+# Migration control
+migration_enabled: false

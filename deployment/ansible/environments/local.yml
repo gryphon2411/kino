@@ -1,5 +1,0 @@
-# Environment-specific variables for local deployment
-
-environment: local
-api_host_url: "http://local.derkino.com"
-kubernetes_context: "minikube"

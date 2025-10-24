@@ -1,0 +1,31 @@
+# .yamllint configuration for the Derkino project
+extends: default
+
+# Relax rules for Helm charts and Kubernetes manifests
+rules:
+  line-length: disable
+  document-start: disable
+  comments-indentation: disable
+  trailing-spaces: disable
+  new-line-at-end-of-file: disable
+  truthy: disable
+  # Ansible-lint required rules
+  comments:
+    min-spaces-from-content: 1
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+
+# --- IMPORTANT PART ---
+# Only lint the deployment directory and ignore Helm template files
+ignore: |
+  **
+  !infrastructure/**
+  !.github/workflows/**
+  **/templates/**
+  **/crds/**
+  **/.venv/**
+  **/node_modules/**
+  **/uis/react-ui/derkino-ui/node_modules/**

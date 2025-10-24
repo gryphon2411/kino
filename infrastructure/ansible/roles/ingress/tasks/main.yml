@@ -1,0 +1,36 @@
+---
+# Ingress controller and routing configuration
+# This role manages ingress resources and routing rules
+
+- name: Check if ingress controller is available
+  ansible.builtin.command: kubectl get ingressclasses -o name
+  register: ingress_classes_result
+  failed_when: false
+  changed_when: false
+
+- name: Set ingress configuration defaults
+  ansible.builtin.set_fact:
+    ingress_class: "{{ ingress_class | default('nginx') }}"
+    ingress_host: "{{ ingress_host | default('local.derkino.com') }}"
+    ingress_tls_enabled: "{{ ingress_tls_enabled | default(false) }}"
+
+- name: Validate ingress class availability
+  ansible.builtin.command: kubectl get ingressclass {{ ingress_class }}
+  register: ingress_class_result
+  failed_when: ingress_class_result.rc != 0
+  changed_when: false
+  when: ingress_classes_result.stdout != ""
+
+- name: Set ingress configuration
+  ansible.builtin.set_fact:
+    ingress_configuration:
+      class: "{{ ingress_class }}"
+      host: "{{ ingress_host }}"
+      tls: "{{ ingress_tls_enabled }}"
+      annotations:
+        kubernetes.io/ingress.class: "{{ ingress_class }}"
+        nginx.ingress.kubernetes.io/rewrite-target: /
+
+- name: Log ingress configuration
+  ansible.builtin.debug:
+    msg: "Ingress configured for {{ ingress_host }} using {{ ingress_class }} class"

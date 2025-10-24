@@ -1,0 +1,15 @@
+dependencies:
+- name: mongodb
+  repository: file://charts/mongodb
+  version: 0.1.0
+- name: postgresql
+  repository: file://charts/postgresql
+  version: 0.1.0
+- name: redis-stack
+  repository: file://charts/redis-stack
+  version: 0.1.0
+- name: kafka
+  repository: file://charts/kafka
+  version: 0.1.0
+digest: sha256:7388ef14c89b009a1e84e1bf4be1513691cf34cdacd2d2af94d9e7d13903dc63
+generated: "2025-10-18T10:16:20.686754502+03:00"

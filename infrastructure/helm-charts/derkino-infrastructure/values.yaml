@@ -1,0 +1,192 @@
+# Default values for derkino-infrastructure.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global infrastructure configuration
+global:
+  # Environment name (dev, staging, production)
+  environment: dev
+  # Domain for services
+  domain: derkino.com
+
+# MongoDB configuration
+mongodb:
+  enabled: true
+  # Namespace configuration
+  namespace:
+    create: true
+    name: mongodb-system
+  # Secret configuration
+  secret:
+    name: mongodb-root-user-credentials
+    username: root
+    # Password provided via Kubernetes Secret
+  # Service configuration
+  service:
+    name: mongodb
+    port: 27017
+    targetPort: 27017
+    type: NodePort
+  # StatefulSet configuration
+  statefulset:
+    name: mongodb
+    replicas: 1
+    image:
+      repository: mongo
+      tag: latest
+    containerPort: 27017
+    volumeMounts:
+      data:
+        name: mongodb-data
+        mountPath: /data/db
+    volumeClaimTemplates:
+      data:
+        name: mongodb-data
+        accessMode: ReadWriteOnce
+        storageSize: 20Gi
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  # Namespace configuration
+  namespace:
+    create: true
+    name: postgres-system
+  # Secret configuration
+  secret:
+    name: postgres-root-user-credentials
+    username: postgres
+    # Password provided via Kubernetes Secret
+  # Service configuration
+  service:
+    name: postgres
+    port: 5432
+    targetPort: 5432
+    type: NodePort
+  # StatefulSet configuration
+  statefulset:
+    name: postgres
+    replicas: 1
+    image:
+      repository: postgres
+      tag: latest
+    containerPort: 5432
+    volumeMounts:
+      data:
+        name: postgres-data
+        mountPath: /var/lib/postgresql/data
+      initdb:
+        name: postgres-initdb-volume
+        mountPath: /docker-entrypoint-initdb.d/postgres-initdb.sh
+        subPath: postgres-initdb.sh
+    volumeClaimTemplates:
+      data:
+        name: postgres-data
+        accessMode: ReadWriteOnce
+        storageSize: 20Gi
+  # ConfigMap configuration for initdb script
+  configmap:
+    name: postgres-initdb
+    script: |
+      #!/bin/bash
+      set -e
+      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+          CREATE DATABASE derkino;
+          GRANT ALL PRIVILEGES ON DATABASE derkino TO $POSTGRES_USER;
+      EOSQL
+
+# Redis-Stack configuration
+redisStack:
+  enabled: true
+  # Namespace configuration
+  namespace:
+    create: true
+    name: redis-stack-system
+  # Secret configuration
+  secret:
+    name: redis-stack-default-user-credentials
+    username: default
+    # Password provided via Kubernetes Secret
+  # Service configuration
+  service:
+    name: redis-stack
+    type: NodePort
+    ports:
+      default:
+        port: 6379
+        targetPort: 6379
+      http:
+        port: 8001
+        targetPort: 8001
+  # StatefulSet configuration
+  statefulset:
+    name: redis-stack
+    replicas: 1
+    image:
+      repository: redis/redis-stack
+      tag: latest
+    containerPorts:
+      default: 6379
+      http: 8001
+    env:
+      REDIS_DEFAULT_PASS: ""
+      REDIS_ARGS: "--requirepass $(REDIS_DEFAULT_PASS)"
+
+# Kafka configuration
+kafka:
+  enabled: true
+  # Namespace configuration
+  namespace:
+    create: true
+    name: kafka-system
+  # Bitnami Kafka chart configuration
+  image:
+    repository: bitnamilegacy/kafka
+  service:
+    type: NodePort
+  clusterId: J1mmUOT9JBz1rNWKu2uZZi
+  metrics:
+    jmx:
+      enabled: true
+      image:
+        repository: bitnamilegacy/jmx-exporter
+  sasl:
+    client:
+      users: ["root"]
+      # Passwords provided via Kubernetes Secret
+  defaultInitContainers:
+    volumePermissions:
+      image:
+        repository: bitnamilegacy/os-shell
+    autoDiscovery:
+      image:
+        repository: bitnamilegacy/kubectl
+
+# Resource limits for infrastructure components
+resources:
+  # Default resource limits
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+# Network policy configuration
+networkPolicy:
+  enabled: true
+  # Default deny all traffic
+  defaultDeny: true
+  # Allow traffic from derkino namespace
+  allowedNamespaces:
+    - derkino
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000

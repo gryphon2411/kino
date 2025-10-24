@@ -1,0 +1,39 @@
+# Default values for MongoDB subchart
+
+# Namespace configuration
+namespace:
+  create: true
+  name: mongodb-system
+
+# Secret configuration
+# Use existing secret created by Ansible instead of creating new one
+secret:
+  name: mongodb-root-user-credentials
+  username: root
+  # Password provided via existing Kubernetes Secret
+  useExistingSecret: true
+
+# Service configuration
+service:
+  name: mongodb
+  port: 27017
+  targetPort: 27017
+  type: NodePort
+
+# StatefulSet configuration
+statefulset:
+  name: mongodb
+  replicas: 1
+  image:
+    repository: mongo
+    tag: "6.0"
+  containerPort: 27017
+  volumeMounts:
+    data:
+      name: mongodb-data
+      mountPath: /data/db
+  volumeClaimTemplates:
+    data:
+      name: mongodb-data
+      accessMode: ReadWriteOnce
+      storageSize: 20Gi

@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.statefulset.name | required "statefulset.name is required" }}
+  namespace: {{ .Values.namespace.name | required "namespace.name is required" }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.statefulset.name | required "statefulset.name is required" }}
+  serviceName: {{ .Values.service.name | required "service.name is required" }}
+  replicas: {{ .Values.statefulset.replicas }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.statefulset.name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: {{ .Values.statefulset.name }}
+        image: {{ .Values.statefulset.image.repository | required "statefulset.image.repository is required" }}:{{ .Values.statefulset.image.tag | required "statefulset.image.tag is required" }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        ports:
+        - name: default
+          containerPort: {{ .Values.statefulset.containerPort }}
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.secret.name }}
+              key: username
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.secret.name }}
+              key: password
+        volumeMounts:
+        - name: {{ .Values.statefulset.volumeMounts.data.name }}
+          mountPath: {{ .Values.statefulset.volumeMounts.data.mountPath }}
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+  volumeClaimTemplates:
+  - metadata:
+      name: {{ .Values.statefulset.volumeClaimTemplates.data.name }}
+    spec:
+      accessModes: [ "{{ .Values.statefulset.volumeClaimTemplates.data.accessMode }}" ]
+      resources:
+        requests:
+          storage: {{ .Values.statefulset.volumeClaimTemplates.data.storageSize }}

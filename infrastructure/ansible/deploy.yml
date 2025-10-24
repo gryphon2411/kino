@@ -1,0 +1,31 @@
+# Main deployment playbook for Derkino
+
+---
+- name: Deploy Derkino Application
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    # Explicitly load the correct variables file. This is now safe because
+    # Ansible is no longer auto-loading the encrypted file.
+    - "{{ lookup('first_found', params) }}"
+    # Load environment-specific variables
+    - environments/{{ deployment_environment | default('local') }}.yml
+
+  vars:
+    # Define the files for the 'first_found' lookup.
+    # It will try test_vars.yml first, and if not found, will fall back to vars.yml.
+    params:
+      files:
+        - 'vars/all/test_vars.yml'        # Priority 1: For CI/CD test runs
+        - 'vars/all/vars.yml'             # Priority 2: For production deployments
+      skip: true  # Prevents an error if no files are found (good practice)
+
+  roles:
+    - common
+    - kubernetes
+    - secrets
+    - {role: helm, when: "migration_enabled is not defined or migration_enabled == false"}
+    - {role: migration, when: "migration_enabled is defined and migration_enabled == true"}
+    - ingress

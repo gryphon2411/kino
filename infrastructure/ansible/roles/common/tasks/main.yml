@@ -1,0 +1,29 @@
+---
+# Common tasks shared across deployments
+# This role provides shared utilities and configurations
+
+- name: Set common environment variables
+  ansible.builtin.set_fact:
+    common_deployment_namespace: "{{ common_deployment_namespace | default('derkino') }}"
+    common_helm_timeout: "{{ common_helm_timeout | default('600s') }}"
+    common_kubectl_context: "{{ common_kubectl_context | default('minikube') }}"
+
+- name: Ensure kubectl context is set
+  ansible.builtin.command: kubectl config use-context {{ common_kubectl_context }}
+  register: common_kubectl_context_result
+  failed_when: common_kubectl_context_result.rc != 0
+  changed_when: false
+
+- name: Create deployment namespace if it doesn't exist
+  ansible.builtin.command: kubectl create namespace {{ common_deployment_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+  register: common_namespace_result
+  failed_when: common_namespace_result.rc != 0
+  changed_when: false
+
+- name: Set common labels
+  ansible.builtin.set_fact:
+    common_labels:
+      app: "derkino"
+      deployment: "{{ deployment_environment | default('local') }}"
+      managed-by: "ansible"
+      component: "{{ role_name }}"

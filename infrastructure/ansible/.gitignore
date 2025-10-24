@@ -1,0 +1,34 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Ansible Vault password files
+*.vault_pass
+vault_pass.txt
+
+# Temporary files
+*.tmp
+*.temp
+
+# Cache directories
+__pycache__/
+*.pyc
+
+# IDE files
+.vscode/
+.idea/
+
+# Local configuration files
+local_vars.yml
+
+# Test files for CI/CD testing
+test-*.yml
+test-vault-password
+
+# Log files
+*.log
+
+# Backup files
+*.bak
+*.backup

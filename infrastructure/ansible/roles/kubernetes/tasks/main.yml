@@ -1,0 +1,30 @@
+---
+# Kubernetes cluster operations and resource management
+# This role handles cluster-wide operations and resource validation
+
+- name: Verify Kubernetes cluster connectivity
+  ansible.builtin.command: kubectl cluster-info
+  register: kubernetes_cluster_info_result
+  failed_when: kubernetes_cluster_info_result.rc != 0
+  changed_when: false
+
+- name: Check cluster resources
+  ansible.builtin.command: kubectl top nodes
+  register: kubernetes_cluster_resources_result
+  failed_when: kubernetes_cluster_resources_result.rc != 0
+  changed_when: false
+
+- name: Validate cluster readiness
+  ansible.builtin.command: kubectl get nodes -o wide
+  register: kubernetes_cluster_nodes_result
+  failed_when: kubernetes_cluster_nodes_result.rc != 0
+  changed_when: false
+
+- name: Set cluster context for subsequent tasks
+  ansible.builtin.set_fact:
+    kubernetes_cluster_name: "{{ kubernetes_cluster_nodes_result.stdout | regex_search('minikube|dev-cluster|prod-cluster') | default('unknown') }}"
+    kubernetes_node_count: "{{ kubernetes_cluster_nodes_result.stdout_lines | length - 1 }}"
+
+- name: Log cluster status
+  ansible.builtin.debug:
+    msg: "Connected to {{ kubernetes_cluster_name }} cluster with {{ kubernetes_node_count }} nodes"

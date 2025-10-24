@@ -1,0 +1,19 @@
+Thank you for installing derkino-infrastructure!
+
+This Helm chart manages the following infrastructure components:
+
+- MongoDB: Database service for data storage
+- PostgreSQL: Relational database service  
+- Redis Stack: Caching and session management
+- Kafka: Message streaming platform
+
+To access individual components:
+
+1. MongoDB: kubectl port-forward svc/mongodb -n mongodb-system 27017:27017
+2. PostgreSQL: kubectl port-forward svc/postgres -n postgres-system 5432:5432
+3. Redis Stack: kubectl port-forward svc/redis-stack -n redis-stack-system 6379:6379
+4. Kafka: kubectl port-forward svc/kafka -n kafka-system 9092:9092
+
+You can check the status of all components:
+
+kubectl get pods --all-namespaces -l "app.kubernetes.io/managed-by=Helm"

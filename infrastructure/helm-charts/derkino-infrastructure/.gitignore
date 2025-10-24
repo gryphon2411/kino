@@ -1,0 +1,3 @@
+# Ignore downloaded Helm dependency charts
+charts/*/charts/
+*.tgz

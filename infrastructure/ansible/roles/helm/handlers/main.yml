@@ -1,0 +1,42 @@
+# Handlers for Helm role
+# Comprehensive service connectivity testing after deployment
+
+- name: Wait for mongodb
+  ansible.builtin.command: kubectl wait --for=condition=ready pod -l app=mongodb --namespace {{ helm_infrastructure_namespace }} --timeout=300s
+  changed_when: false
+
+- name: Test MongoDB connectivity
+  ansible.builtin.command: >
+    kubectl exec infrastructure/mongodb -n {{ helm_infrastructure_namespace }}
+    -- mongosh --eval "db.adminCommand({ping: 1})"
+  changed_when: false
+
+- name: Wait for postgresql
+  ansible.builtin.command: kubectl wait --for=condition=ready pod -l app=postgresql --namespace {{ helm_infrastructure_namespace }} --timeout=300s
+  changed_when: false
+
+- name: Test PostgreSQL connectivity
+  ansible.builtin.command: >
+    kubectl exec statefulset/postgresql -n {{ helm_infrastructure_namespace }}
+    -- psql -U postgres -c "SELECT 1;"
+  changed_when: false
+
+- name: Wait for redis-stack
+  ansible.builtin.command: kubectl wait --for=condition=ready pod -l app=redis-stack --namespace {{ helm_infrastructure_namespace }} --timeout=300s
+  changed_when: false
+
+- name: Test Redis connectivity
+  ansible.builtin.command: >
+    kubectl exec infrastructure/redis-stack -n {{ helm_infrastructure_namespace }}
+    -- redis-cli ping
+  changed_when: false
+
+- name: Wait for kafka
+  ansible.builtin.command: kubectl wait --for=condition=ready pod -l app=kafka --namespace {{ helm_infrastructure_namespace }} --timeout=300s
+  changed_when: false
+
+- name: Test Kafka connectivity
+  ansible.builtin.command: >
+    kubectl exec statefulset/kafka -n {{ helm_infrastructure_namespace }}
+    -- kafka-topics.sh --bootstrap-server localhost:9092 --list
+  changed_when: false

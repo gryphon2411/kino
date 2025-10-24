@@ -1,0 +1,29 @@
+---
+# Ansible-lint configuration for the Derkino project
+# Set offline to false to allow ansible-lint to install roles before linting
+offline: false
+
+# Exclude paths that don't need linting
+exclude_paths:
+  - .git/
+  - .venv/
+  - node_modules/
+  - files/
+
+# Define file patterns for different kinds of Ansible content
+kinds:
+  - playbook: "*.yml"
+  - tasks: "tasks/*.yml"
+  - vars: "vars/*.yml"
+  - defaults: "defaults/*.yml"
+  - meta: "meta/*.yml"
+  - yaml: ".yamllint"
+  - yaml: ".github/workflows/*.yml"
+
+# Other configuration options
+loop_var_prefix: "^(__|{role}_)"
+max_block_depth: 20
+profile: "moderate"
+skip_action_validation: false
+skip_list: []
+task_name_prefix: "{stem} | "

@@ -1,0 +1,110 @@
+# Migration tasks for zero-downtime infrastructure migration
+# This role handles the transition from kubectl manifests to Helm charts
+
+- name: Check if kubectl infrastructure exists
+  ansible.builtin.command: kubectl get deployments,statefulsets -n {{ migration_infrastructure_namespace }} -o name
+  register: migration_existing_infrastructure
+  failed_when: false
+  changed_when: false
+
+- name: Deploy Helm infrastructure in parallel (if kubectl infrastructure exists)
+  block:
+    - name: Install/Upgrade parallel infrastructure
+      ansible.builtin.command: >
+        helm upgrade --install {{ item }} derkino-infrastructure/{{ item }}
+        --namespace infrastructure-parallel --create-namespace
+        --values {{ helm_charts_path }}/charts/{{ item }}/values.yaml
+      with_items:
+        - mongodb
+        - postgresql
+        - redis-stack
+        - kafka
+      when: "migration_existing_infrastructure is defined and migration_existing_infrastructure.stdout != ''"
+      changed_when: false
+
+  rescue:
+    - name: Rollback parallel infrastructure
+      ansible.builtin.command: >
+        helm uninstall {{ item }} --namespace infrastructure-parallel
+      with_items:
+        - mongodb
+        - postgresql
+        - redis-stack
+        - kafka
+      changed_when: false
+      failed_when: false
+
+    - name: Notify parallel infrastructure rollback
+      ansible.builtin.debug:
+        msg: "Parallel infrastructure deployment failed and was rolled back"
+      changed_when: false
+
+- name: Wait for parallel infrastructure to be ready
+  ansible.builtin.command: kubectl wait --for=condition=ready pod -l app={{ item }} --namespace {{ migration_parallel_namespace }} --timeout=300s
+  with_items:
+    - mongodb
+    - postgresql
+    - redis-stack
+    - kafka
+  when: migration_existing_infrastructure.stdout != ""
+  changed_when: false
+
+- name: Test connectivity to parallel infrastructure (minimal tester)
+  ansible.builtin.command: >
+    kubectl run test-{{ item.name }} --rm --attach --restart=Never
+    -n {{ migration_parallel_namespace }}
+    --image={{ item.test_image }}
+    --command -- /bin/sh -c "{{ item.test_command }}"
+  with_items:
+    - { name: mongodb, test_image: mongo:6.0, test_command: "mongosh --eval 'db.adminCommand({ping:1})'" }
+    - { name: postgresql, test_image: postgres:14, test_command: "psql -U postgres -c 'SELECT 1;'" }
+    - { name: redis-stack, test_image: redis:7, test_command: "redis-cli -h redis PING" }
+    - { name: kafka, test_image: bitnami/kafka:3.3.1, test_command: "kafka-topics.sh --bootstrap-server localhost:9092 --list" }
+  register: migration_connectivity_checks
+  failed_when: migration_connectivity_checks.rc != 0
+  when: "migration_existing_infrastructure is defined and migration_existing_infrastructure.stdout != ''"
+
+- name: Switch traffic to Helm infrastructure
+  block:
+    - name: Patch service selectors
+      ansible.builtin.command: kubectl patch service {{ item }} -n infrastructure --patch-file {{ migration_patches_path }}/{{ item }}-patch.yaml
+      with_items:
+        - mongodb
+        - postgresql
+        - redis-stack
+        - kafka
+      when: "migration_existing_infrastructure is defined and migration_existing_infrastructure.stdout != ''"
+      changed_when: false
+      register: migration_patch_result
+
+  rescue:
+    - name: Rollback traffic switch
+      ansible.builtin.command: >
+        kubectl patch service {{ item }} -n infrastructure
+        --patch-file {{ migration_patches_path }}/{{ item }}-rollback-patch.yaml
+      with_items:
+        - mongodb
+        - postgresql
+        - redis-stack
+        - kafka
+      changed_when: false
+      failed_when: false
+
+    - name: Notify traffic switch rollback
+      ansible.builtin.debug:
+        msg: "Traffic switch failed and was rolled back"
+      changed_when: false
+
+- name: Remove kubectl infrastructure (after successful migration)
+  ansible.builtin.command: kubectl delete -f {{ kubectl_manifests_path }}/{{ item }}.yaml
+  with_items:
+    - mongodb
+    - postgresql
+    - redis-stack
+    - kafka
+  when: >
+    migration_existing_infrastructure is defined and
+    migration_existing_infrastructure.stdout != '' and
+    migration_patch_result is defined and
+    migration_patch_result.rc == 0
+  changed_when: false

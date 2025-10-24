@@ -1,0 +1,20 @@
+apiVersion: v2
+name: kafka
+description: A Helm chart for Kafka deployment using Bitnami dependency
+
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+version: 0.1.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application.
+appVersion: "3.5"
+
+dependencies:
+  - name: kafka
+    alias: bitnami-kafka  # Add this line for clarity
+    version: "~30.0.0"  # Using version range following Helm best practices
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: kafka.enabled

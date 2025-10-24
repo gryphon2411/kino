@@ -1,0 +1,65 @@
+# Default values for Kafka subchart
+# This chart wraps the Bitnami Kafka chart with custom configuration
+
+# Namespace configuration
+namespace:
+  create: true
+  name: kafka-system
+
+# Enable Kafka deployment
+kafka:
+  enabled: true
+
+# Bitnami Kafka chart configuration
+# These values override the Bitnami chart defaults
+image:
+  repository: bitnamilegacy/kafka
+  tag: "3.3.2"
+
+service:
+  type: NodePort
+
+clusterId: J1mmUOT9JBz1rNWKu2uZZi
+
+metrics:
+  jmx:
+    enabled: true
+    image:
+      repository: bitnamilegacy/jmx-exporter
+
+sasl:
+  client:
+    users: ["root"]
+    # Passwords provided via Kubernetes Secret
+    passwords: []
+
+defaultInitContainers:
+  volumePermissions:
+    image:
+      repository: bitnamilegacy/os-shell
+  autoDiscovery:
+    image:
+      repository: bitnamilegacy/kubectl
+
+# Resource configuration for Kafka brokers
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+# Security context for Kafka containers
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+containerSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL

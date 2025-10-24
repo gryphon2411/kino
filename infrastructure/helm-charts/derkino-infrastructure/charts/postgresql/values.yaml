@@ -1,0 +1,52 @@
+# Default values for PostgreSQL subchart
+
+# Namespace configuration
+namespace:
+  create: true
+  name: postgres-system
+
+# Secret configuration
+secret:
+  name: postgres-root-user-credentials
+  username: postgres
+  # Password provided via Kubernetes Secret
+
+# Service configuration
+service:
+  name: postgres
+  port: 5432
+  targetPort: 5432
+  type: NodePort
+
+# StatefulSet configuration
+statefulset:
+  name: postgres
+  replicas: 1
+  image:
+    repository: postgres
+    tag: "15"
+  containerPort: 5432
+  volumeMounts:
+    data:
+      name: postgres-data
+      mountPath: /var/lib/postgresql/data
+    initdb:
+      name: postgres-initdb-volume
+      mountPath: /docker-entrypoint-initdb.d/postgres-initdb.sh
+      subPath: postgres-initdb.sh
+  volumeClaimTemplates:
+    data:
+      name: postgres-data
+      accessMode: ReadWriteOnce
+      storageSize: 20Gi
+
+# ConfigMap configuration for initdb script
+configmap:
+  name: postgres-initdb
+  script: |
+    #!/bin/bash
+    set -e
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        CREATE DATABASE derkino;
+        GRANT ALL PRIVILEGES ON DATABASE derkino TO $POSTGRES_USER;
+    EOSQL

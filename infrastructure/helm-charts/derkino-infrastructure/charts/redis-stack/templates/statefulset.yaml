@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.statefulset.name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.statefulset.name }}
+  serviceName: {{ .Values.service.name }}
+  replicas: {{ .Values.statefulset.replicas }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.statefulset.name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: {{ .Values.statefulset.name }}
+        image: {{ .Values.statefulset.image.repository }}:{{ .Values.statefulset.image.tag }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        ports:
+        - name: default
+          containerPort: {{ .Values.statefulset.containerPorts.default }}
+        - name: http
+          containerPort: {{ .Values.statefulset.containerPorts.http }}
+        env:
+        - name: REDIS_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.secret.name }}
+              key: password
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "125m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
