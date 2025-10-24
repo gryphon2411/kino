@@ -89,10 +89,71 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 65535
+        },
+        "volumeMounts": {
+          "type": "object",
+          "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "mountPath": {
+                  "type": "string"
+                }
+              },
+              "required": ["name", "mountPath"],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "volumeClaimTemplates": {
+          "type": "object",
+          "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "accessMode": {
+                  "type": "string"
+                },
+                "storageSize": {
+                  "type": "string"
+                }
+              },
+              "required": ["name", "accessMode", "storageSize"],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       },
-      "required": ["name", "replicas", "image", "containerPort"],
+      "required": ["name", "replicas", "image", "containerPort", "volumeMounts", "volumeClaimTemplates"],
       "additionalProperties": false
+    },
+    "global": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "environment": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
     }
   },
   "required": ["namespace", "secret", "service", "statefulset"],

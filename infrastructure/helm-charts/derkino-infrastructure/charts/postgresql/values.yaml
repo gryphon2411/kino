@@ -5,11 +5,11 @@ namespace:
   create: true
   name: postgres-system
 
-  # Secret configuration
-  secret:
-    name: postgres-root-user-credentials
-    username: postgres
-    # Password provided via Kubernetes Secret
+# Secret configuration
+secret:
+  name: postgres-root-user-credentials
+  username: postgres
+  # Password provided via Kubernetes Secret
 
 # Service configuration
 service:
