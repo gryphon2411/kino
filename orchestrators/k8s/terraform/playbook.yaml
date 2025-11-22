@@ -1,0 +1,69 @@
+---
+- name: Bootstrap Local Kubernetes Environment
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    minikube_cpus: max
+    minikube_memory: max
+    terraform_dir: "{{ playbook_dir }}"
+
+  tasks:
+    - name: Check for required tools
+      command: "which {{ item }}"
+      loop:
+        - kubectl
+        - helm
+        - minikube
+        - terraform
+      register: tool_check
+      failed_when: tool_check.rc != 0
+      changed_when: false
+
+    - name: Check Minikube status
+      command: minikube status
+      register: minikube_status
+      ignore_errors: true
+      changed_when: false
+
+    - name: Start Minikube
+      command: "minikube start --cpus={{ minikube_cpus }} --memory={{ minikube_memory }}"
+      when: "'host: Running' not in minikube_status.stdout"
+
+    - name: Enable Ingress Addon
+      command: minikube addons enable ingress
+      register: ingress_enable
+      changed_when: "'The \\'ingress\\' addon is enabled' not in ingress_enable.stdout"
+
+    - name: Get Minikube IP
+      command: minikube ip
+      register: minikube_ip
+      changed_when: false
+
+    - name: Update /etc/hosts for local.derkino.com
+      become: true
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ minikube_ip.stdout }} local.derkino.com"
+        regexp: ".*local\\.derkino\\.com"
+        state: present
+
+    - name: Update /etc/hosts for dev.derkino.com
+      become: true
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ minikube_ip.stdout }} dev.derkino.com"
+        regexp: ".*dev\\.derkino\\.com"
+        state: present
+
+    - name: Initialize Terraform
+      command: terraform init
+      args:
+        chdir: "{{ terraform_dir }}"
+      register: tf_init
+      changed_when: "'Terraform has been successfully initialized' in tf_init.stdout"
+
+    - name: Apply Terraform
+      command: terraform apply -auto-approve
+      args:
+        chdir: "{{ terraform_dir }}"

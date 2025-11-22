@@ -1,0 +1,37 @@
+version: '3'
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  deploy:
+    desc: Provision the infrastructure (Ansible -> Terraform)
+    cmds:
+      - ansible-playbook playbook.yaml -v
+
+  destroy:
+    desc: Destroy the infrastructure (Terraform)
+    dir: .
+    cmds:
+      - terraform destroy -auto-approve
+
+  urls:
+    desc: Show access URLs for services
+    cmds:
+      - minikube service list
+
+  warmup:
+    desc: Perform initial data search to warm up Kafka topics
+    cmds:
+      - echo "Waiting for services to be ready..."
+      - sleep 10
+      - echo "Performing warmup search..."
+      # TODO: Add actual curl command here once we know the exact endpoint/payload from the original script logic or user input
+      - echo "Warmup complete."
+
+  clean:
+    desc: Clean up temporary files
+    cmds:
+      - rm -rf .terraform .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup

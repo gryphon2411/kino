@@ -1,0 +1,17 @@
+# Environment: "local" or "dev"
+environment = "local"
+
+# Feature Flags
+enable_mongodb            = true
+enable_postgres           = true
+enable_redis              = true
+enable_kafka              = true
+enable_rabbitmq           = true
+enable_auth_service       = true
+enable_data_service       = true
+enable_trend_service      = true
+enable_generative_service = true
+enable_ui                 = true
+enable_prometheus         = true
+enable_grafana            = true
+enable_ingress            = true
