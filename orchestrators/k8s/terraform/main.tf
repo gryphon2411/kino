@@ -84,22 +84,40 @@ resource "kubernetes_stateful_set" "mongodb" {
             container_port = 27017
           }
           env {
+            name = "GENERATIVE_MODEL_NAME"
+            value = "gemini2flash"
+          }
+          env {
+            name = "DATA_SERVICE_URL"
+            value = "http://data-service:8082/api/v1/data"
+          }
+          env {
+            name = "RABBITMQ_HOST_ADDRESS"
+            value = "rabbitmq.rabbitmq-system"
+          }
+          env {
+            name = "RABBITMQ_HOST_PORT"
+            value = "5672"
+          }
+          env {
+            name = "RABBITMQ_USERNAME"
+            value = "derkino-services"
+          }
+          env {
+            name = "RABBITMQ_PASSWORD"
+            value = "2gGCIz8qgvuUzQfW"
+          }
+          env {
+            name = "RABBITMQ_VHOST"
+            value = "/"
+          }
+          env {
             name = "MONGO_INITDB_ROOT_USERNAME"
-            value_from {
-              secret_key_ref {
-                name = "mongodb-root-user-credentials"
-                key  = "username"
-              }
-            }
+            value = "root"
           }
           env {
             name = "MONGO_INITDB_ROOT_PASSWORD"
-            value_from {
-              secret_key_ref {
-                name = "mongodb-root-user-credentials"
-                key  = "password"
-              }
-            }
+            value = "X6d9r2SgJ8xQgpGL"
           }
           volume_mount {
             name       = "mongodb-data"
@@ -117,6 +135,54 @@ resource "kubernetes_stateful_set" "mongodb" {
     }
   }
   count = var.enable_mongodb ? 1 : 0
+}
+
+resource "kubernetes_job" "mongodb_init" {
+  metadata {
+    name      = "mongodb-init"
+    namespace = kubernetes_namespace.mongodb_system[0].metadata[0].name
+  }
+  spec {
+    template {
+      metadata {}
+      spec {
+        container {
+          name  = "derkino-jobs"
+          image = "gryphon2411/derkino-jobs:latest"
+          args  = ["python", "run.py", "mongoinit.py"]
+          env {
+            name  = "MONGO_URI_FORMAT"
+            value = "mongodb"
+          }
+          env {
+            name = "MONGO_USERNAME"
+            value_from {
+              secret_key_ref {
+                name = "mongodb-root-user-credentials"
+                key  = "username"
+              }
+            }
+          }
+          env {
+            name = "MONGO_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = "mongodb-root-user-credentials"
+                key  = "password"
+              }
+            }
+          }
+          env {
+            name  = "MONGO_HOST"
+            value = "mongodb.mongodb-system"
+          }
+        }
+        restart_policy = "Never"
+      }
+    }
+  }
+  count = var.enable_mongodb ? 1 : 0
+  depends_on = [kubernetes_stateful_set.mongodb]
 }
 
 # Postgres
@@ -393,6 +459,74 @@ resource "kubernetes_deployment" "auth_service" {
             name  = "SERVICE_LOGGING_LEVEL"
             value = "INFO"
           }
+          env {
+            name  = "SERVICE_PORT"
+            value = "8081"
+          }
+          env {
+            name  = "SERVICE_PREFIX_PATH"
+            value = "/api/v1/auth"
+          }
+          env {
+            name  = "FORM_LOGIN_REDIRECT_URL"
+            value = var.environment == "dev" ? "http://dev.derkino.com" : "http://local.derkino.com"
+          }
+          env {
+            name = "KAFKA_HOSTS"
+            value = "kafka-controller-0.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka-system.svc.cluster.local:9092"
+          }
+          env {
+            name = "KAFKA_PASSWORD"
+            value = "w43Pw4Q9cb"
+          }
+          env {
+            name = "KAFKA_USERNAME"
+            value = "root"
+          }
+          env {
+            name = "MONGO_DATABASE"
+            value = "derkino"
+          }
+          env {
+            name = "MONGO_HOST_ADDRESS"
+            value = "mongodb.mongodb-system"
+          }
+          env {
+            name = "MONGO_HOST_PORT"
+            value = "27017"
+          }
+          env {
+            name = "MONGO_PASSWORD"
+            value = "X6d9r2SgJ8xQgpGL"
+          }
+          env {
+            name = "MONGO_USERNAME"
+            value = "root"
+          }
+          env {
+            name = "REDIS_HOST_ADDRESS"
+            value = "redis-stack.redis-stack-system"
+          }
+          env {
+            name = "REDIS_PORT"
+            value = "6379"
+          }
+          env {
+            name = "REDIS_DATABASE"
+            value = "1"
+          }
+          env {
+            name = "REDIS_NAMESPACE"
+            value = "derkino:auth"
+          }
+          env {
+            name = "REDIS_USERNAME"
+            value = "default"
+          }
+          env {
+            name = "REDIS_PASSWORD"
+            value = "pu9oq47y7Pgso3RRZLC"
+          }
         }
       }
     }
@@ -443,16 +577,84 @@ resource "kubernetes_deployment" "data_service" {
           # In a real scenario, I would map all of them.
           # Mapping critical ones:
           env {
+            name  = "SERVICE_PREFIX_PATH"
+            value = "/api/v1/data"
+          }
+          env {
             name = "MONGO_HOST_ADDRESS"
             value = "mongodb.mongodb-system"
           }
-           env {
+          env {
+            name = "MONGO_HOST_PORT"
+            value = "27017"
+          }
+          env {
+            name = "MONGO_DATABASE"
+            value = "derkino"
+          }
+          env {
+            name = "MONGO_USERNAME"
+            value = "root"
+          }
+          env {
+            name = "MONGO_PASSWORD"
+            value = "X6d9r2SgJ8xQgpGL"
+          }
+          env {
             name = "REDIS_HOST_ADDRESS"
             value = "redis-stack.redis-stack-system"
           }
-           env {
+          env {
+            name = "REDIS_PORT"
+            value = "6379"
+          }
+          env {
+            name = "REDIS_DATABASE"
+            value = "2"
+          }
+          env {
+            name = "REDIS_NAMESPACE"
+            value = "derkino:data"
+          }
+          env {
+            name = "REDIS_USERNAME"
+            value = "default"
+          }
+          env {
+            name = "REDIS_PASSWORD"
+            value = "pu9oq47y7Pgso3RRZLC"
+          }
+          env {
             name = "KAFKA_HOSTS"
             value = "kafka-controller-0.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka-system.svc.cluster.local:9092"
+          }
+          env {
+            name = "KAFKA_PASSWORD"
+            value = "w43Pw4Q9cb"
+          }
+          env {
+            name = "KAFKA_USERNAME"
+            value = "root"
+          }
+          env {
+            name = "RABBITMQ_HOST_ADDRESS"
+            value = "rabbitmq.rabbitmq-system"
+          }
+          env {
+            name = "RABBITMQ_HOST_PORT"
+            value = "5672"
+          }
+          env {
+            name = "RABBITMQ_USERNAME"
+            value = "derkino-services"
+          }
+          env {
+            name = "RABBITMQ_PASSWORD"
+            value = "2gGCIz8qgvuUzQfW"
+          }
+          env {
+            name = "RABBITMQ_VHOST"
+            value = "/"
           }
         }
       }
@@ -493,12 +695,44 @@ resource "kubernetes_deployment" "trend_service" {
             value = "mongodb.mongodb-system"
           }
           env {
+            name = "MONGO_HOST_PORT"
+            value = "27017"
+          }
+          env {
+            name = "MONGO_DATABASE"
+            value = "derkino"
+          }
+          env {
+            name = "MONGO_USERNAME"
+            value = "root"
+          }
+          env {
+            name = "MONGO_PASSWORD"
+            value = "X6d9r2SgJ8xQgpGL"
+          }
+          env {
+            name = "SERVICE_PORT"
+            value = "8080"
+          }
+          env {
+            name = "SERVICE_HOST_PREFIX"
+            value = "/api/v1"
+          }
+          env {
             name  = "SERVICE_LOGGING_LEVEL"
             value = "INFO"
           }
           env {
             name = "KAFKA_HOSTS"
             value = "kafka-controller-0.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka-system.svc.cluster.local:9092"
+          }
+          env {
+            name = "KAFKA_PASSWORD"
+            value = "w43Pw4Q9cb"
+          }
+          env {
+            name = "KAFKA_USERNAME"
+            value = "root"
           }
         }
       }
