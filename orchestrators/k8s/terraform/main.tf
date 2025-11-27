@@ -181,6 +181,9 @@ resource "kubernetes_job" "mongodb_init" {
       }
     }
   }
+  timeouts {
+    create = "20m"
+  }
   count = var.enable_mongodb ? 1 : 0
   depends_on = [kubernetes_stateful_set.mongodb]
 }
@@ -758,13 +761,13 @@ resource "kubernetes_service" "trend_service" {
 # Generative Service
 resource "kubernetes_secret" "huggingface_secret" {
   metadata { name = "huggingface-hub-access-token" }
-  data = { token = "hf_..." } # Placeholder, user should provide via var or existing secret
+  data = { token = var.huggingface_hub_access_token }
   count = var.enable_generative_service ? 1 : 0
 }
 
 resource "kubernetes_secret" "gemini_secret" {
   metadata { name = "gemini-api-key" }
-  data = { "api-key" = "..." } # Placeholder
+  data = { "api-key" = var.gemini_api_key }
   count = var.enable_generative_service ? 1 : 0
 }
 
@@ -848,8 +851,13 @@ resource "kubernetes_deployment" "ui" {
       spec {
         container {
           name  = var.environment == "dev" ? "dev-ui" : "ui"
-          image = "gryphon2411/derkino-ui:latest"
+          image = var.environment == "dev" ? "gryphon2411/derkino-ui:dev" : "gryphon2411/derkino-ui:latest"
+          image_pull_policy = var.environment == "dev" ? "Always" : "IfNotPresent"
           port { container_port = 3000 }
+          env {
+            name  = "NODE_ENV"
+            value = var.environment == "dev" ? "development" : "production"
+          }
         }
       }
     }

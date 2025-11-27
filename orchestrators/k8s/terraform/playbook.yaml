@@ -40,21 +40,21 @@
       register: minikube_ip
       changed_when: false
 
-    - name: Update /etc/hosts for local.derkino.com
-      become: true
-      lineinfile:
-        path: /etc/hosts
-        line: "{{ minikube_ip.stdout }} local.derkino.com"
-        regexp: ".*local\\.derkino\\.com"
-        state: present
+    # - name: Update /etc/hosts for local.derkino.com
+    #   become: true
+    #   lineinfile:
+    #     path: /etc/hosts
+    #     line: "{{ minikube_ip.stdout }} local.derkino.com"
+    #     regexp: ".*local\\.derkino\\.com"
+    #     state: present
 
-    - name: Update /etc/hosts for dev.derkino.com
-      become: true
-      lineinfile:
-        path: /etc/hosts
-        line: "{{ minikube_ip.stdout }} dev.derkino.com"
-        regexp: ".*dev\\.derkino\\.com"
-        state: present
+    # - name: Update /etc/hosts for dev.derkino.com
+    #   become: true
+    #   lineinfile:
+    #     path: /etc/hosts
+    #     line: "{{ minikube_ip.stdout }} dev.derkino.com"
+    #     regexp: ".*dev\\.derkino\\.com"
+    #     state: present
 
     - name: Initialize Terraform
       command: terraform init
@@ -67,3 +67,34 @@
       command: terraform apply -auto-approve
       args:
         chdir: "{{ terraform_dir }}"
+      environment:
+        TF_VAR_huggingface_hub_access_token: "{{ lookup('env', 'TF_VAR_huggingface_hub_access_token') | default('placeholder', true) }}"
+        TF_VAR_gemini_api_key: "{{ lookup('env', 'TF_VAR_gemini_api_key') | default('placeholder', true) }}"
+
+    - name: Fetch valid Title ID for Warmup
+      command: >
+        kubectl exec -n mongodb-system mongodb-0 -- mongosh derkino -u root -p X6d9r2SgJ8xQgpGL --authenticationDatabase admin --quiet --eval "db.title_basics.findOne({},{_id:1})._id.toString()"
+      register: mongo_id_output
+      changed_when: false
+
+    - name: Parse Title ID
+      set_fact:
+        title_id: "{{ mongo_id_output.stdout | trim }}"
+
+    - name: Wait for Data Service
+      uri:
+        url: "http://local.derkino.com/api/v1/data/titles/{{ title_id }}"
+        status_code: 200
+        return_content: no
+      register: result
+      until: result.status == 200
+      retries: 30
+      delay: 5
+      ignore_errors: true
+
+    - name: Warm up Kafka topics (Trigger Search)
+      uri:
+        url: "http://local.derkino.com/api/v1/data/titles/{{ title_id }}"
+        method: GET
+        status_code: 200
+      when: result.status == 200
