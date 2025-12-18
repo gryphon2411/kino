@@ -99,9 +99,15 @@
       when: terraform_result is failed
 
 
+    - name: Get MongoDB Password
+      command: >
+        kubectl get secret -n mongodb-system mongodb-root-user-credentials -o jsonpath='{.data.password}'
+      register: mongodb_pass_b64
+      changed_when: false
+
     - name: Fetch valid Title ID for Warmup
       command: >
-        kubectl exec -n mongodb-system mongodb-0 -- mongosh derkino -u root -p X6d9r2SgJ8xQgpGL --authenticationDatabase admin --quiet --eval "db.title_basics.findOne({},{_id:1})._id.toString()"
+        kubectl exec -n mongodb-system mongodb-0 -- mongosh derkino -u root -p {{ mongodb_pass_b64.stdout | b64decode }} --authenticationDatabase admin --quiet --eval "db.title_basics.findOne({},{_id:1})._id.toString()"
       register: mongo_id_output
       changed_when: false
 

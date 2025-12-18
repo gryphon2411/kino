@@ -86,3 +86,24 @@ variable "enable_ingress" {
   default     = true
 }
 
+# Database Credentials (sensitive)
+variable "mongodb_password" {
+  description = "MongoDB root password"
+  type        = string
+  sensitive   = true
+  default     = "" # Set via TF_VAR_mongodb_password or terraform.tfvars
+}
+
+variable "postgres_password" {
+  description = "Postgres root password"
+  type        = string
+  sensitive   = true
+  default     = "" # Set via TF_VAR_postgres_password or terraform.tfvars
+}
+
+variable "redis_password" {
+  description = "Redis password"
+  type        = string
+  sensitive   = true
+  default     = "" # Set via TF_VAR_redis_password or terraform.tfvars
+}

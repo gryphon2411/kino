@@ -42,7 +42,7 @@ resource "kubernetes_secret" "mongodb_creds" {
   }
   data = {
     username = "root"
-    password = "X6d9r2SgJ8xQgpGL"
+    password = var.mongodb_password
   }
   count = var.enable_mongodb ? 1 : 0
 }
@@ -117,7 +117,7 @@ resource "kubernetes_stateful_set" "mongodb" {
           }
           env {
             name = "MONGO_INITDB_ROOT_PASSWORD"
-            value = "X6d9r2SgJ8xQgpGL"
+            value = var.mongodb_password
           }
           volume_mount {
             name       = "mongodb-data"
@@ -207,7 +207,7 @@ resource "kubernetes_secret" "postgres_creds" {
   }
   data = {
     username = "postgres"
-    password = "password" # Default from standard postgres images or extracted if specific
+    password = var.postgres_password
   }
   # Note: The original script extracts this from a secret created by the statefulset? 
   # Or does it create it? The script says `kubectl -n postgres-system create configmap ...`
@@ -300,7 +300,7 @@ resource "kubernetes_secret" "redis_creds" {
   }
   data = {
     username = "default"
-    password = "pu9oq47y7Pgso3RRZLC"
+    password = var.redis_password
   }
   count = var.enable_redis ? 1 : 0
 }
@@ -501,7 +501,7 @@ resource "kubernetes_deployment" "auth_service" {
           }
           env {
             name = "MONGO_PASSWORD"
-            value = "X6d9r2SgJ8xQgpGL"
+            value = var.mongodb_password
           }
           env {
             name = "MONGO_USERNAME"
@@ -529,7 +529,7 @@ resource "kubernetes_deployment" "auth_service" {
           }
           env {
             name = "REDIS_PASSWORD"
-            value = "pu9oq47y7Pgso3RRZLC"
+            value = var.redis_password
           }
         }
       }
@@ -602,7 +602,7 @@ resource "kubernetes_deployment" "data_service" {
           }
           env {
             name = "MONGO_PASSWORD"
-            value = "X6d9r2SgJ8xQgpGL"
+            value = var.mongodb_password
           }
           env {
             name = "REDIS_HOST_ADDRESS"
@@ -626,7 +626,7 @@ resource "kubernetes_deployment" "data_service" {
           }
           env {
             name = "REDIS_PASSWORD"
-            value = "pu9oq47y7Pgso3RRZLC"
+            value = var.redis_password
           }
           env {
             name = "KAFKA_HOSTS"
@@ -712,7 +712,7 @@ resource "kubernetes_deployment" "trend_service" {
           }
           env {
             name = "MONGO_PASSWORD"
-            value = "X6d9r2SgJ8xQgpGL"
+            value = var.mongodb_password
           }
           env {
             name = "SERVICE_PORT"
