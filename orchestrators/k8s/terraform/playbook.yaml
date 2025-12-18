@@ -40,21 +40,22 @@
       register: minikube_ip
       changed_when: false
 
-    # - name: Update /etc/hosts for local.derkino.com
-    #   become: true
-    #   lineinfile:
-    #     path: /etc/hosts
-    #     line: "{{ minikube_ip.stdout }} local.derkino.com"
-    #     regexp: ".*local\\.derkino\\.com"
-    #     state: present
+    - name: Update /etc/hosts for local.derkino.com
+      become: true
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ minikube_ip.stdout }} local.derkino.com"
+        regexp: ".*local\\.derkino\\.com"
+        state: present
 
-    # - name: Update /etc/hosts for dev.derkino.com
-    #   become: true
-    #   lineinfile:
-    #     path: /etc/hosts
-    #     line: "{{ minikube_ip.stdout }} dev.derkino.com"
-    #     regexp: ".*dev\\.derkino\\.com"
-    #     state: present
+    - name: Update /etc/hosts for dev.derkino.com
+      become: true
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ minikube_ip.stdout }} dev.derkino.com"
+        regexp: ".*dev\\.derkino\\.com"
+        state: present
+
 
     - name: Initialize Terraform
       command: terraform init
@@ -63,13 +64,40 @@
       register: tf_init
       changed_when: "'Terraform has been successfully initialized' in tf_init.stdout"
 
+    - name: Clean up orphaned generative-service (Pre-flight)
+      block:
+        - name: Remove generative-service from Terraform state (if orphaned)
+          ansible.builtin.shell:
+            cmd: terraform state rm 'kubernetes_deployment.generative_service[0]' 2>/dev/null || true
+            chdir: "{{ terraform_dir }}"
+          changed_when: false
+          ignore_errors: true
+
+        - name: Delete generative-service deployment from K8s (if orphaned)
+          command: kubectl delete deployment generative-service --ignore-not-found=true
+          changed_when: false
+
     - name: Apply Terraform
-      command: terraform apply -auto-approve
-      args:
-        chdir: "{{ terraform_dir }}"
+      ansible.builtin.shell:
+        cmd: terraform apply -auto-approve
+        chdir: "{{ playbook_dir }}"
       environment:
-        TF_VAR_huggingface_hub_access_token: "{{ lookup('env', 'TF_VAR_huggingface_hub_access_token') | default('placeholder', true) }}"
-        TF_VAR_gemini_api_key: "{{ lookup('env', 'TF_VAR_gemini_api_key') | default('placeholder', true) }}"
+        TF_LOG: DEBUG
+        TF_LOG_PATH: "{{ playbook_dir }}/terraform-debug.log"
+      register: terraform_result
+      retries: 3
+      delay: 10
+      until: terraform_result is success
+
+    - name: Debug Terraform Output
+      debug:
+        var: terraform_result.stdout_lines
+
+    - name: Fail if Terraform Apply failed
+      fail:
+        msg: "Terraform apply failed after retries. Check terraform-debug.log for details."
+      when: terraform_result is failed
+
 
     - name: Fetch valid Title ID for Warmup
       command: >

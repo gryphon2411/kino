@@ -86,16 +86,3 @@ variable "enable_ingress" {
   default     = true
 }
 
-variable "huggingface_hub_access_token" {
-  description = "Hugging Face Hub Access Token"
-  type        = string
-  sensitive   = true
-  default     = "placeholder"
-}
-
-variable "gemini_api_key" {
-  description = "Gemini API Key"
-  type        = string
-  sensitive   = true
-  default     = "placeholder"
-}

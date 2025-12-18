@@ -1,4 +1,5 @@
 version: '3'
+dotenv: ['.env']
 
 tasks:
   default:
@@ -9,7 +10,13 @@ tasks:
   deploy:
     desc: Provision the infrastructure (Ansible -> Terraform)
     cmds:
-      - ansible-playbook playbook.yaml -v
+      - ansible-playbook playbook.yaml -vv -K
+      - ./scripts/unseal_vault.sh
+
+  setup-vault:
+    desc: Initialize/Unseal Vault and populate secrets
+    cmds:
+      - ./scripts/unseal_vault.sh
 
   destroy:
     desc: Destroy the infrastructure (Terraform)

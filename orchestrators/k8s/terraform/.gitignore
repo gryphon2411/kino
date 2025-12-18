@@ -1,5 +1,9 @@
 .terraform/
-.terraform.lock.hcl
+.terraform.lock.env
+cluster-keys.json
 *.tfstate
 *.tfstate.backup
 *.tfvars
+terraform-debug.log
+deploy.log
+.env

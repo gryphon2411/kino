@@ -418,6 +418,7 @@ resource "helm_release" "prometheus" {
   namespace  = kubernetes_namespace.prometheus_system[0].metadata[0].name
   values     = [file("${path.module}/../charts/prometheus/values.yaml")]
   count      = var.enable_prometheus ? 1 : 0
+  timeout    = 600
 }
 
 # Grafana (Helm)
@@ -759,19 +760,41 @@ resource "kubernetes_service" "trend_service" {
 }
 
 # Generative Service
-resource "kubernetes_secret" "huggingface_secret" {
-  metadata { name = "huggingface-hub-access-token" }
-  data = { token = var.huggingface_hub_access_token }
-  count = var.enable_generative_service ? 1 : 0
+# Vault & ESO Setup
+
+resource "helm_release" "vault" {
+  name       = "vault"
+  repository = "https://helm.releases.hashicorp.com"
+  chart      = "vault"
+  namespace  = "default"
+  wait       = false # Important: Avoid deadlock. We unseal AFTER deployment.
+
+  set {
+    name  = "server.dev.enabled"
+    value = "false"
+  }
+  set {
+    name  = "server.standalone.enabled"
+    value = "true"
+  }
 }
 
-resource "kubernetes_secret" "gemini_secret" {
-  metadata { name = "gemini-api-key" }
-  data = { "api-key" = var.gemini_api_key }
-  count = var.enable_generative_service ? 1 : 0
+resource "helm_release" "external_secrets" {
+  name       = "external-secrets"
+  repository = "https://charts.external-secrets.io"
+  chart      = "external-secrets"
+  namespace  = "default"
+
+  set {
+    name  = "installCRDs"
+    value = "true"
+  }
+  timeout = 600
 }
+
 
 resource "kubernetes_deployment" "generative_service" {
+  wait_for_rollout = false
   metadata { name = "generative-service" }
   spec {
     replicas = 1
