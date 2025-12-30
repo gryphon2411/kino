@@ -107,3 +107,17 @@ variable "redis_password" {
   sensitive   = true
   default     = "" # Set via TF_VAR_redis_password or terraform.tfvars
 }
+
+variable "kafka_password" {
+  description = "Kafka password"
+  type        = string
+  sensitive   = true
+  default     = "w43Pw4Q9cb" # Defaulting to known value to avoid breaking existing setup
+}
+
+variable "rabbitmq_password" {
+  description = "RabbitMQ password"
+  type        = string
+  sensitive   = true
+  default     = "2gGCIz8qgvuUzQfW" # Defaulting to known value to avoid breaking existing setup
+}

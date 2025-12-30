@@ -39,6 +39,7 @@ tasks:
       - echo "Warmup complete."
 
   clean:
-    desc: Clean up temporary files
+    desc: Clean up temporary files and state
     cmds:
       - rm -rf .terraform .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup
+      - rm -f terraform.tfstate.*.backup cluster-keys.json terraform-debug.log
