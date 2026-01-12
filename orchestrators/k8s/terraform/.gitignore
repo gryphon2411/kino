@@ -1,5 +1,6 @@
 .terraform/
 .terraform.lock.env
+.terraform.tfstate.lock.info
 cluster-keys.json
 *.tfstate
 *.tfstate.backup

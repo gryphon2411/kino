@@ -1,123 +1,125 @@
+# Environment Configuration
 variable "environment" {
-  description = "Deployment environment (local or dev)"
   type        = string
+  description = "Deployment environment (local or dev)"
   default     = "local"
+
   validation {
     condition     = contains(["local", "dev"], var.environment)
     error_message = "Environment must be 'local' or 'dev'."
   }
 }
 
+# Feature Flags - Databases
 variable "enable_mongodb" {
-  description = "Enable MongoDB system"
   type        = bool
+  description = "Enable MongoDB system"
   default     = true
 }
 
 variable "enable_postgres" {
-  description = "Enable Postgres system"
   type        = bool
+  description = "Enable Postgres system"
   default     = true
 }
 
 variable "enable_redis" {
-  description = "Enable Redis-Stack system"
   type        = bool
+  description = "Enable Redis-Stack system"
   default     = true
 }
 
 variable "enable_kafka" {
-  description = "Enable Kafka system"
   type        = bool
+  description = "Enable Kafka system"
   default     = true
 }
 
 variable "enable_rabbitmq" {
-  description = "Enable RabbitMQ system"
   type        = bool
+  description = "Enable RabbitMQ system"
   default     = true
 }
 
+# Feature Flags - Services
 variable "enable_auth_service" {
-  description = "Enable Derkino Auth Service"
   type        = bool
+  description = "Enable Derkino Auth Service"
   default     = true
 }
 
 variable "enable_data_service" {
-  description = "Enable Derkino Data Service"
   type        = bool
+  description = "Enable Derkino Data Service"
   default     = true
 }
 
 variable "enable_trend_service" {
-  description = "Enable Derkino Trend Service"
   type        = bool
+  description = "Enable Derkino Trend Service"
   default     = true
 }
 
 variable "enable_generative_service" {
-  description = "Enable Derkino Generative Service"
   type        = bool
+  description = "Enable Derkino Generative Service"
   default     = true
 }
 
 variable "enable_ui" {
-  description = "Enable Derkino UI"
   type        = bool
+  description = "Enable Derkino UI"
   default     = true
 }
 
+# Feature Flags - Monitoring
 variable "enable_prometheus" {
-  description = "Enable Prometheus system"
   type        = bool
+  description = "Enable Prometheus system"
   default     = true
 }
 
 variable "enable_grafana" {
-  description = "Enable Grafana system"
   type        = bool
+  description = "Enable Grafana system"
   default     = true
 }
 
+# Feature Flags - Networking
 variable "enable_ingress" {
-  description = "Enable Gateway Ingress"
   type        = bool
+  description = "Enable Gateway Ingress"
   default     = true
 }
 
 # Database Credentials (sensitive)
+# Set via TF_VAR_<name> environment variables or terraform.tfvars
 variable "mongodb_password" {
-  description = "MongoDB root password"
   type        = string
+  description = "MongoDB root password"
   sensitive   = true
-  default     = "" # Set via TF_VAR_mongodb_password or terraform.tfvars
 }
 
 variable "postgres_password" {
-  description = "Postgres root password"
   type        = string
+  description = "Postgres root password"
   sensitive   = true
-  default     = "" # Set via TF_VAR_postgres_password or terraform.tfvars
 }
 
 variable "redis_password" {
-  description = "Redis password"
   type        = string
+  description = "Redis password"
   sensitive   = true
-  default     = "" # Set via TF_VAR_redis_password or terraform.tfvars
 }
 
 variable "kafka_password" {
-  description = "Kafka password"
   type        = string
+  description = "Kafka password"
   sensitive   = true
-  default     = "w43Pw4Q9cb" # Defaulting to known value to avoid breaking existing setup
 }
 
 variable "rabbitmq_password" {
-  description = "RabbitMQ password"
   type        = string
+  description = "RabbitMQ password"
   sensitive   = true
-  default     = "2gGCIz8qgvuUzQfW" # Defaulting to known value to avoid breaking existing setup
 }

@@ -39,7 +39,8 @@ tasks:
       - echo "Warmup complete."
 
   clean:
-    desc: Clean up temporary files and state
+    desc: Full reset - delete Minikube cluster and Terraform state
     cmds:
+      - minikube delete || true
       - rm -rf .terraform .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup
       - rm -f terraform.tfstate.*.backup cluster-keys.json terraform-debug.log
