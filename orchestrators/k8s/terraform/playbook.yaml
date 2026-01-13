@@ -10,7 +10,7 @@
 
   tasks:
     - name: Check for required tools
-      command: "which {{ item }}"
+      ansible.builtin.command: "which {{ item }}"
       loop:
         - kubectl
         - helm
@@ -21,28 +21,31 @@
       changed_when: false
 
     - name: Check Minikube status
-      command: minikube status
+      ansible.builtin.command: minikube status
       register: minikube_status
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Start Minikube
-      command: "minikube start --cpus={{ minikube_cpus }} --memory={{ minikube_memory }}"
+      ansible.builtin.command: >-
+        minikube start --cpus={{ minikube_cpus }} --memory={{ minikube_memory }}
+      register: minikube_start
       when: "'host: Running' not in minikube_status.stdout"
+      changed_when: "'Done!' in minikube_start.stdout"
 
     - name: Enable Ingress Addon
-      command: minikube addons enable ingress
+      ansible.builtin.command: minikube addons enable ingress
       register: ingress_enable
       changed_when: "'The \\'ingress\\' addon is enabled' not in ingress_enable.stdout"
 
     - name: Get Minikube IP
-      command: minikube ip
+      ansible.builtin.command: minikube ip
       register: minikube_ip
       changed_when: false
 
     - name: Update /etc/hosts for local.derkino.com
       become: true
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/hosts
         line: "{{ minikube_ip.stdout }} local.derkino.com"
         regexp: ".*local\\.derkino\\.com"
@@ -50,15 +53,14 @@
 
     - name: Update /etc/hosts for dev.derkino.com
       become: true
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/hosts
         line: "{{ minikube_ip.stdout }} dev.derkino.com"
         regexp: ".*dev\\.derkino\\.com"
         state: present
 
-
     - name: Initialize Terraform
-      command: terraform init
+      ansible.builtin.command: terraform init
       args:
         chdir: "{{ terraform_dir }}"
       register: tf_init
@@ -71,15 +73,15 @@
             cmd: terraform state rm 'kubernetes_deployment.generative_service[0]' 2>/dev/null || true
             chdir: "{{ terraform_dir }}"
           changed_when: false
-          ignore_errors: true
+          failed_when: false
 
         - name: Delete generative-service deployment from K8s (if orphaned)
-          command: kubectl delete deployment generative-service --ignore-not-found=true
+          ansible.builtin.command: kubectl delete deployment generative-service --ignore-not-found=true
           changed_when: false
 
     - name: Apply Terraform
-      ansible.builtin.shell:
-        cmd: terraform apply -auto-approve
+      ansible.builtin.command: terraform apply -auto-approve
+      args:
         chdir: "{{ playbook_dir }}"
       environment:
         TF_LOG: DEBUG
@@ -88,46 +90,50 @@
       retries: 3
       delay: 10
       until: terraform_result is success
+      changed_when: "'Apply complete' in terraform_result.stdout"
 
     - name: Debug Terraform Output
-      debug:
+      ansible.builtin.debug:
         var: terraform_result.stdout_lines
 
     - name: Fail if Terraform Apply failed
-      fail:
+      ansible.builtin.fail:
         msg: "Terraform apply failed after retries. Check terraform-debug.log for details."
       when: terraform_result is failed
 
-
     - name: Get MongoDB Password
-      command: >
-        kubectl get secret -n mongodb-system mongodb-root-user-credentials -o jsonpath='{.data.password}'
+      ansible.builtin.command: >-
+        kubectl get secret -n mongodb-system mongodb-root-user-credentials
+        -o jsonpath='{.data.password}'
       register: mongodb_pass_b64
       changed_when: false
 
     - name: Fetch valid Title ID for Warmup
-      command: >
-        kubectl exec -n mongodb-system mongodb-0 -- mongosh derkino -u root -p {{ mongodb_pass_b64.stdout | b64decode }} --authenticationDatabase admin --quiet --eval "db.title_basics.findOne({},{_id:1})._id.toString()"
+      ansible.builtin.command: >-
+        kubectl exec -n mongodb-system mongodb-0 --
+        mongosh derkino -u root -p {{ mongodb_pass_b64.stdout | b64decode }}
+        --authenticationDatabase admin --quiet
+        --eval "db.title_basics.findOne({},{_id:1})._id.toString()"
       register: mongo_id_output
       changed_when: false
 
     - name: Parse Title ID
-      set_fact:
+      ansible.builtin.set_fact:
         title_id: "{{ mongo_id_output.stdout | trim }}"
 
     - name: Wait for Data Service
-      uri:
+      ansible.builtin.uri:
         url: "http://local.derkino.com/api/v1/data/titles/{{ title_id }}"
         status_code: 200
-        return_content: no
+        return_content: false
       register: result
       until: result.status == 200
       retries: 30
       delay: 5
-      ignore_errors: true
+      failed_when: false
 
     - name: Warm up Kafka topics (Trigger Search)
-      uri:
+      ansible.builtin.uri:
         url: "http://local.derkino.com/api/v1/data/titles/{{ title_id }}"
         method: GET
         status_code: 200
