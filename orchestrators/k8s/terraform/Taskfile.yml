@@ -1,0 +1,51 @@
+version: '3'
+dotenv: ['.env']
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  deploy:
+    desc: Provision the infrastructure (Ansible -> Terraform)
+    cmds:
+      - ansible-playbook playbook.yaml -vv -K
+      - ./scripts/unseal_vault.sh
+
+  setup-vault:
+    desc: Initialize/Unseal Vault and populate secrets
+    cmds:
+      - ./scripts/unseal_vault.sh
+
+  destroy:
+    desc: Destroy the infrastructure (Terraform)
+    dir: .
+    cmds:
+      - kubectl delete secret vault-eso-token -n default --ignore-not-found=true
+      - kubectl delete -f k8s/vault-secrets.yaml --ignore-not-found=true
+      - terraform destroy -auto-approve
+
+  urls:
+    desc: Show access URLs for services
+    cmds:
+      - minikube service list
+
+  warmup:
+    desc: Perform initial data search to warm up Kafka topics
+    cmds:
+      - echo "Waiting for services to be ready..."
+      - sleep 10
+      - echo "Performing warmup search..."
+      # TODO: Add actual curl command here once we know the exact endpoint/payload from the original script logic or user input
+      - echo "Warmup complete."
+
+  clean:
+    desc: Full reset - delete Minikube cluster and Terraform state
+    cmds:
+      - kubectl delete secret vault-eso-token -n default --ignore-not-found=true || true
+      - kubectl delete -f k8s/vault-secrets.yaml --ignore-not-found=true || true
+      - terraform destroy -auto-approve || true
+      - minikube delete || true
+      - rm -rf .terraform terraform.tfstate terraform.tfstate.backup
+      - rm -f terraform.tfstate.*.backup cluster-keys.json terraform-debug.log deploy.log deploy_final_test.log deploy_lint_test.log
