@@ -8,7 +8,9 @@ Derkino ("The cinema"), derived from Yiddish (דער קינאָ), represents a p
 ```bash
 $ basename "$(pwd)"
 derkino
-$ source ./orchestrators/k8s/provision.sh
+$ cd ./orchestrators/k8s/terraform
+$ cp .env.example .env
+$ task deploy
 ```
 
 ## Components

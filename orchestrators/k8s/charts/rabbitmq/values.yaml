@@ -1,49 +1,5 @@
 replicaCount: 1
 service:
   type: LoadBalancer
-auth:
-  username: default
-  password: cvCB59XUYHL9x49
-extraSecrets:
-  load-definition:
-    load_definition.json: |
-      {
-        "users": [
-          {
-            "name": "{{ .Values.auth.username }}",
-            "password": "{{ .Values.auth.password }}",
-            "tags": "administrator"
-          },
-          {
-            "name": "derkino-services",
-            "password": "2gGCIz8qgvuUzQfW",
-            "tags": ""
-          }
-        ],
-        "vhosts": [
-          {
-            "name": "/"
-          }
-        ],
-        "permissions": [
-          {
-            "user": "{{ .Values.auth.username }}",
-            "vhost": "/",
-            "configure": ".*",
-            "read": ".*",
-            "write": ".*"
-          },
-          {
-            "user": "derkino-services",
-            "vhost": "/",
-            "configure": ".*",
-            "read": ".*",
-            "write": ".*"
-          }
-        ]
-      }
-loadDefinition:
-  enabled: true
-  existingSecret: load-definition
 extraConfiguration: |
   load_definitions = /app/load_definition.json

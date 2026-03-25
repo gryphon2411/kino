@@ -22,6 +22,8 @@ tasks:
     desc: Destroy the infrastructure (Terraform)
     dir: .
     cmds:
+      - kubectl delete secret vault-eso-token -n default --ignore-not-found=true
+      - kubectl delete -f k8s/vault-secrets.yaml --ignore-not-found=true
       - terraform destroy -auto-approve
 
   urls:
@@ -41,6 +43,9 @@ tasks:
   clean:
     desc: Full reset - delete Minikube cluster and Terraform state
     cmds:
+      - kubectl delete secret vault-eso-token -n default --ignore-not-found=true || true
+      - kubectl delete -f k8s/vault-secrets.yaml --ignore-not-found=true || true
+      - terraform destroy -auto-approve || true
       - minikube delete || true
-      - rm -rf .terraform .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup
-      - rm -f terraform.tfstate.*.backup cluster-keys.json terraform-debug.log
+      - rm -rf .terraform terraform.tfstate terraform.tfstate.backup
+      - rm -f terraform.tfstate.*.backup cluster-keys.json terraform-debug.log deploy.log deploy_final_test.log deploy_lint_test.log

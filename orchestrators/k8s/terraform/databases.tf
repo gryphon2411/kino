@@ -221,6 +221,16 @@ resource "kubernetes_stateful_set" "postgres" {
             }
           }
 
+          env {
+            name  = "PGDATA"
+            value = "/var/lib/postgresql/data/pgdata"
+          }
+
+          volume_mount {
+            name       = "postgres-data"
+            mount_path = "/var/lib/postgresql/data"
+          }
+
           volume_mount {
             name       = "postgres-initdb"
             mount_path = "/docker-entrypoint-initdb.d"

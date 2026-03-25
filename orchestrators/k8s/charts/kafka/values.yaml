@@ -15,7 +15,7 @@ metrics:
 sasl:
   client:
     users: ["root"]
-    passwords: ["w43Pw4Q9cb"]
+    passwords: ""
 
 defaultInitContainers:
   volumePermissions:

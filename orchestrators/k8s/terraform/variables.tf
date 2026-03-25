@@ -123,3 +123,11 @@ variable "rabbitmq_password" {
   description = "RabbitMQ password"
   sensitive   = true
 }
+
+variable "rabbitmq_admin_password" {
+  type        = string
+  description = "RabbitMQ admin password. Defaults to rabbitmq_password when unset."
+  sensitive   = true
+  default     = null
+  nullable    = true
+}

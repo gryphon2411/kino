@@ -1,3 +1,56 @@
+locals {
+  rabbitmq_admin_username   = "default"
+  rabbitmq_service_username = "derkino-services"
+  rabbitmq_admin_password   = coalesce(var.rabbitmq_admin_password, var.rabbitmq_password)
+}
+
+resource "kubernetes_secret" "rabbitmq_load_definition" {
+  count = var.enable_rabbitmq ? 1 : 0
+
+  metadata {
+    name      = "rabbitmq-load-definition"
+    namespace = kubernetes_namespace.rabbitmq_system[0].metadata[0].name
+  }
+
+  data = {
+    "load_definition.json" = jsonencode({
+      users = [
+        {
+          name     = local.rabbitmq_admin_username
+          password = local.rabbitmq_admin_password
+          tags     = "administrator"
+        },
+        {
+          name     = local.rabbitmq_service_username
+          password = var.rabbitmq_password
+          tags     = ""
+        }
+      ]
+      vhosts = [
+        {
+          name = "/"
+        }
+      ]
+      permissions = [
+        {
+          user      = local.rabbitmq_admin_username
+          vhost     = "/"
+          configure = ".*"
+          read      = ".*"
+          write     = ".*"
+        },
+        {
+          user      = local.rabbitmq_service_username
+          vhost     = "/"
+          configure = ".*"
+          read      = ".*"
+          write     = ".*"
+        }
+      ]
+    })
+  }
+}
+
 # Kafka (Helm)
 resource "helm_release" "kafka" {
   count = var.enable_kafka ? 1 : 0
@@ -31,6 +84,11 @@ resource "helm_release" "kafka" {
     name  = "metrics.jmx.image.repository"
     value = "bitnamilegacy/jmx-exporter"
   }
+
+  set_sensitive {
+    name  = "sasl.client.passwords"
+    value = var.kafka_password
+  }
 }
 
 # RabbitMQ (Helm)
@@ -56,6 +114,33 @@ resource "helm_release" "rabbitmq" {
     name  = "image.repository"
     value = "bitnamilegacy/rabbitmq"
   }
+
+  set {
+    name  = "auth.username"
+    value = local.rabbitmq_admin_username
+  }
+
+  set {
+    name  = "auth.securePassword"
+    value = "false"
+  }
+
+  set {
+    name  = "loadDefinition.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "loadDefinition.existingSecret"
+    value = kubernetes_secret.rabbitmq_load_definition[0].metadata[0].name
+  }
+
+  set_sensitive {
+    name  = "auth.password"
+    value = local.rabbitmq_admin_password
+  }
+
+  depends_on = [kubernetes_secret.rabbitmq_load_definition]
 }
 
 # Prometheus (Helm)

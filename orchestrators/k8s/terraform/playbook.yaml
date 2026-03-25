@@ -4,8 +4,10 @@
   connection: local
   gather_facts: false
   vars:
-    minikube_cpus: max
-    minikube_memory: max
+    minikube_cpus: "{{ lookup('env', 'MINIKUBE_CPUS') | default('4', true) }}"
+    minikube_memory: "{{ lookup('env', 'MINIKUBE_MEMORY') | default('7800mb', true) }}"
+    deploy_environment: "{{ lookup('env', 'TF_VAR_environment') | default('local', true) }}"
+    ingress_host: "{{ 'dev.derkino.com' if deploy_environment == 'dev' else 'local.derkino.com' }}"
     terraform_dir: "{{ playbook_dir }}"
 
   tasks:
@@ -66,39 +68,19 @@
       register: tf_init
       changed_when: "'Terraform has been successfully initialized' in tf_init.stdout"
 
-    - name: Clean up orphaned generative-service (Pre-flight)
-      block:
-        - name: Remove generative-service from Terraform state (if orphaned)
-          ansible.builtin.shell:
-            cmd: terraform state rm 'kubernetes_deployment.generative_service[0]' 2>/dev/null || true
-            chdir: "{{ terraform_dir }}"
-          changed_when: false
-          failed_when: false
-
-        - name: Delete generative-service deployment from K8s (if orphaned)
-          ansible.builtin.command: kubectl delete deployment generative-service --ignore-not-found=true
-          changed_when: false
-
     - name: Apply Terraform
       ansible.builtin.command: terraform apply -auto-approve
       args:
         chdir: "{{ playbook_dir }}"
-      environment:
-        TF_LOG: DEBUG
-        TF_LOG_PATH: "{{ playbook_dir }}/terraform-debug.log"
       register: terraform_result
       retries: 3
       delay: 10
       until: terraform_result is success
       changed_when: "'Apply complete' in terraform_result.stdout"
 
-    - name: Debug Terraform Output
-      ansible.builtin.debug:
-        var: terraform_result.stdout_lines
-
     - name: Fail if Terraform Apply failed
       ansible.builtin.fail:
-        msg: "Terraform apply failed after retries. Check terraform-debug.log for details."
+        msg: "Terraform apply failed after retries."
       when: terraform_result is failed
 
     - name: Get MongoDB Password
@@ -123,7 +105,7 @@
 
     - name: Wait for Data Service
       ansible.builtin.uri:
-        url: "http://local.derkino.com/api/v1/data/titles/{{ title_id }}"
+        url: "http://{{ ingress_host }}/api/v1/data/titles/{{ title_id }}"
         status_code: 200
         return_content: false
       register: result
@@ -134,7 +116,7 @@
 
     - name: Warm up Kafka topics (Trigger Search)
       ansible.builtin.uri:
-        url: "http://local.derkino.com/api/v1/data/titles/{{ title_id }}"
+        url: "http://{{ ingress_host }}/api/v1/data/titles/{{ title_id }}"
         method: GET
         status_code: 200
       when: result.status == 200

@@ -382,6 +382,14 @@ resource "kubernetes_deployment" "generative_service" {
             name  = "DATA_SERVICE_URL"
             value = "http://data-service:8082/api/v1/data"
           }
+
+          dynamic "env" {
+            for_each = local.rabbitmq_env
+            content {
+              name  = env.value.name
+              value = env.value.value
+            }
+          }
         }
       }
     }
