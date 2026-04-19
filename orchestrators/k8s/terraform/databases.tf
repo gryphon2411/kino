@@ -105,6 +105,7 @@ resource "kubernetes_job" "mongodb_init" {
         container {
           name  = "kino-jobs"
           image = "gryphon2411/kino-jobs:latest"
+          image_pull_policy = "IfNotPresent"
           args  = ["python", "run.py", "mongoinit.py"]
 
           env {

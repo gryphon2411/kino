@@ -10,6 +10,19 @@ variable "environment" {
   }
 }
 
+variable "kubeconfig_path" {
+  type        = string
+  description = "Path to the kubeconfig file used by Terraform providers."
+  default     = null
+  nullable    = true
+}
+
+variable "kube_context" {
+  type        = string
+  description = "Kubeconfig context used by Terraform providers."
+  default     = "kino"
+}
+
 # Feature Flags - Databases
 variable "enable_mongodb" {
   type        = bool

@@ -1,10 +1,16 @@
 .terraform/
 .terraform.lock.env
 .terraform.tfstate.lock.info
+.ansible/
+.helm/
+.kube/
+.minikube/
 cluster-keys.json
 *.tfstate
 *.tfstate.backup
 *.tfvars
 terraform-debug.log
 deploy.log
+deploy_final_test.log
+deploy_lint_test.log
 .env
