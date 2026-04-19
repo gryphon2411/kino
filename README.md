@@ -1,17 +1,17 @@
-![Derkino Shadowed Scaled Logo](/graphic-designs/logo-shadow-scaled.png)
+![Kino Logo](/graphic-designs/logo-scaled.png)
 
-# Derkino
+# Kino
 
-Derkino ("The cinema"), derived from Yiddish (דער קינאָ), represents a personal educational initiative focused on exploring various technologies within the context of a cinema.
+Kino ("Cinema"), derived from German Kino and also reflected in Yiddish as קינאָ (kino), represents a personal educational initiative focused on exploring various technologies within the context of a cinema.
 
 ## Provision
 ```bash
 $ basename "$(pwd)"
-derkino
+kino
 $ cd ./orchestrators/k8s/terraform
 $ cp .env.example .env
 $ task deploy
 ```
 
 ## Components
-![Derkino Components Diagram](/architecture/components.drawio.svg)
+![Kino Components Diagram](/architecture/components.drawio.svg)

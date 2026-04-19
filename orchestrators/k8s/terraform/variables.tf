@@ -44,31 +44,31 @@ variable "enable_rabbitmq" {
 # Feature Flags - Services
 variable "enable_auth_service" {
   type        = bool
-  description = "Enable Derkino Auth Service"
+  description = "Enable Kino Auth Service"
   default     = true
 }
 
 variable "enable_data_service" {
   type        = bool
-  description = "Enable Derkino Data Service"
+  description = "Enable Kino Data Service"
   default     = true
 }
 
 variable "enable_trend_service" {
   type        = bool
-  description = "Enable Derkino Trend Service"
+  description = "Enable Kino Trend Service"
   default     = true
 }
 
 variable "enable_generative_service" {
   type        = bool
-  description = "Enable Derkino Generative Service"
+  description = "Enable Kino Generative Service"
   default     = true
 }
 
 variable "enable_ui" {
   type        = bool
-  description = "Enable Derkino UI"
+  description = "Enable Kino UI"
   default     = true
 }
 

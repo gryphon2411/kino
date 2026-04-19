@@ -1,9 +1,9 @@
 ---
-description: 'Guidelines for building Spring Boot applications in Derkino project'
+description: 'Guidelines for building Spring Boot applications in Kino project'
 applyTo: '**/*.java, **/*.kt'
 ---
 
-# Spring Boot Development for Derkino Project
+# Spring Boot Development for Kino Project
 
 ## General Instructions
 
@@ -12,7 +12,7 @@ applyTo: '**/*.java, **/*.kt'
 - Handle edge cases and write clear exception handling.
 - For libraries or external dependencies, mention their usage and purpose in comments.
 
-## Spring Boot Instructions for Derkino
+## Spring Boot Instructions for Kino
 
 ### Project Structure
 - Java 17 with Spring Boot 3.1.6
@@ -37,7 +37,7 @@ applyTo: '**/*.java, **/*.kt'
 
 ### Code Organization
 
-- Package Structure: Organize by feature/domain (e.g., com.derkino.data_service.titles)
+- Package Structure: Organize by feature/domain (e.g., com.kino.data_service.titles)
 - Separation of Concerns: Keep controllers thin, services focused, and repositories simple
 - Utility Classes: Make utility classes final with private constructors
 - DTO Pattern: Use DTOs for API responses to decouple from database entities

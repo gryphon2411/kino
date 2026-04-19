@@ -1,8 +1,8 @@
-# Derkino Project - AI Coding Assistant Instructions
+# Kino Project - AI Coding Assistant Instructions
 
 ## Project Overview
 
-Derkino is a microservices-based cinema application that demonstrates various technologies within a Kubernetes environment. The system follows a polyglot architecture with different services implemented in different technologies:
+Kino is a microservices-based cinema application that demonstrates various technologies within a Kubernetes environment. The system follows a polyglot architecture with different services implemented in different technologies:
 
 - **Frontend**: React/Next.js with Material UI and Redux Toolkit
 - **Backend Services**: Spring Boot (Java), Django REST Framework (Python), Node.js/Express
@@ -45,7 +45,7 @@ This is the main repository-wide instructions file for GitHub Copilot. For file-
 - Environment variables use UPPER_SNAKE_CASE
 
 ### File Organization
-- Frontend: `/uis/react-ui/derkino-ui/src/app/[feature]/`
+- Frontend: `/uis/react-ui/kino-ui/src/app/[feature]/`
 - Backend services: `/services/[technology]/[service_name]/`
 - Kubernetes manifests: `/orchestrators/k8s/`
 - Documentation: `/architecture/`, `/NOTES.md`
@@ -87,10 +87,10 @@ This is the main repository-wide instructions file for GitHub Copilot. For file-
 ### Testing
 - Unit tests: Located in each service's `src/test` directory
 - Integration testing: Via Kubernetes deployment with live services
-- Manual testing: Through UI at `http://local.derkino.com`
+- Manual testing: Through UI at `http://local.kino.com`
 - Visual verification: Using browser automation tools to inspect and interact with the UI
 - Test commands:
-  * Frontend: `npm test` in `uis/react-ui/derkino-ui/`
+  * Frontend: `npm test` in `uis/react-ui/kino-ui/`
   * Backend services: Gradle test tasks (e.g., `./gradlew test`)
 
 ### GitHub Workflow
@@ -108,8 +108,8 @@ This is the main repository-wide instructions file for GitHub Copilot. For file-
 ## Environment Configuration
 
 ### API Endpoints
-- Local development: `http://local.derkino.com/api/v1/[service]`
-- Dev environment: `http://dev.derkino.com/api/v1/[service]`
+- Local development: `http://local.kino.com/api/v1/[service]`
+- Dev environment: `http://dev.kino.com/api/v1/[service]`
 - Services: `auth`, `data`, `generative`
 
 ### Environment Variables
@@ -144,7 +144,7 @@ This project follows a "just enough" approach to implementation:
 
 ## Git Commit Message Best Practices
 
-The Derkino project follows the **Conventional Commits** specification with these key points:
+The Kino project follows the **Conventional Commits** specification with these key points:
 
 - **Format**: `<type>(scope): subject` followed by an optional body and/or footer.
 - **Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`.

@@ -15,11 +15,11 @@ https://start.spring.io/
 - Spring Boot: 3.1.6
 
 - Project Metadata:
-  - Group: com.derkino
+  - Group: com.kino
   - Artifact: data_service
   - Name: data_service
-  - Description: Derkino Data Service
-  - Package name: com.derkino.data_service
+  - Description: Kino Data Service
+  - Package name: com.kino.data_service
   - Packaging: Jar
   - Java: 17
 
