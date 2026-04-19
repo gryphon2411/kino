@@ -57,7 +57,6 @@ resource "kubernetes_deployment" "auth_service" {
         container {
           name  = var.environment == "dev" ? "dev-auth-service" : "auth-service"
           image = "gryphon2411/kino-auth_service:latest"
-          image_pull_policy = "IfNotPresent"
 
           port { container_port = 8081 }
 
@@ -168,7 +167,6 @@ resource "kubernetes_deployment" "data_service" {
         container {
           name  = "data-service"
           image = "gryphon2411/kino-data_service:latest"
-          image_pull_policy = "IfNotPresent"
 
           port { container_port = 8080 }
 
@@ -274,7 +272,6 @@ resource "kubernetes_deployment" "trend_service" {
         container {
           name  = "trend-service"
           image = "gryphon2411/kino-trend_service:latest"
-          image_pull_policy = "IfNotPresent"
 
           port { container_port = 8080 }
 
@@ -353,7 +350,6 @@ resource "kubernetes_deployment" "generative_service" {
         container {
           name  = "generative-service"
           image = "gryphon2411/kino-generative_service:latest"
-          image_pull_policy = "IfNotPresent"
 
           port { container_port = 8000 }
 

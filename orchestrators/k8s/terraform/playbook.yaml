@@ -9,7 +9,6 @@
     deploy_environment: "{{ lookup('env', 'TF_VAR_environment') | default('local', true) }}"
     ingress_host: "{{ 'dev.kino.com' if deploy_environment == 'dev' else 'local.kino.com' }}"
     terraform_dir: "{{ playbook_dir }}"
-    repo_root: "{{ (playbook_dir ~ '/../../..') | realpath }}"
     minikube_home: "{{ lookup('env', 'MINIKUBE_HOME') | default(playbook_dir ~ '/.minikube', true) }}"
     minikube_profile: "{{ lookup('env', 'MINIKUBE_PROFILE') | default('kino', true) }}"
     kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default(playbook_dir ~ '/.kube/config', true) }}"
@@ -19,25 +18,6 @@
     helm_repository_cache: "{{ lookup('env', 'HELM_REPOSITORY_CACHE') | default(playbook_dir ~ '/.helm/cache/repository', true) }}"
     helm_repository_config: "{{ lookup('env', 'HELM_REPOSITORY_CONFIG') | default(playbook_dir ~ '/.helm/config/repositories.yaml', true) }}"
     helm_registry_config: "{{ lookup('env', 'HELM_REGISTRY_CONFIG') | default(playbook_dir ~ '/.helm/config/registry/config.json', true) }}"
-    local_container_images:
-      - tag: "gryphon2411/kino-auth_service:latest"
-        context: "services/spring-boot"
-        dockerfile: "auth_service/Dockerfile"
-      - tag: "gryphon2411/kino-data_service:latest"
-        context: "services/spring-boot"
-        dockerfile: "data_service/Dockerfile"
-      - tag: "gryphon2411/kino-trend_service:latest"
-        context: "services/spring-boot/trend_service"
-        dockerfile: "Dockerfile"
-      - tag: "gryphon2411/kino-generative_service:latest"
-        context: "services/django-rest-framework/generative_service"
-        dockerfile: "Dockerfile"
-      - tag: "{{ 'gryphon2411/kino-ui:dev' if deploy_environment == 'dev' else 'gryphon2411/kino-ui:latest' }}"
-        context: "uis/react-ui/kino-ui"
-        dockerfile: "{{ 'Dockerfile-dev' if deploy_environment == 'dev' else 'Dockerfile' }}"
-      - tag: "gryphon2411/kino-jobs:latest"
-        context: "jobs"
-        dockerfile: "Dockerfile"
   environment:
     MINIKUBE_HOME: "{{ minikube_home }}"
     MINIKUBE_PROFILE: "{{ minikube_profile }}"
@@ -101,45 +81,8 @@
       register: minikube_ip
       changed_when: false
 
-    - name: Build local container images into Minikube
-      ansible.builtin.command: >-
-        minikube image build --profile={{ minikube_profile }}
-        --tag={{ item.tag }}
-        --file={{ item.dockerfile }}
-        {{ item.context }}
-      args:
-        chdir: "{{ repo_root }}"
-      loop: "{{ local_container_images }}"
-      loop_control:
-        label: "{{ item.tag }}"
-      register: image_build_result
-      failed_when: image_build_result.rc != 0 or "ERROR:" in image_build_result.stderr
-      changed_when: true
-
-    - name: Detect /etc/hosts update capability
-      ansible.builtin.shell: >-
-        if [ -w /etc/hosts ]; then
-          echo writable;
-        elif command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
-          echo sudo;
-        else
-          echo unavailable;
-        fi
-      args:
-        executable: /bin/bash
-      register: hosts_management_mode
-      changed_when: false
-
-    - name: Warn when /etc/hosts cannot be updated automatically
-      ansible.builtin.debug:
-        msg: >-
-          /etc/hosts is not writable and passwordless sudo is unavailable.
-          Continuing without local host aliases; use curl --resolve {{ ingress_host }}:80:{{ minikube_ip.stdout }}
-          for local endpoint validation.
-      when: hosts_management_mode.stdout | trim == "unavailable"
-
     - name: Update /etc/hosts aliases
-      become: "{{ hosts_management_mode.stdout | trim == 'sudo' }}"
+      become: true
       ansible.builtin.lineinfile:
         path: /etc/hosts
         line: "{{ minikube_ip.stdout }} {{ item.host }}"
@@ -150,7 +93,6 @@
           pattern: "local\\.kino\\.com"
         - host: dev.kino.com
           pattern: "dev\\.kino\\.com"
-      when: hosts_management_mode.stdout | trim != "unavailable"
 
     - name: Initialize Terraform
       ansible.builtin.command: terraform init
@@ -196,9 +138,7 @@
 
     - name: Wait for Data Service
       ansible.builtin.uri:
-        url: "http://{{ minikube_ip.stdout }}/api/v1/data/titles/{{ title_id }}"
-        headers:
-          Host: "{{ ingress_host }}"
+        url: "http://{{ ingress_host }}/api/v1/data/titles/{{ title_id }}"
         status_code: 200
         return_content: false
       register: result
@@ -209,9 +149,7 @@
 
     - name: Warm up Kafka topics (Trigger Search)
       ansible.builtin.uri:
-        url: "http://{{ minikube_ip.stdout }}/api/v1/data/titles/{{ title_id }}"
-        headers:
-          Host: "{{ ingress_host }}"
+        url: "http://{{ ingress_host }}/api/v1/data/titles/{{ title_id }}"
         method: GET
         status_code: 200
       when: result.status == 200

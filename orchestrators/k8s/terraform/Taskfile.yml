@@ -32,7 +32,7 @@ tasks:
     desc: Provision the infrastructure (Ansible -> Terraform)
     deps: [ensure-local-state]
     cmds:
-      - ansible-playbook playbook.yaml -vv
+      - ansible-playbook playbook.yaml -vv -K
       - ./scripts/unseal_vault.sh
 
   setup-vault:

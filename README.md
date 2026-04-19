@@ -1,4 +1,4 @@
-![Kino Logo](/graphic-designs/logo.png)
+![Kino Logo](/graphic-designs/logo-scaled.png)
 
 # Kino
 

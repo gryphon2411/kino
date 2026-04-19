@@ -50,7 +50,7 @@ export default function LoginPage() {
           margin: 'auto' }}
         >
           <Image
-            src="/logo.png"
+            src="/logo-scaled.png"
             alt="Kino Logo"
             width={376}
             height={160}
