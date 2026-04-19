@@ -9,11 +9,11 @@ https://start.spring.io/
 - Spring Boot: 3.1.6
 
 - Project Metadata:
-    - Group: com.derkino
+    - Group: com.kino
     - Artifact: trend_service
     - Name: trend_service
-    - Description: Derkino Data Service
-    - Package name: com.derkino.trend_service
+    - Description: Kino Trend Service
+    - Package name: com.kino.trend_service
     - Packaging: Jar
     - Java: 17
 

@@ -39,7 +39,7 @@ spec:
     spec:
       containers:
       - name: auth-service
-        image: gryphon2411/derkino-auth_service:latest
+        image: gryphon2411/kino-auth_service:latest
         ports:
         - name: http
           containerPort: 8080
@@ -52,7 +52,7 @@ spec:
           value: debug
 
         - name: FORM_LOGIN_REDIRECT_URL
-          value: http://local.derkino.com
+          value: http://local.kino.com
 
         - name: KAFKA_HOSTS
           value: kafka-controller-0.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka-system.svc.cluster.local:9092
@@ -62,7 +62,7 @@ spec:
           value: root
 
         - name: MONGO_DATABASE
-          value: derkino
+          value: kino
         - name: MONGO_HOST_ADDRESS
           value: mongodb.mongodb-system
         - name: MONGO_HOST_PORT
@@ -89,4 +89,4 @@ spec:
               name: redis-stack-default-user-credentials
               key: password
         - name: REDIS_NAMESPACE
-          value: derkino:auth
+          value: kino:auth

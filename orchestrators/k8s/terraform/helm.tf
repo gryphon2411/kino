@@ -1,6 +1,6 @@
 locals {
   rabbitmq_admin_username   = "default"
-  rabbitmq_service_username = "derkino-services"
+  rabbitmq_service_username = "kino-services"
   rabbitmq_admin_password   = coalesce(var.rabbitmq_admin_password, var.rabbitmq_password)
 }
 

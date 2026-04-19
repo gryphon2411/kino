@@ -1,6 +1,6 @@
 set -e
 
-database_name="derkino-data"
+database_name="kino-data"
 
 echo -n "Waiting for server readiness..."
 while ! pg_isready; do

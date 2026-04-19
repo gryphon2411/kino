@@ -8,7 +8,7 @@ locals {
   mongo_env = [
     { name = "MONGO_HOST_ADDRESS", value = "mongodb.mongodb-system" },
     { name = "MONGO_HOST_PORT", value = "27017" },
-    { name = "MONGO_DATABASE", value = "derkino" },
+    { name = "MONGO_DATABASE", value = "kino" },
     { name = "MONGO_USERNAME", value = "root" },
     { name = "MONGO_PASSWORD", value = var.mongodb_password }
   ]
@@ -23,7 +23,7 @@ locals {
   rabbitmq_env = [
     { name = "RABBITMQ_HOST_ADDRESS", value = "rabbitmq.rabbitmq-system" },
     { name = "RABBITMQ_HOST_PORT", value = "5672" },
-    { name = "RABBITMQ_USERNAME", value = "derkino-services" },
+    { name = "RABBITMQ_USERNAME", value = "kino-services" },
     { name = "RABBITMQ_PASSWORD", value = var.rabbitmq_password },
     { name = "RABBITMQ_VHOST", value = "/" }
   ]
@@ -56,13 +56,13 @@ resource "kubernetes_deployment" "auth_service" {
       spec {
         container {
           name  = var.environment == "dev" ? "dev-auth-service" : "auth-service"
-          image = "gryphon2411/derkino-auth_service:latest"
+          image = "gryphon2411/kino-auth_service:latest"
 
           port { container_port = 8081 }
 
           env {
             name  = "SERVICE_HOST_PREFIX"
-            value = var.environment == "dev" ? "http://dev.derkino.com" : "http://local.derkino.com"
+            value = var.environment == "dev" ? "http://dev.kino.com" : "http://local.kino.com"
           }
 
           env {
@@ -82,7 +82,7 @@ resource "kubernetes_deployment" "auth_service" {
 
           env {
             name  = "FORM_LOGIN_REDIRECT_URL"
-            value = var.environment == "dev" ? "http://dev.derkino.com" : "http://local.derkino.com"
+            value = var.environment == "dev" ? "http://dev.kino.com" : "http://local.kino.com"
           }
 
           # DRY: Kafka connection
@@ -120,7 +120,7 @@ resource "kubernetes_deployment" "auth_service" {
 
           env {
             name  = "REDIS_NAMESPACE"
-            value = "derkino:auth"
+            value = "kino:auth"
           }
         }
       }
@@ -166,7 +166,7 @@ resource "kubernetes_deployment" "data_service" {
       spec {
         container {
           name  = "data-service"
-          image = "gryphon2411/derkino-data_service:latest"
+          image = "gryphon2411/kino-data_service:latest"
 
           port { container_port = 8080 }
 
@@ -229,7 +229,7 @@ resource "kubernetes_deployment" "data_service" {
 
           env {
             name  = "REDIS_NAMESPACE"
-            value = "derkino:data"
+            value = "kino:data"
           }
         }
       }
@@ -271,7 +271,7 @@ resource "kubernetes_deployment" "trend_service" {
       spec {
         container {
           name  = "trend-service"
-          image = "gryphon2411/derkino-trend_service:latest"
+          image = "gryphon2411/kino-trend_service:latest"
 
           port { container_port = 8080 }
 
@@ -349,7 +349,7 @@ resource "kubernetes_deployment" "generative_service" {
       spec {
         container {
           name  = "generative-service"
-          image = "gryphon2411/derkino-generative_service:latest"
+          image = "gryphon2411/kino-generative_service:latest"
 
           port { container_port = 8000 }
 
@@ -441,7 +441,7 @@ resource "kubernetes_deployment" "ui" {
       spec {
         container {
           name              = var.environment == "dev" ? "dev-ui" : "ui"
-          image             = var.environment == "dev" ? "gryphon2411/derkino-ui:dev" : "gryphon2411/derkino-ui:latest"
+          image             = var.environment == "dev" ? "gryphon2411/kino-ui:dev" : "gryphon2411/kino-ui:latest"
           image_pull_policy = var.environment == "dev" ? "Always" : "IfNotPresent"
 
           port { container_port = 3000 }
@@ -488,7 +488,7 @@ resource "kubernetes_ingress_v1" "gateway" {
 
   spec {
     rule {
-      host = var.environment == "dev" ? "dev.derkino.com" : "local.derkino.com"
+      host = var.environment == "dev" ? "dev.kino.com" : "local.kino.com"
 
       http {
         path {

@@ -5,7 +5,7 @@ plugins {
 	id 'org.asciidoctor.jvm.convert' version '3.3.2'
 }
 
-group = 'com.derkino'
+group = 'com.kino'
 version = '0.0.1-SNAPSHOT'
 
 java {
@@ -21,7 +21,7 @@ ext {
 }
 
 dependencies {
-	implementation 'com.derkino:commons:0.0.1-SNAPSHOT'
+	implementation 'com.kino:commons:0.0.1-SNAPSHOT'
 	implementation 'org.springframework.kafka:spring-kafka:3.0.13'
 	implementation 'org.springframework.boot:spring-boot-starter-amqp:3.1.6'
 	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb:3.1.6'

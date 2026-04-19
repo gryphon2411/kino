@@ -136,7 +136,7 @@ app.post('/auth/api/v1/login', async (req, res) => {
     let info = await emailTransporter.sendMail({
       from: process.env.EMAIL_USERNAME,
       to: `${user.username} <${user.email}>`,
-      subject: 'Derkino Login Code',
+      subject: 'Kino Login Code',
       text: `Your Code: ${token}`,
       html: `
         <div style="text-align: center;">

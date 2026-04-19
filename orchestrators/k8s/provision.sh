@@ -165,9 +165,9 @@ create_ingress_and_wait() {
     minikube_ip=$(minikube ip)
 
     if [ "$CLUSTER_ENVIRONMENT" = "dev" ]; then
-        hostname="dev.derkino.com"
+        hostname="dev.kino.com"
     else
-        hostname="local.derkino.com"
+        hostname="local.kino.com"
     fi
 
     if ! grep -q "$minikube_ip $hostname" /etc/hosts; then
@@ -232,7 +232,7 @@ start_time=$(date +%s)
 check_dependencies
 prompt_cluster_environment
 
-echo -e "\nProvisioning Derkino k8s $CLUSTER_ENVIRONMENT cluster...\n"
+echo -e "\nProvisioning Kino k8s $CLUSTER_ENVIRONMENT cluster...\n"
 
 if minikube status | grep -q "host: Running"; then
     echo "Minikube is already running."
@@ -289,7 +289,7 @@ if confirm "RabbitMQ system"; then
     minikube -n rabbitmq-system service list | grep --color -E "http-stats|"
 fi
 
-if confirm "Derkino auth service"; then
+if confirm "Kino auth service"; then
     if [ "$CLUSTER_ENVIRONMENT" = "dev" ]; then
         kubectl delete -f orchestrators/k8s/auth-service-deployment.yaml
         create_deploy_and_wait orchestrators/k8s/dev-auth-service-deployment.yaml
@@ -300,22 +300,22 @@ if confirm "Derkino auth service"; then
 fi
 
 
-if confirm "Derkino data service"; then
+if confirm "Kino data service"; then
     create_deploy_and_wait orchestrators/k8s/data-service-deployment.yaml
     # Perform at least 1 data search so all Kafka input topics will be created
 fi
 
-if confirm "Derkino trend service"; then
+if confirm "Kino trend service"; then
     create_deploy_and_wait orchestrators/k8s/trend-service-deployment.yaml
 fi
 
-if confirm "Derkino generative service"; then
+if confirm "Kino generative service"; then
     create_secret_and_wait orchestrators/k8s/generative-service/huggingface-secret.yaml
     create_secret_and_wait orchestrators/k8s/generative-service/gemini-secret.yaml
     create_deploy_and_wait orchestrators/k8s/generative-service/deployment.yaml
 fi
 
-if confirm "Derkino ui"; then
+if confirm "Kino ui"; then
     if [ "$CLUSTER_ENVIRONMENT" = "dev" ]; then
         kubectl delete -f orchestrators/k8s/ui-deployment.yaml
         create_deploy_and_wait orchestrators/k8s/dev-ui-deployment.yaml
@@ -362,4 +362,4 @@ time_duration=$((end_time - start_time))
 minutes=$((time_duration / 60))
 seconds=$((time_duration % 60))
 
-echo -e "\nProvisioned Derkino k8s $CLUSTER_ENVIRONMENT cluster. took ${minutes}m ${seconds}s\n"
+echo -e "\nProvisioned Kino k8s $CLUSTER_ENVIRONMENT cluster. took ${minutes}m ${seconds}s\n"

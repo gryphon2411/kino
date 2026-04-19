@@ -103,8 +103,8 @@ resource "kubernetes_job" "mongodb_init" {
 
       spec {
         container {
-          name  = "derkino-jobs"
-          image = "gryphon2411/derkino-jobs:latest"
+          name  = "kino-jobs"
+          image = "gryphon2411/kino-jobs:latest"
           args  = ["python", "run.py", "mongoinit.py"]
 
           env {

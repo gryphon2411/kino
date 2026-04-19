@@ -1,11 +1,11 @@
 ---
-description: 'ReactJS development standards and best practices for Derkino project'
+description: 'ReactJS development standards and best practices for Kino project'
 applyTo: '**/*.jsx, **/*.tsx, **/*.js, **/*.ts, **/*.css, **/*.scss'
 ---
 
-# ReactJS Development Instructions for Derkino Project
+# ReactJS Development Instructions for Kino Project
 
-Instructions for building ReactJS applications in the Derkino project using Next.js 14 with App Router, Redux Toolkit, and Material UI.
+Instructions for building ReactJS applications in the Kino project using Next.js 14 with App Router, Redux Toolkit, and Material UI.
 
 ## Project Context
 - Next.js 14 with App Router
@@ -139,7 +139,7 @@ Instructions for building ReactJS applications in the Derkino project using Next
 - Use environment variables for configuration
 - Follow the project's "just enough" philosophy - implement only required features
 
-## Common Patterns Used in Derkino
+## Common Patterns Used in Kino
 - Redux slices with async thunks for API calls
 - Request deduplication pattern using requestId
 - Centralized error handling through Redux
