@@ -14,7 +14,7 @@ logger = get_logger(Path(__file__).stem)
 
 def read_csv_data_and_insert_to_database(csv_file_path):
     client = get_database_connection()
-    db = client.derkino
+    db = client.kino
     write_command_batch_limit_size = 100000  # https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limit-Write-Command-Batch-Limit-Size
     total_inserted_ids = 0
     total_rows_read = 0
@@ -87,7 +87,7 @@ def main():
     
     # Create text index for search functionality
     client = get_database_connection()
-    db = client.derkino
+    db = client.kino
     create_text_index(db)
     
     delete_data_dir(data_dir_)

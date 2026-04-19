@@ -15,7 +15,7 @@ class TitleFacts(APIView):
         super().__init__()
 
         self._generative_model = self._get_generative_model()
-        self._rpc_client = RpcClient("derkino.data_service.title.rpc", "rpc")
+        self._rpc_client = RpcClient("kino.data_service.title.rpc", "rpc")
 
     def _get_generative_model(self):
         _generative_model = None

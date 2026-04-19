@@ -71,7 +71,7 @@ class RpcClient:
         return self._response
 
 # Usage:
-# rpc_client = RpcClient('derkino.data_service.title.rpc', 'rpc')
+# rpc_client = RpcClient('kino.data_service.title.rpc', 'rpc')
 # print(" [x] Requesting title")
 # response = rpc_client.call('title_id')
 # print(f" [.] Got {response}")

@@ -7,7 +7,7 @@
     minikube_cpus: "{{ lookup('env', 'MINIKUBE_CPUS') | default('4', true) }}"
     minikube_memory: "{{ lookup('env', 'MINIKUBE_MEMORY') | default('7800mb', true) }}"
     deploy_environment: "{{ lookup('env', 'TF_VAR_environment') | default('local', true) }}"
-    ingress_host: "{{ 'dev.derkino.com' if deploy_environment == 'dev' else 'local.derkino.com' }}"
+    ingress_host: "{{ 'dev.kino.com' if deploy_environment == 'dev' else 'local.kino.com' }}"
     terraform_dir: "{{ playbook_dir }}"
 
   tasks:
@@ -45,20 +45,20 @@
       register: minikube_ip
       changed_when: false
 
-    - name: Update /etc/hosts for local.derkino.com
+    - name: Update /etc/hosts for local.kino.com
       become: true
       ansible.builtin.lineinfile:
         path: /etc/hosts
-        line: "{{ minikube_ip.stdout }} local.derkino.com"
-        regexp: ".*local\\.derkino\\.com"
+        line: "{{ minikube_ip.stdout }} local.kino.com"
+        regexp: ".*local\\.kino\\.com"
         state: present
 
-    - name: Update /etc/hosts for dev.derkino.com
+    - name: Update /etc/hosts for dev.kino.com
       become: true
       ansible.builtin.lineinfile:
         path: /etc/hosts
-        line: "{{ minikube_ip.stdout }} dev.derkino.com"
-        regexp: ".*dev\\.derkino\\.com"
+        line: "{{ minikube_ip.stdout }} dev.kino.com"
+        regexp: ".*dev\\.kino\\.com"
         state: present
 
     - name: Initialize Terraform
@@ -93,7 +93,7 @@
     - name: Fetch valid Title ID for Warmup
       ansible.builtin.command: >-
         kubectl exec -n mongodb-system mongodb-0 --
-        mongosh derkino -u root -p {{ mongodb_pass_b64.stdout | b64decode }}
+        mongosh kino -u root -p {{ mongodb_pass_b64.stdout | b64decode }}
         --authenticationDatabase admin --quiet
         --eval "db.title_basics.findOne({},{_id:1})._id.toString()"
       register: mongo_id_output

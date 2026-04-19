@@ -12,7 +12,7 @@ output "redis_uri" {
 
 output "ingress_url" {
   description = "Ingress Gateway URL"
-  value       = var.enable_ingress ? "http://${var.environment == "dev" ? "dev.derkino.com" : "local.derkino.com"}" : null
+  value       = var.enable_ingress ? "http://${var.environment == "dev" ? "dev.kino.com" : "local.kino.com"}" : null
 }
 
 output "get_grafana_password_cmd" {

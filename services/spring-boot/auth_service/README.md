@@ -25,11 +25,11 @@ https://start.spring.io/
 - Spring Boot: 3.1.10
 
 - Project Metadata:
-  - Group: com.derkino
+  - Group: com.kino
   - Artifact: auth_service
   - Name: auth_service
-  - Description: Derkino Auth Service
-  - Package name: com.derkino.auth_service
+  - Description: Kino Auth Service
+  - Package name: com.kino.auth_service
   - Packaging: Jar
   - Java: 17
 

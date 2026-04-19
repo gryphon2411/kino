@@ -1,21 +1,21 @@
 {
   "name": "auth-service",
   "version": "1.0.0",
-  "description": "Derkino Auth Service",
+  "description": "Kino Auth Service",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gryphon2411/derkino.git"
+    "url": "git+https://github.com/gryphon2411/kino.git"
   },
   "author": "gryphon2411",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/gryphon2411/derkino/issues"
+    "url": "https://github.com/gryphon2411/kino/issues"
   },
-  "homepage": "https://github.com/gryphon2411/derkino#readme",
+  "homepage": "https://github.com/gryphon2411/kino#readme",
   "dependencies": {
     "bcrypt": "^5.1.1",
     "dotenv": "^16.4.5",

@@ -5,7 +5,7 @@
 - Recursively print the content of all files in the current directory: 
   `find . -type f -exec echo -e "\nFile: {}\nContent:" \; -exec cat {} \;`
 
-- Recursively print the content of all files in the current directory:  find ./uis/react-ui/derkino-ui/ \( -path '*/node_modules/*' -o -path '*/.next/*' -o -name 'package-lock.json' -o -name 'favicon.ico' -o -name '*.svg' -o -name '*.md' -o -name '.gitignore' \) -prune -o -type f -exec echo -e "\nFile: {}\nContent:" \; -exec cat {} \;
+- Recursively print the content of all files in the current directory:  find ./uis/react-ui/kino-ui/ \( -path '*/node_modules/*' -o -path '*/.next/*' -o -name 'package-lock.json' -o -name 'favicon.ico' -o -name '*.svg' -o -name '*.md' -o -name '.gitignore' \) -prune -o -type f -exec echo -e "\nFile: {}\nContent:" \; -exec cat {} \;
 
 ## Uncategorized
 

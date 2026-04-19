@@ -27,7 +27,7 @@ Prompt:
 Implement a nest.js auth-service app that has the following features:
 
 1. Database:
-1.1..mongodb with this path: mongodb://localhost/derkino-auth-prod
+1.1..mongodb with this path: mongodb://localhost/kino-auth-prod
 1.2. has users collection with the following fields:
 1.2.1 username, type: String, required: true
 1.2.2. password, type: String, required: true, minLength: 8, maxLength: 64, the password is hashed with 10 salt rounds.

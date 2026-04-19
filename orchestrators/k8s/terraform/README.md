@@ -1,6 +1,6 @@
-# Derkino Kubernetes Terraform
+# Kino Kubernetes Terraform
 
-Infrastructure as Code for deploying the Derkino platform to Kubernetes.
+Infrastructure as Code for deploying the Kino platform to Kubernetes.
 This is a local Minikube workflow, so Terraform state and bootstrap artifacts live in the workspace rather than in a remote backend.
 
 ## Architecture
@@ -59,11 +59,11 @@ task clean
 | `enable_redis` | `bool` | `true` | Enable Redis-Stack system |
 | `enable_kafka` | `bool` | `true` | Enable Kafka system |
 | `enable_rabbitmq` | `bool` | `true` | Enable RabbitMQ system |
-| `enable_auth_service` | `bool` | `true` | Enable Derkino Auth Service |
-| `enable_data_service` | `bool` | `true` | Enable Derkino Data Service |
-| `enable_trend_service` | `bool` | `true` | Enable Derkino Trend Service |
-| `enable_generative_service` | `bool` | `true` | Enable Derkino Generative Service |
-| `enable_ui` | `bool` | `true` | Enable Derkino UI |
+| `enable_auth_service` | `bool` | `true` | Enable Kino Auth Service |
+| `enable_data_service` | `bool` | `true` | Enable Kino Data Service |
+| `enable_trend_service` | `bool` | `true` | Enable Kino Trend Service |
+| `enable_generative_service` | `bool` | `true` | Enable Kino Generative Service |
+| `enable_ui` | `bool` | `true` | Enable Kino UI |
 | `enable_prometheus` | `bool` | `true` | Enable Prometheus system |
 | `enable_grafana` | `bool` | `true` | Enable Grafana system |
 | `enable_ingress` | `bool` | `true` | Enable Gateway Ingress |
