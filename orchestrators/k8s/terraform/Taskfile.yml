@@ -1,20 +1,5 @@
 version: '3'
 dotenv: ['.env']
-env:
-  ANSIBLE_CONFIG: '{{.TASKFILE_DIR}}/ansible.cfg'
-  ANSIBLE_LOCAL_TEMP: '{{.TASKFILE_DIR}}/.ansible/tmp'
-  ANSIBLE_REMOTE_TEMP: '{{.TASKFILE_DIR}}/.ansible/tmp'
-  MINIKUBE_HOME: '{{.TASKFILE_DIR}}/.minikube'
-  MINIKUBE_PROFILE: 'kino'
-  KUBECONFIG: '{{.TASKFILE_DIR}}/.kube/config'
-  HELM_CACHE_HOME: '{{.TASKFILE_DIR}}/.helm/cache'
-  HELM_CONFIG_HOME: '{{.TASKFILE_DIR}}/.helm/config'
-  HELM_DATA_HOME: '{{.TASKFILE_DIR}}/.helm/data'
-  HELM_REPOSITORY_CACHE: '{{.TASKFILE_DIR}}/.helm/cache/repository'
-  HELM_REPOSITORY_CONFIG: '{{.TASKFILE_DIR}}/.helm/config/repositories.yaml'
-  HELM_REGISTRY_CONFIG: '{{.TASKFILE_DIR}}/.helm/config/registry/config.json'
-  TF_VAR_kubeconfig_path: '{{.TASKFILE_DIR}}/.kube/config'
-  TF_VAR_kube_context: 'kino'
 
 tasks:
   default:
@@ -22,29 +7,20 @@ tasks:
     cmds:
       - task --list
 
-  ensure-local-state:
-    internal: true
-    desc: Create local workspace paths for tooling state
-    cmds:
-      - mkdir -p .ansible/tmp .kube .minikube .helm/cache/repository .helm/config/registry .helm/data
-
   deploy:
     desc: Provision the infrastructure (Ansible -> Terraform)
-    deps: [ensure-local-state]
     cmds:
       - ansible-playbook playbook.yaml -vv -K
       - ./scripts/unseal_vault.sh
 
   setup-vault:
     desc: Initialize/Unseal Vault and populate secrets
-    deps: [ensure-local-state]
     cmds:
       - ./scripts/unseal_vault.sh
 
   destroy:
     desc: Destroy the infrastructure (Terraform)
     dir: .
-    deps: [ensure-local-state]
     cmds:
       - kubectl delete secret vault-eso-token -n default --ignore-not-found=true
       - kubectl delete -f k8s/vault-secrets.yaml --ignore-not-found=true
@@ -52,13 +28,11 @@ tasks:
 
   urls:
     desc: Show access URLs for services
-    deps: [ensure-local-state]
     cmds:
-      - minikube service list --profile "$MINIKUBE_PROFILE"
+      - minikube service list
 
   warmup:
     desc: Perform initial data search to warm up Kafka topics
-    deps: [ensure-local-state]
     cmds:
       - echo "Waiting for services to be ready..."
       - sleep 10
@@ -68,11 +42,10 @@ tasks:
 
   clean:
     desc: Full reset - delete Minikube cluster and Terraform state
-    deps: [ensure-local-state]
     cmds:
       - kubectl delete secret vault-eso-token -n default --ignore-not-found=true || true
       - kubectl delete -f k8s/vault-secrets.yaml --ignore-not-found=true || true
       - terraform destroy -auto-approve || true
-      - minikube delete --profile "$MINIKUBE_PROFILE" || true
-      - rm -rf .terraform terraform.tfstate terraform.tfstate.backup .kube .minikube
+      - minikube delete || true
+      - rm -rf .terraform terraform.tfstate terraform.tfstate.backup
       - rm -f terraform.tfstate.*.backup cluster-keys.json terraform-debug.log deploy.log deploy_final_test.log deploy_lint_test.log

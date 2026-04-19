@@ -1,15 +1,11 @@
-locals {
-  kubeconfig_path = pathexpand(coalesce(var.kubeconfig_path, "~/.kube/config"))
-}
-
 provider "kubernetes" {
-  config_path    = local.kubeconfig_path
-  config_context = var.kube_context
+  config_path    = "~/.kube/config"
+  config_context = "minikube"
 }
 
 provider "helm" {
   kubernetes {
-    config_path    = local.kubeconfig_path
-    config_context = var.kube_context
+    config_path    = "~/.kube/config"
+    config_context = "minikube"
   }
 }

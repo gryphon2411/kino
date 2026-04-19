@@ -9,44 +9,8 @@
     deploy_environment: "{{ lookup('env', 'TF_VAR_environment') | default('local', true) }}"
     ingress_host: "{{ 'dev.kino.com' if deploy_environment == 'dev' else 'local.kino.com' }}"
     terraform_dir: "{{ playbook_dir }}"
-    minikube_home: "{{ lookup('env', 'MINIKUBE_HOME') | default(playbook_dir ~ '/.minikube', true) }}"
-    minikube_profile: "{{ lookup('env', 'MINIKUBE_PROFILE') | default('kino', true) }}"
-    kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default(playbook_dir ~ '/.kube/config', true) }}"
-    helm_cache_home: "{{ lookup('env', 'HELM_CACHE_HOME') | default(playbook_dir ~ '/.helm/cache', true) }}"
-    helm_config_home: "{{ lookup('env', 'HELM_CONFIG_HOME') | default(playbook_dir ~ '/.helm/config', true) }}"
-    helm_data_home: "{{ lookup('env', 'HELM_DATA_HOME') | default(playbook_dir ~ '/.helm/data', true) }}"
-    helm_repository_cache: "{{ lookup('env', 'HELM_REPOSITORY_CACHE') | default(playbook_dir ~ '/.helm/cache/repository', true) }}"
-    helm_repository_config: "{{ lookup('env', 'HELM_REPOSITORY_CONFIG') | default(playbook_dir ~ '/.helm/config/repositories.yaml', true) }}"
-    helm_registry_config: "{{ lookup('env', 'HELM_REGISTRY_CONFIG') | default(playbook_dir ~ '/.helm/config/registry/config.json', true) }}"
-  environment:
-    MINIKUBE_HOME: "{{ minikube_home }}"
-    MINIKUBE_PROFILE: "{{ minikube_profile }}"
-    KUBECONFIG: "{{ kubeconfig_path }}"
-    HELM_CACHE_HOME: "{{ helm_cache_home }}"
-    HELM_CONFIG_HOME: "{{ helm_config_home }}"
-    HELM_DATA_HOME: "{{ helm_data_home }}"
-    HELM_REPOSITORY_CACHE: "{{ helm_repository_cache }}"
-    HELM_REPOSITORY_CONFIG: "{{ helm_repository_config }}"
-    HELM_REGISTRY_CONFIG: "{{ helm_registry_config }}"
-    TF_VAR_kubeconfig_path: "{{ kubeconfig_path }}"
-    TF_VAR_kube_context: "{{ minikube_profile }}"
 
   tasks:
-    - name: Ensure local tool state directories exist
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        mode: "0755"
-      loop:
-        - "{{ playbook_dir }}/.ansible/tmp"
-        - "{{ minikube_home }}"
-        - "{{ playbook_dir }}/.kube"
-        - "{{ helm_cache_home }}"
-        - "{{ helm_repository_cache }}"
-        - "{{ helm_config_home }}"
-        - "{{ playbook_dir }}/.helm/config/registry"
-        - "{{ helm_data_home }}"
-
     - name: Check for required tools
       ansible.builtin.command: "which {{ item }}"
       loop:
@@ -59,40 +23,43 @@
       changed_when: false
 
     - name: Check Minikube status
-      ansible.builtin.command: minikube status --profile={{ minikube_profile }}
+      ansible.builtin.command: minikube status
       register: minikube_status
       failed_when: false
       changed_when: false
 
     - name: Start Minikube
       ansible.builtin.command: >-
-        minikube start --profile={{ minikube_profile }} --cpus={{ minikube_cpus }} --memory={{ minikube_memory }}
+        minikube start --cpus={{ minikube_cpus }} --memory={{ minikube_memory }}
       register: minikube_start
       when: "'host: Running' not in minikube_status.stdout"
       changed_when: "'Done!' in minikube_start.stdout"
 
     - name: Enable Ingress Addon
-      ansible.builtin.command: minikube addons enable ingress --profile={{ minikube_profile }}
+      ansible.builtin.command: minikube addons enable ingress
       register: ingress_enable
       changed_when: "'The \\'ingress\\' addon is enabled' not in ingress_enable.stdout"
 
     - name: Get Minikube IP
-      ansible.builtin.command: minikube ip --profile={{ minikube_profile }}
+      ansible.builtin.command: minikube ip
       register: minikube_ip
       changed_when: false
 
-    - name: Update /etc/hosts aliases
+    - name: Update /etc/hosts for local.kino.com
       become: true
       ansible.builtin.lineinfile:
         path: /etc/hosts
-        line: "{{ minikube_ip.stdout }} {{ item.host }}"
-        regexp: ".*{{ item.pattern }}"
+        line: "{{ minikube_ip.stdout }} local.kino.com"
+        regexp: ".*local\\.kino\\.com"
         state: present
-      loop:
-        - host: local.kino.com
-          pattern: "local\\.kino\\.com"
-        - host: dev.kino.com
-          pattern: "dev\\.kino\\.com"
+
+    - name: Update /etc/hosts for dev.kino.com
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "{{ minikube_ip.stdout }} dev.kino.com"
+        regexp: ".*dev\\.kino\\.com"
+        state: present
 
     - name: Initialize Terraform
       ansible.builtin.command: terraform init

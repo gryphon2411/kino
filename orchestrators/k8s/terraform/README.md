@@ -92,9 +92,6 @@ Secrets are managed via:
 
 Runtime defaults:
 - `playbook.yaml` starts Minikube with conservative defaults (`MINIKUBE_CPUS=4`, `MINIKUBE_MEMORY=7800mb`) unless you override them in the shell or `.env`
-- The task flow uses a workspace-local Minikube home/kubeconfig and the `kino` profile/context to avoid colliding with any global `minikube` profile on the machine
-- Helm repository/cache/config state is also kept under the workspace so Terraform's Helm provider does not depend on writable home-directory paths
-- `task deploy` applies the workloads against the selected Minikube profile using the registry-backed service images; it does not build app images directly into Minikube
 
 Destroying the stack with `task destroy` removes the Terraform-managed resources plus the Vault bootstrap artifacts created by `setup-vault`. `task clean` additionally deletes Minikube and local state files.
 
