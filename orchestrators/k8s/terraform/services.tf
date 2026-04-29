@@ -1,4 +1,8 @@
 locals {
+  auth_service_name = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+  auth_service_url  = "http://${local.auth_service_name}:8081/api/v1/auth"
+  data_service_url  = "http://data-service:8082/api/v1/data"
+
   kafka_env = [
     { name = "KAFKA_HOSTS", value = "kafka-controller-0.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka-system.svc.cluster.local:9092" },
     { name = "KAFKA_USERNAME", value = "root" },
@@ -29,12 +33,32 @@ locals {
   ]
 }
 
+resource "tls_private_key" "auth_service_machine_signing_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+resource "kubernetes_secret" "auth_service_machine_signing_key" {
+  count = var.enable_auth_service ? 1 : 0
+
+  metadata {
+    name = "auth-service-machine-signing-key"
+  }
+
+  data = {
+    "private-key.pem" = tls_private_key.auth_service_machine_signing_key.private_key_pem
+    "public-key.pem"  = tls_private_key.auth_service_machine_signing_key.public_key_pem
+  }
+
+  type = "Opaque"
+}
+
 # Auth Service
 resource "kubernetes_deployment" "auth_service" {
   count = var.enable_auth_service ? 1 : 0
 
   metadata {
-    name = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+    name = local.auth_service_name
   }
 
   spec {
@@ -42,20 +66,28 @@ resource "kubernetes_deployment" "auth_service" {
 
     selector {
       match_labels = {
-        app = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+        app = local.auth_service_name
       }
     }
 
     template {
       metadata {
         labels = {
-          app = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+          app = local.auth_service_name
         }
       }
 
       spec {
+        volume {
+          name = "auth-service-machine-signing-key"
+
+          secret {
+            secret_name = kubernetes_secret.auth_service_machine_signing_key[0].metadata[0].name
+          }
+        }
+
         container {
-          name  = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+          name  = local.auth_service_name
           image = "gryphon2411/kino-auth_service:latest"
 
           port { container_port = 8081 }
@@ -81,8 +113,48 @@ resource "kubernetes_deployment" "auth_service" {
           }
 
           env {
+            name  = "AUTH_SERVER_ISSUER_URI"
+            value = local.auth_service_url
+          }
+
+          env {
+            name  = "AUTH_SERVICE_JWT_PRIVATE_KEY_PATH"
+            value = "/var/run/secrets/kino/auth-service-jwt/private-key.pem"
+          }
+
+          env {
+            name  = "AUTH_SERVICE_JWT_PUBLIC_KEY_PATH"
+            value = "/var/run/secrets/kino/auth-service-jwt/public-key.pem"
+          }
+
+          env {
             name  = "FORM_LOGIN_REDIRECT_URL"
             value = var.environment == "dev" ? "http://dev.kino.com" : "http://local.kino.com"
+          }
+
+          env {
+            name  = "AGENT_SERVICE_CLIENT_ID"
+            value = "agent-service"
+          }
+
+          env {
+            name  = "AGENT_SERVICE_CLIENT_SECRET"
+            value = var.agent_service_client_secret
+          }
+
+          env {
+            name  = "AGENT_SERVICE_CLIENT_SCOPES"
+            value = "kino.agent.curator.read"
+          }
+
+          env {
+            name  = "AGENT_SERVICE_CLIENT_AUDIENCE"
+            value = "kino-data-internal"
+          }
+
+          env {
+            name  = "MACHINE_ACCESS_TOKEN_TTL"
+            value = "PT5M"
           }
 
           # DRY: Kafka connection
@@ -122,6 +194,12 @@ resource "kubernetes_deployment" "auth_service" {
             name  = "REDIS_NAMESPACE"
             value = "kino:auth"
           }
+
+          volume_mount {
+            name       = "auth-service-machine-signing-key"
+            mount_path = "/var/run/secrets/kino/auth-service-jwt"
+            read_only  = true
+          }
         }
       }
     }
@@ -132,12 +210,12 @@ resource "kubernetes_service" "auth_service" {
   count = var.enable_auth_service ? 1 : 0
 
   metadata {
-    name = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+    name = local.auth_service_name
   }
 
   spec {
     selector = {
-      app = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+      app = local.auth_service_name
     }
 
     port {
@@ -183,6 +261,21 @@ resource "kubernetes_deployment" "data_service" {
           env {
             name  = "SERVICE_PREFIX_PATH"
             value = "/api/v1/data"
+          }
+
+          env {
+            name  = "AUTH_SERVER_ISSUER_URI"
+            value = local.auth_service_url
+          }
+
+          env {
+            name  = "AUTH_SERVER_JWK_SET_URI"
+            value = "${local.auth_service_url}/oauth2/jwks"
+          }
+
+          env {
+            name  = "DATA_SERVICE_INTERNAL_AUDIENCE"
+            value = "kino-data-internal"
           }
 
           # DRY: MongoDB connection
@@ -380,7 +473,7 @@ resource "kubernetes_deployment" "generative_service" {
 
           env {
             name  = "DATA_SERVICE_URL"
-            value = "http://data-service:8082/api/v1/data"
+            value = local.data_service_url
           }
 
           dynamic "env" {
@@ -443,7 +536,22 @@ resource "kubernetes_deployment" "agent_service" {
 
           env {
             name  = "KINO_DATA_SERVICE_URL"
-            value = "http://data-service:8082/api/v1/data"
+            value = local.data_service_url
+          }
+
+          env {
+            name  = "KINO_AUTH_SERVICE_URL"
+            value = local.auth_service_url
+          }
+
+          env {
+            name  = "KINO_AUTH_CLIENT_ID"
+            value = "agent-service"
+          }
+
+          env {
+            name  = "KINO_AUTH_CLIENT_SECRET"
+            value = var.agent_service_client_secret
           }
 
           env {

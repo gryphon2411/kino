@@ -42,7 +42,13 @@ async def search_titles(
             explicitly asks to include adult content.
         size: Number of candidates to return. Use 5 to 12; default is 8.
     """
-    client = KinoDataServiceClient(CuratorSettings.from_env().data_service_url)
+    settings = CuratorSettings.from_env()
+    client = KinoDataServiceClient(
+        base_url=settings.data_service_url,
+        auth_service_url=settings.auth_service_url,
+        auth_client_id=settings.auth_client_id,
+        auth_client_secret=settings.auth_client_secret,
+    )
     return await client.search_titles(
         free_text=free_text,
         genres=genres,

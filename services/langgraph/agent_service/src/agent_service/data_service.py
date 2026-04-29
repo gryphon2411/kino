@@ -9,10 +9,46 @@ import httpx
 
 
 @dataclass(frozen=True)
+class MachineAccessTokenClient:
+    """Client for Kino auth service client-credentials tokens."""
+
+    base_url: str
+    client_id: str
+    client_secret: str
+
+    async def issue_token(self) -> str:
+        """Request a short-lived bearer token for internal API access."""
+        if not self.base_url or not self.client_id or not self.client_secret:
+            raise ValueError(
+                "KINO_AUTH_SERVICE_URL, KINO_AUTH_CLIENT_ID, and "
+                "KINO_AUTH_CLIENT_SECRET must be configured."
+            )
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(
+                f"{self.base_url}/oauth2/token",
+                auth=(self.client_id, self.client_secret),
+                data={"grant_type": "client_credentials"},
+            )
+            response.raise_for_status()
+
+        payload = response.json()
+        access_token = payload.get("access_token")
+        if not access_token:
+            raise ValueError(
+                "Kino auth service did not return an access token."
+            )
+        return str(access_token)
+
+
+@dataclass(frozen=True)
 class KinoDataServiceClient:
     """Client for the Kino data service title endpoints."""
 
     base_url: str
+    auth_service_url: str
+    auth_client_id: str
+    auth_client_secret: str
 
     async def search_titles(
         self,
@@ -35,11 +71,23 @@ class KinoDataServiceClient:
         )
 
         try:
+            headers = await self._authorization_header()
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(
-                    f"{self.base_url}/titles", params=params
+                    f"{self.base_url}/internal/titles/search",
+                    params=params,
+                    headers=headers,
                 )
                 response.raise_for_status()
+        except ValueError as exc:
+            return [
+                {
+                    "error": (
+                        "Failed to authenticate against Kino auth service: "
+                        f"{exc}"
+                    )
+                }
+            ]
         except httpx.HTTPError as exc:
             return [{"error": f"Failed to query Kino data service: {exc}"}]
 
@@ -72,6 +120,15 @@ class KinoDataServiceClient:
         if title_type:
             params["titleType"] = title_type
         return params
+
+    async def _authorization_header(self) -> dict[str, str]:
+        token_client = MachineAccessTokenClient(
+            base_url=self.auth_service_url,
+            client_id=self.auth_client_id,
+            client_secret=self.auth_client_secret,
+        )
+        access_token = await token_client.issue_token()
+        return {"Authorization": f"Bearer {access_token}"}
 
 
 class TitleCompactor:
