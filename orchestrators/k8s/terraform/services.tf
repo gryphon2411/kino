@@ -414,6 +414,104 @@ resource "kubernetes_service" "generative_service" {
   }
 }
 
+# Agent Service
+resource "kubernetes_deployment" "agent_service" {
+  count = var.enable_agent_service ? 1 : 0
+
+  wait_for_rollout = false
+
+  metadata { name = "agent-service" }
+
+  spec {
+    replicas = 1
+    selector { match_labels = { app = "agent-service" } }
+
+    template {
+      metadata { labels = { app = "agent-service" } }
+
+      spec {
+        container {
+          name  = "agent-service"
+          image = "gryphon2411/kino-agent_service:latest"
+
+          port { container_port = 2024 }
+
+          env {
+            name  = "MOUNT_PREFIX"
+            value = "/api/v1/agent"
+          }
+
+          env {
+            name  = "KINO_DATA_SERVICE_URL"
+            value = "http://data-service:8082/api/v1/data"
+          }
+
+          env {
+            name  = "KINO_CURATOR_PROVIDER"
+            value = var.agent_service_provider
+          }
+
+          env {
+            name  = "KINO_CURATOR_MODEL"
+            value = var.agent_service_model
+          }
+
+          env {
+            name  = "KINO_CURATOR_THINKING_LEVEL"
+            value = "high"
+          }
+
+          dynamic "env" {
+            for_each = var.agent_service_provider == "google_genai" ? [1] : []
+            content {
+              name = "GOOGLE_API_KEY"
+              value_from {
+                secret_key_ref {
+                  name = "gemini-api-key"
+                  key  = "api-key"
+                }
+              }
+            }
+          }
+
+          dynamic "env" {
+            for_each = var.agent_service_provider == "nvidia_nim" ? [1] : []
+            content {
+              name = "NVIDIA_API_KEY"
+              value_from {
+                secret_key_ref {
+                  name = "agent-service-secrets"
+                  key  = "nvidia-api-key"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [kubernetes_service.data_service]
+}
+
+resource "kubernetes_service" "agent_service" {
+  count = var.enable_agent_service ? 1 : 0
+
+  metadata { name = "agent-service" }
+
+  spec {
+    selector = { app = "agent-service" }
+
+    port {
+      name        = "http"
+      port        = 8084
+      target_port = 2024
+    }
+
+    type = "NodePort"
+  }
+}
+
 # UI
 resource "kubernetes_deployment" "ui" {
   count = var.enable_ui ? 1 : 0
@@ -535,6 +633,21 @@ resource "kubernetes_ingress_v1" "gateway" {
             service {
               name = "generative-service"
               port { number = 8083 }
+            }
+          }
+        }
+
+        dynamic "path" {
+          for_each = var.enable_agent_service ? [1] : []
+          content {
+            path      = "/api/v1/agent"
+            path_type = "Prefix"
+
+            backend {
+              service {
+                name = "agent-service"
+                port { number = 8084 }
+              }
             }
           }
         }

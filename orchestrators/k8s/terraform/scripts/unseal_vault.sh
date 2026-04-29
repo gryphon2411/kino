@@ -120,7 +120,14 @@ if is_placeholder "${TF_VAR_huggingface_hub_access_token:-}" || is_placeholder "
     echo "WARNING: TF_VAR_huggingface_hub_access_token and/or TF_VAR_gemini_api_key are missing or still placeholder values. Existing Vault secrets were left unchanged."
 else
     kubectl exec -n "$NAMESPACE" "$VAULT_POD" -- sh -c 'VAULT_TOKEN="$1" vault kv put secret/generative-service HUGGINGFACE_HUB_ACCESS_TOKEN="$2" GEMINI_API_KEY="$3" >/dev/null' sh "$ROOT_TOKEN" "${TF_VAR_huggingface_hub_access_token}" "${TF_VAR_gemini_api_key}"
-    echo "Secrets written to Vault."
+    echo "Generative service secrets written to Vault."
+fi
+
+if is_placeholder "${TF_VAR_nvidia_api_key:-}"; then
+    echo "WARNING: TF_VAR_nvidia_api_key is missing or still a placeholder value. Existing agent service Vault secrets were left unchanged."
+else
+    kubectl exec -n "$NAMESPACE" "$VAULT_POD" -- sh -c 'VAULT_TOKEN="$1" vault kv put secret/agent-service NVIDIA_API_KEY="$2" >/dev/null' sh "$ROOT_TOKEN" "${TF_VAR_nvidia_api_key}"
+    echo "Agent service secrets written to Vault."
 fi
 
 echo "Configuring External Secrets policy..."
@@ -130,6 +137,14 @@ path "secret/data/generative-service" {
 }
 
 path "secret/metadata/generative-service" {
+  capabilities = ["read", "list"]
+}
+
+path "secret/data/agent-service" {
+  capabilities = ["read"]
+}
+
+path "secret/metadata/agent-service" {
   capabilities = ["read", "list"]
 }
 EOF

@@ -66,6 +66,12 @@ variable "enable_generative_service" {
   default     = true
 }
 
+variable "enable_agent_service" {
+  type        = bool
+  description = "Enable Kino Agent Service"
+  default     = false
+}
+
 variable "enable_ui" {
   type        = bool
   description = "Enable Kino UI"
@@ -127,6 +133,34 @@ variable "rabbitmq_password" {
 variable "rabbitmq_admin_password" {
   type        = string
   description = "RabbitMQ admin password. Defaults to rabbitmq_password when unset."
+  sensitive   = true
+  default     = null
+  nullable    = true
+}
+
+variable "agent_service_provider" {
+  type        = string
+  description = "Kino Agent Service model provider"
+  default     = "nvidia_nim"
+
+  validation {
+    condition = contains(
+      ["google_genai", "nvidia_nim"],
+      var.agent_service_provider
+    )
+    error_message = "Agent service provider must be 'google_genai' or 'nvidia_nim'."
+  }
+}
+
+variable "agent_service_model" {
+  type        = string
+  description = "Kino Agent Service model name"
+  default     = "deepseek-ai/deepseek-v3.2"
+}
+
+variable "nvidia_api_key" {
+  type        = string
+  description = "NVIDIA API key for Kino Agent Service"
   sensitive   = true
   default     = null
   nullable    = true

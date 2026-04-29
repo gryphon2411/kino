@@ -16,7 +16,7 @@ Taskfile.yml          # Orchestration (deploy, destroy, setup-vault, clean)
     ├── namespaces.tf # Namespace resources
     ├── databases.tf  # MongoDB, Postgres, Redis
     ├── helm.tf       # Kafka, RabbitMQ, Prometheus, Grafana, Vault, ESO
-    └── services.tf   # Auth, Data, Trend, Generative, UI, Ingress
+    └── services.tf   # Auth, Data, Trend, Generative, Agent, UI, Ingress
 ```
 
 ## Prerequisites
@@ -63,6 +63,7 @@ task clean
 | `enable_data_service` | `bool` | `true` | Enable Kino Data Service |
 | `enable_trend_service` | `bool` | `true` | Enable Kino Trend Service |
 | `enable_generative_service` | `bool` | `true` | Enable Kino Generative Service |
+| `enable_agent_service` | `bool` | `false` | Enable Kino Agent Service |
 | `enable_ui` | `bool` | `true` | Enable Kino UI |
 | `enable_prometheus` | `bool` | `true` | Enable Prometheus system |
 | `enable_grafana` | `bool` | `true` | Enable Grafana system |
@@ -73,6 +74,9 @@ task clean
 | `kafka_password` | `string` | — | Kafka password (sensitive) |
 | `rabbitmq_password` | `string` | — | RabbitMQ password (sensitive) |
 | `rabbitmq_admin_password` | `string` | `null` | Optional RabbitMQ admin password. Falls back to `rabbitmq_password` when unset |
+| `agent_service_provider` | `string` | `"nvidia_nim"` | Kino Agent Service model provider |
+| `agent_service_model` | `string` | `"deepseek-ai/deepseek-v3.2"` | Kino Agent Service model |
+| `nvidia_api_key` | `string` | `null` | NVIDIA API key for Kino Agent Service |
 
 ## Outputs
 
@@ -82,6 +86,12 @@ task clean
 | `redis_uri` | In-cluster Redis connection URI (sensitive) |
 | `ingress_url` | Ingress Gateway URL |
 | `get_grafana_password_cmd` | Command to retrieve Grafana password |
+
+## Agent Service
+
+The LangGraph agent service runs the in-memory `langgraph dev` runtime in
+Kubernetes. It is disabled by default and requires `nvidia_api_key` when
+enabled with the default `nvidia_nim` provider.
 
 ## Security
 

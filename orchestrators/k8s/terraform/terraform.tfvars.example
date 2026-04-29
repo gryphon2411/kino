@@ -11,7 +11,12 @@ enable_auth_service       = true
 enable_data_service       = true
 enable_trend_service      = true
 enable_generative_service = true
+enable_agent_service      = false
 enable_ui                 = true
 enable_prometheus         = true
 enable_grafana            = true
 enable_ingress            = true
+
+# Agent Service
+agent_service_provider = "nvidia_nim"
+agent_service_model    = "deepseek-ai/deepseek-v3.2"

@@ -1,0 +1,83 @@
+[project]
+name = "kino-agent-service"
+version = "0.0.1"
+description = "Kino LangGraph agent service."
+authors = []
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28.1",
+    "langchain>=1.0.0",
+    "langchain-core>=1.3.0",
+    "langchain-google-genai>=4.0.0",
+    "langchain-nvidia-ai-endpoints>=1.1.0",
+    "langgraph>=1.0.0",
+    "python-dotenv>=1.0.1",
+]
+
+
+[project.optional-dependencies]
+serve = [
+    "langgraph-cli[inmem]>=0.4.14",
+]
+dev = [
+    "anyio>=4.7.0",
+    "langgraph-cli[inmem]>=0.4.14",
+    "mypy>=1.11.1",
+    "pytest>=8.3.5",
+    "ruff>=0.6.1",
+]
+
+[build-system]
+requires = ["setuptools>=73.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["agent_service"]
+[tool.setuptools.package-dir]
+"agent_service" = "src/agent_service"
+
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.ruff]
+line-length = 79
+lint.select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "D",    # pydocstyle
+    "D401", # First line should be in imperative mood
+    "T201",
+    "UP",
+]
+lint.ignore = [
+    "UP006",
+    "UP007",
+    # We actually do want to import from typing_extensions
+    "UP035",
+    # Relax the convention by _not_ requiring documentation for every function parameter.
+    "D417",
+    "E501",
+]
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D", "UP"]
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
+[dependency-groups]
+dev = [
+    "anyio>=4.7.0",
+    "langgraph-cli[inmem]>=0.4.14",
+    "mypy>=1.13.0",
+    "pytest>=8.3.5",
+    "ruff>=0.8.2",
+]

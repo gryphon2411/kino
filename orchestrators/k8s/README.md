@@ -3,7 +3,8 @@
 ## Kubernetes
 
 ```bash
-source ./orchestrators/k8s/provision.sh
+cd orchestrators/k8s/terraform
+task deploy
 ```
 
 ### Helm Cheatsheet 

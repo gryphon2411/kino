@@ -1,0 +1,50 @@
+import pytest
+
+from agent_service.config import (
+    DEFAULT_DATA_SERVICE_URL,
+    DEFAULT_GOOGLE_API_KEY,
+    DEFAULT_THINKING_LEVEL,
+    GOOGLE_GENAI_PROVIDER,
+    NVIDIA_NIM_PROVIDER,
+    CuratorSettings,
+)
+from agent_service.llm import CuratorModelFactory
+
+
+def test_settings_infers_nvidia_provider_for_kimi(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("KINO_CURATOR_PROVIDER", raising=False)
+    monkeypatch.setenv("KINO_CURATOR_MODEL", "moonshotai/kimi-k2.5")
+
+    settings = CuratorSettings.from_env()
+
+    assert settings.model_provider == NVIDIA_NIM_PROVIDER
+
+
+def test_settings_reads_nvidia_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KINO_CURATOR_PROVIDER", "NVIDIA_NIM")
+    monkeypatch.setenv("KINO_CURATOR_MODEL", "deepseek-ai/deepseek-v3.2")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test")
+
+    settings = CuratorSettings.from_env()
+
+    assert settings.model_provider == NVIDIA_NIM_PROVIDER
+    assert settings.model_name == "deepseek-ai/deepseek-v3.2"
+    assert settings.nvidia_api_key == "nvapi-test"
+
+
+def test_nvidia_model_rejects_google_provider() -> None:
+    settings = CuratorSettings(
+        data_service_url=DEFAULT_DATA_SERVICE_URL,
+        google_api_key=DEFAULT_GOOGLE_API_KEY,
+        model_provider=GOOGLE_GENAI_PROVIDER,
+        model_name="moonshotai/kimi-k2.5",
+        thinking_level=DEFAULT_THINKING_LEVEL,
+        nvidia_api_key="",
+    )
+
+    with pytest.raises(ValueError, match="nvidia_nim"):
+        CuratorModelFactory(settings).create()
