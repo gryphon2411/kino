@@ -110,3 +110,35 @@ def test_finalize_agent_state_uses_grounded_candidate_fields() -> None:
     assert response.cards[0].year == 1995
     assert response.cards[0].titleType == "movie"
     assert response.cards[0].genres == ["Crime", "Thriller"]
+
+
+def test_finalize_agent_state_reports_missing_year_matches() -> None:
+    state = {
+        "messages": [
+            HumanMessage(
+                content="Recommend thriller movies from 1990 onward."
+            ),
+            ToolMessage(
+                content=json.dumps(
+                    [
+                        {
+                            "id": "a1",
+                            "title": "The Man Who Disappeared",
+                            "year": 1914,
+                            "titleType": "movie",
+                            "genres": ["Thriller"],
+                        }
+                    ]
+                ),
+                tool_call_id="call-1",
+                name="search_titles",
+            ),
+        ]
+    }
+
+    response = graph_module.finalize_agent_state(state)
+
+    assert response.cards == []
+    assert response.notes == [
+        "The grounded catalog search did not return any matches from 1990 onward."
+    ]

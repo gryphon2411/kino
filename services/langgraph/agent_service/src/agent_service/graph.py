@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, cast
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from typing_extensions import TypedDict
 
 from agent_service.config import CuratorSettings
@@ -21,16 +22,14 @@ Use only the Kino catalog results from search_titles.
 
 Workflow:
 1. Call search_titles once with the most specific supported constraints.
-2. If the first results are empty or mostly violate explicit user constraints,
-   make at most one broader follow-up search.
-3. After the second search, stop searching and answer from the latest results.
+2. After that search, stop searching and answer from the grounded results.
 
 Rules:
 - Use search_titles before recommending unless the user is only asking how you work.
-- Never call search_titles more than twice total.
-- Never chain multiple synonym searches or repeated reformulations.
-- If results are still imperfect after the second search, return the best grounded
-  matches and mention the limitation in plain language.
+- Never call search_titles more than once total.
+- Never retry, reformulate, or broaden the search inside the same request.
+- If results are imperfect, return the best grounded matches and mention the
+  limitation in plain language.
 - Recommend only returned titles.
 - Do not invent titles, IDs, years, genres, runtime data, or popularity signals.
 - Return a short natural-language recommendation summary after tool use.
@@ -47,6 +46,14 @@ class SearchSnapshot(TypedDict):
 class CuratorResponseMiddleware(AgentMiddleware):
     """Attach Kino's deterministic structured response after the agent loop."""
 
+    async def awrap_model_call(self, request: Any, handler: Any) -> Any:
+        """Skip the post-tool model pass and return a grounded summary."""
+        messages = request.state.get("messages", [])
+        if _should_short_circuit_after_search(messages):
+            response = finalize_agent_state(request.state)
+            return AIMessage(content=_natural_language_summary(response))
+        return await handler(request)
+
     def after_agent(
         self, state: dict[str, Any], runtime: Any
     ) -> dict[str, Any] | None:
@@ -62,13 +69,26 @@ def finalize_agent_state(state: dict[str, Any]) -> CuratorResponse:
     snapshot = _latest_search_snapshot(state.get("messages", []))
     if snapshot["error"]:
         return CuratorResponse(notes=[snapshot["error"]])
-    if not snapshot["candidates"]:
+    candidates, notes = _apply_request_filters(
+        user_request, snapshot["candidates"]
+    )
+    if not candidates:
         return CuratorResponse(
-            notes=[
-                "The catalog search did not return any grounded candidates."
-            ]
+            notes=notes
+            or ["The catalog search did not return any grounded candidates."]
         )
-    return _fallback_response(user_request, snapshot["candidates"])
+    response = _fallback_response(user_request, candidates)
+    response.notes = [*notes, *response.notes][:3]
+    return response
+
+
+def _should_short_circuit_after_search(messages: list[Any]) -> bool:
+    """Return true when the next model call follows search_titles output."""
+    return (
+        bool(messages)
+        and isinstance(messages[-1], ToolMessage)
+        and messages[-1].name == "search_titles"
+    )
 
 
 def _latest_search_snapshot(messages: list[Any]) -> SearchSnapshot:
@@ -132,6 +152,52 @@ def _extract_user_request(messages: list[Any]) -> str:
                     parts.append(item["text"])
             return "\n".join(part for part in parts if part)
     return ""
+
+
+def _apply_request_filters(
+    user_request: str, candidates: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Apply minimal deterministic filtering for explicit request constraints."""
+    notes: list[str] = []
+    filtered = candidates
+
+    min_year = _requested_min_year(user_request)
+    if min_year is not None:
+        year_filtered = [
+            candidate
+            for candidate in filtered
+            if (year := _to_int(candidate.get("year"))) is not None
+            and year >= min_year
+        ]
+        if year_filtered:
+            filtered = year_filtered
+        else:
+            notes.append(
+                "The grounded catalog search did not return any matches "
+                f"from {min_year} onward."
+            )
+            return [], notes
+
+    return filtered, notes
+
+
+def _requested_min_year(user_request: str) -> int | None:
+    """Extract a minimum year constraint from common request phrasing."""
+    match = re.search(
+        r"\bfrom\s+((?:19|20)\d{2})\s+(?:onward|onwards|or later)\b",
+        user_request.lower(),
+    )
+    if match:
+        return int(match.group(1))
+
+    match = re.search(
+        r"\b((?:19|20)\d{2})\s*(?:\+|and up|onward|onwards|or later)\b",
+        user_request.lower(),
+    )
+    if match:
+        return int(match.group(1))
+
+    return None
 
 
 def _fallback_response(
@@ -198,6 +264,41 @@ def _fallback_tradeoff(candidate: dict[str, Any]) -> str:
     return (
         "The catalog fit is based on metadata, not plot or popularity signals."
     )
+
+
+def _natural_language_summary(response: CuratorResponse) -> str:
+    """Build a short grounded summary without another model call."""
+    if not response.cards:
+        if response.notes:
+            return response.notes[0]
+        return "I could not find grounded matches in Kino's catalog."
+
+    titles = [
+        (
+            f"{card.title} ({card.year})"
+            if card.year is not None
+            else card.title
+        )
+        for card in response.cards
+    ]
+    if len(titles) == 1:
+        summary = (
+            f"Based on Kino's catalog, I can ground this match: {titles[0]}."
+        )
+    elif len(titles) == 2:
+        summary = (
+            "Based on Kino's catalog, I can ground these matches: "
+            f"{titles[0]} and {titles[1]}."
+        )
+    else:
+        summary = (
+            "Based on Kino's catalog, I can ground these matches: "
+            f"{titles[0]}, {titles[1]}, and {titles[2]}."
+        )
+
+    if response.notes:
+        return f"{summary} Note: {response.notes[0]}"
+    return summary
 
 
 def _to_int(value: Any) -> int | None:

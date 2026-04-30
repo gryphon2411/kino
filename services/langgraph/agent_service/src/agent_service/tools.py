@@ -26,9 +26,8 @@ async def search_titles(
     popularity, trend data, or external web results. If the request mentions
     constraints this tool does not support directly, such as decade or runtime,
     search by the closest supported fields first and filter/rank from the
-    returned records. Call this tool at most twice per user request: one initial
-    search and, only if needed, one broader retry. After the second call, stop
-    searching and answer from the latest grounded results.
+    returned records. Call this tool once per user request, then answer from the
+    grounded results without retrying or reformulating the search.
 
     Args:
         free_text: Keyword or title text for Kino's text search. Use short phrases
