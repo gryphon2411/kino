@@ -17,7 +17,7 @@ DEFAULT_AUTH_CLIENT_SECRET = ""
 DEFAULT_GOOGLE_API_KEY = "missing-google-api-key"
 DEFAULT_NVIDIA_API_KEY = ""
 NVIDIA_NIM_MODELS = frozenset(
-    {"deepseek-ai/deepseek-v3.2", "moonshotai/kimi-k2.5"}
+    {"deepseek-ai/deepseek-v3.2", "moonshotai/kimi-k2.5", "z-ai/glm-5.1"}
 )
 
 

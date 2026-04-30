@@ -25,6 +25,17 @@ def test_settings_infers_nvidia_provider_for_kimi(
     assert settings.model_provider == NVIDIA_NIM_PROVIDER
 
 
+def test_settings_infers_nvidia_provider_for_glm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("KINO_CURATOR_PROVIDER", raising=False)
+    monkeypatch.setenv("KINO_CURATOR_MODEL", "z-ai/glm-5.1")
+
+    settings = CuratorSettings.from_env()
+
+    assert settings.model_provider == NVIDIA_NIM_PROVIDER
+
+
 def test_settings_reads_nvidia_configuration(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
