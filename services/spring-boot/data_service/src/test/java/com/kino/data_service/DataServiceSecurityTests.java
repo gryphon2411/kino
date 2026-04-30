@@ -20,9 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -72,12 +70,11 @@ class DataServiceSecurityTests {
     @Test
     void machineTokenCanAccessInternalSearchRoute() throws Exception {
         when(this.titleService.getTitlesPage(
-                any(), anyString(), anyString(), anyBoolean(),
-                anyList(), anyString()
+                any(), any(), any(), any(), any(), any(), any()
         )).thenReturn(new PageImpl<>(List.of(this.sampleTitleDto())));
 
         this.mockMvc.perform(
-                        get("/api/v1/data/internal/titles/search?page=0&size=1")
+                        get("/api/v1/data/internal/titles/search?page=0&size=1&startYearGte=1990")
                                 .with(this.machineToken())
                 )
                 .andExpect(status().isOk());

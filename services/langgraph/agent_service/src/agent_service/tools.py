@@ -15,6 +15,7 @@ async def search_titles(
     free_text: str | None = None,
     genres: list[str] | None = None,
     title_type: str | None = None,
+    start_year_gte: int | None = None,
     is_adult: bool = False,
     size: int = 8,
 ) -> list[dict[str, Any]]:
@@ -24,7 +25,7 @@ async def search_titles(
     recommendations. The tool returns compact title records with id, title, year,
     title type, runtime minutes, and genres. It does not return plots, ratings,
     popularity, trend data, or external web results. If the request mentions
-    constraints this tool does not support directly, such as decade or runtime,
+    constraints this tool does not support directly, such as runtime,
     search by the closest supported fields first and filter/rank from the
     returned records. Call this tool once per user request, then answer from the
     grounded results without retrying or reformulating the search.
@@ -39,6 +40,9 @@ async def search_titles(
         title_type: IMDb-style title type, such as "movie", "tvSeries",
             "tvEpisode", or "short". Leave empty unless the user asks for a
             specific format.
+        start_year_gte: Minimum release year, such as 1990 for requests like
+            "from 1990 onward". Leave empty if the user did not give an
+            explicit lower year bound.
         is_adult: Whether adult titles are allowed. Keep false unless the user
             explicitly asks to include adult content.
         size: Number of candidates to return. Use 5 to 12; default is 8.
@@ -54,6 +58,7 @@ async def search_titles(
         free_text=free_text,
         genres=genres,
         title_type=title_type,
+        start_year_gte=start_year_gte,
         is_adult=is_adult,
         size=size,
     )

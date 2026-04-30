@@ -19,8 +19,10 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
     
     @Override
     public Page<Title> getTitlesPage(Pageable pageable, String titleType, String primaryTitle, Boolean isAdult,
-                                     List<String> genres, String freeText) {
-        Query query = buildTitlesQuery(titleType, primaryTitle, isAdult, genres, freeText);
+                                     List<String> genres, String freeText, Integer startYearGte) {
+        Query query = buildTitlesQuery(
+                titleType, primaryTitle, isAdult, genres, freeText, startYearGte
+        );
 
         query.with(pageable);
 
@@ -29,7 +31,8 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
         return new PageImpl<>(content, pageable, mongoTemplate.count(query, Title.class));
     }
 
-    private Query buildTitlesQuery(String titleType, String primaryTitle, Boolean isAdult, List<String> genres, String freeText) {
+    private Query buildTitlesQuery(String titleType, String primaryTitle, Boolean isAdult,
+                                   List<String> genres, String freeText, Integer startYearGte) {
         Query query;
         
         // Use text search if freeText is provided
@@ -49,6 +52,9 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
         }
         if (isAdult != null) {
             query.addCriteria(Criteria.where("isAdult").is(isAdult));
+        }
+        if (startYearGte != null) {
+            query.addCriteria(Criteria.where("startYear").gte(startYearGte));
         }
         if (genres != null && !genres.isEmpty()) {
             // For genres, we'll use regex matching to search within the list

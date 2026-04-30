@@ -26,6 +26,8 @@ Workflow:
 
 Rules:
 - Use search_titles before recommending unless the user is only asking how you work.
+- If the user gives a minimum year like "from 1990 onward", pass it as
+  start_year_gte in the search_titles call.
 - Never call search_titles more than once total.
 - Never retry, reformulate, or broaden the search inside the same request.
 - If results are imperfect, return the best grounded matches and mention the
@@ -238,11 +240,14 @@ def _fallback_reason(user_request: str, candidate: dict[str, Any]) -> str:
     reasons: list[str] = []
     if "thriller" in request_lower and "thriller" in genres:
         reasons.append("It matches the requested thriller genre.")
+    if "action" in request_lower and "action" in genres:
+        reasons.append("It matches the requested action genre.")
     title_type = str(candidate.get("titleType") or "")
     if "movie" in request_lower and title_type == "movie":
         reasons.append("It matches the requested movie format.")
     year = _to_int(candidate.get("year"))
-    if year is not None and "1990 onward" in request_lower and year >= 1990:
+    min_year = _requested_min_year(user_request)
+    if year is not None and min_year is not None and year >= min_year:
         reasons.append(f"It fits the requested year range ({year}).")
     if not reasons:
         reasons.append(
