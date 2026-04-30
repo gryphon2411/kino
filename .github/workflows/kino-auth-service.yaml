@@ -1,9 +1,13 @@
 # The name of this workflow.
 name: kino auth service ci
 
-# Specifies that this workflow should run on every push event for the branches in the list.
 on:
   push:
+    branches:
+      - master
+    paths:
+      - services/spring-boot/auth_service/**
+  pull_request:
     branches:
       - master
     paths:
