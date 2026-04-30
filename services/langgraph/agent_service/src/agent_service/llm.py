@@ -61,11 +61,11 @@ class CuratorModelFactory:
         model_kwargs: dict[str, Any] = {
             "base_url": NVIDIA_OPENAI_BASE_URL,
             "max_retries": 0,
-            "max_tokens": 320,
+            "max_tokens": 192,
             "model": self.settings.model_name,
             "stream_usage": False,
             "temperature": 0,
-            "timeout": 120,
+            "timeout": 180,
             "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
         }
         if self.settings.nvidia_api_key:

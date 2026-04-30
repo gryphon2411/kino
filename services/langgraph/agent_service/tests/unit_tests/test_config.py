@@ -100,7 +100,7 @@ def test_nvidia_model_uses_low_latency_settings() -> None:
     assert isinstance(model, ChatOpenAI)
     assert model.temperature == 0
     assert model.max_retries == 0
-    assert model.request_timeout == 120
+    assert model.request_timeout == 180
     assert model.extra_body == {
         "chat_template_kwargs": {"enable_thinking": False}
     }
