@@ -1,4 +1,5 @@
 import pytest
+from langchain_openai import ChatOpenAI
 
 from agent_service.config import (
     DEFAULT_AUTH_CLIENT_ID,
@@ -79,3 +80,27 @@ def test_nvidia_model_rejects_google_provider() -> None:
 
     with pytest.raises(ValueError, match="nvidia_nim"):
         CuratorModelFactory(settings).create()
+
+
+def test_nvidia_model_uses_low_latency_settings() -> None:
+    settings = CuratorSettings(
+        data_service_url=DEFAULT_DATA_SERVICE_URL,
+        auth_service_url=DEFAULT_AUTH_SERVICE_URL,
+        auth_client_id=DEFAULT_AUTH_CLIENT_ID,
+        auth_client_secret=DEFAULT_AUTH_CLIENT_SECRET,
+        google_api_key=DEFAULT_GOOGLE_API_KEY,
+        model_provider=NVIDIA_NIM_PROVIDER,
+        model_name="z-ai/glm-5.1",
+        thinking_level=DEFAULT_THINKING_LEVEL,
+        nvidia_api_key="nvapi-test",
+    )
+
+    model = CuratorModelFactory(settings).create()
+
+    assert isinstance(model, ChatOpenAI)
+    assert model.temperature == 0
+    assert model.max_retries == 0
+    assert model.request_timeout == 120
+    assert model.extra_body == {
+        "chat_template_kwargs": {"enable_thinking": False}
+    }

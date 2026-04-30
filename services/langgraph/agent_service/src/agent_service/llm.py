@@ -60,9 +60,13 @@ class CuratorModelFactory:
         """Create a configured NVIDIA NIM chat model."""
         model_kwargs: dict[str, Any] = {
             "base_url": NVIDIA_OPENAI_BASE_URL,
-            "max_tokens": 900,
+            "max_retries": 0,
+            "max_tokens": 320,
             "model": self.settings.model_name,
             "stream_usage": False,
+            "temperature": 0,
+            "timeout": 120,
+            "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
         }
         if self.settings.nvidia_api_key:
             model_kwargs["api_key"] = self.settings.nvidia_api_key
