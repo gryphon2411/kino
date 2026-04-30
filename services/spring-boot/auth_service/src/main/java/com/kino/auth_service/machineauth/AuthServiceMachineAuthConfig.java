@@ -151,7 +151,23 @@ public class AuthServiceMachineAuthConfig {
     @Bean
     public OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer() {
         String audience = this.properties.getAgent().getAudience();
-        return context -> context.getClaims().audience(List.of(audience));
+        return context -> {
+            context.getClaims().audience(List.of(audience));
+
+            LinkedHashSet<String> authorizedScopes = new LinkedHashSet<>(
+                    context.getAuthorizedScopes()
+            );
+            if (authorizedScopes.isEmpty()) {
+                authorizedScopes.addAll(
+                        context.getRegisteredClient().getScopes()
+                );
+            }
+            if (!authorizedScopes.isEmpty()) {
+                context.getClaims().claim(
+                        "scope", String.join(" ", authorizedScopes)
+                );
+            }
+        };
     }
 
     private ClientSettings clientSettings() {

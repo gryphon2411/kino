@@ -74,6 +74,8 @@ class AuthServiceMachineAuthTests {
                 .contains("kino-data-internal");
         Assertions.assertThat(jwt.getIssuer().toString())
                 .isEqualTo("http://auth-service:8081/api/v1/auth");
+        Assertions.assertThat(jwt.getClaimAsString("scope"))
+                .isEqualTo("kino.agent.curator.read");
     }
 
     @Test
