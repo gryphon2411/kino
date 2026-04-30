@@ -26,7 +26,8 @@ async def search_titles(
     popularity, trend data, or external web results. If the request mentions
     constraints this tool does not support directly, such as decade or runtime,
     search by the closest supported fields first and filter/rank from the
-    returned records.
+    returned records. Call this tool once per user request, then answer from the
+    grounded results without retrying or reformulating the search.
 
     Args:
         free_text: Keyword or title text for Kino's text search. Use short phrases
@@ -42,7 +43,13 @@ async def search_titles(
             explicitly asks to include adult content.
         size: Number of candidates to return. Use 5 to 12; default is 8.
     """
-    client = KinoDataServiceClient(CuratorSettings.from_env().data_service_url)
+    settings = CuratorSettings.from_env()
+    client = KinoDataServiceClient(
+        base_url=settings.data_service_url,
+        auth_service_url=settings.auth_service_url,
+        auth_client_id=settings.auth_client_id,
+        auth_client_secret=settings.auth_client_secret,
+    )
     return await client.search_titles(
         free_text=free_text,
         genres=genres,

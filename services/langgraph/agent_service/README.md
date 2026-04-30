@@ -29,7 +29,9 @@ Example local invocation payload:
 
 Kino Curator uses LangChain's `create_agent`, which builds a LangGraph runtime
 for the model/tool loop. The model decides when to call the `search_titles` tool.
-The tool uses the data service when `KINO_DATA_SERVICE_URL` is configured.
+The tool uses the internal data-service search endpoint and authenticates with
+short-lived JWT machine tokens from auth-service when
+`KINO_DATA_SERVICE_URL` and the machine-auth settings are configured.
 
 Enable Gemini for real tool-calling runs:
 
@@ -38,6 +40,9 @@ export KINO_CURATOR_PROVIDER=google_genai
 export KINO_CURATOR_MODEL=gemini-3.1-flash-lite-preview
 export KINO_CURATOR_THINKING_LEVEL=high
 export GOOGLE_API_KEY=...
+export KINO_AUTH_SERVICE_URL=http://localhost:8081/api/v1/auth
+export KINO_AUTH_CLIENT_ID=agent-service
+export KINO_AUTH_CLIENT_SECRET=...
 ```
 
 Use NVIDIA NIM through LangChain's `ChatNVIDIA` integration:
@@ -71,6 +76,9 @@ docker run --rm -p 2024:2024 \
   -e KINO_CURATOR_PROVIDER=nvidia_nim \
   -e KINO_CURATOR_MODEL=deepseek-ai/deepseek-v3.2 \
   -e NVIDIA_API_KEY=... \
+  -e KINO_AUTH_SERVICE_URL=http://host.docker.internal:8081/api/v1/auth \
+  -e KINO_AUTH_CLIENT_ID=agent-service \
+  -e KINO_AUTH_CLIENT_SECRET=... \
   gryphon2411/kino-agent_service:latest
 ```
 
@@ -89,3 +97,7 @@ restarts.
 The official standalone Agent Server image from `langgraph build` requires
 Redis, Postgres, `LANGSMITH_API_KEY`, and `LANGGRAPH_CLOUD_LICENSE_KEY` at
 runtime. Switch to that path only if those credentials become available.
+
+The internal auth path assumes auth-service signs machine JWTs with a stable
+RSA key. In the Kubernetes/Terraform flow, that key is generated once by
+Terraform and mounted into auth-service from a Kubernetes secret.

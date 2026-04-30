@@ -7,7 +7,7 @@ from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from langchain_openai import ChatOpenAI
 
 from agent_service.config import (
     GOOGLE_GENAI_PROVIDER,
@@ -15,6 +15,8 @@ from agent_service.config import (
     NVIDIA_NIM_PROVIDER,
     CuratorSettings,
 )
+
+NVIDIA_OPENAI_BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 
 @dataclass(frozen=True)
@@ -54,16 +56,22 @@ class CuratorModelFactory:
 
         return ChatGoogleGenerativeAI(**model_kwargs)
 
-    def _create_nvidia_model(self) -> ChatNVIDIA:
+    def _create_nvidia_model(self) -> ChatOpenAI:
         """Create a configured NVIDIA NIM chat model."""
         model_kwargs: dict[str, Any] = {
-            "max_completion_tokens": 900,
+            "base_url": NVIDIA_OPENAI_BASE_URL,
+            "max_retries": 0,
+            "max_tokens": 192,
             "model": self.settings.model_name,
+            "stream_usage": False,
+            "temperature": 0,
+            "timeout": 180,
+            "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
         }
         if self.settings.nvidia_api_key:
             model_kwargs["api_key"] = self.settings.nvidia_api_key
 
-        return ChatNVIDIA(**model_kwargs)
+        return ChatOpenAI(**model_kwargs)
 
     def _raise_if_nvidia_model_uses_google(self) -> None:
         """Reject NVIDIA-only model IDs on the Gemini provider."""

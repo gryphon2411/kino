@@ -11,10 +11,13 @@ DEFAULT_MODEL_PROVIDER = GOOGLE_GENAI_PROVIDER
 DEFAULT_MODEL = "gemini-3.1-flash-lite-preview"
 DEFAULT_THINKING_LEVEL = "high"
 DEFAULT_DATA_SERVICE_URL = ""
+DEFAULT_AUTH_SERVICE_URL = ""
+DEFAULT_AUTH_CLIENT_ID = ""
+DEFAULT_AUTH_CLIENT_SECRET = ""
 DEFAULT_GOOGLE_API_KEY = "missing-google-api-key"
 DEFAULT_NVIDIA_API_KEY = ""
 NVIDIA_NIM_MODELS = frozenset(
-    {"deepseek-ai/deepseek-v3.2", "moonshotai/kimi-k2.5"}
+    {"deepseek-ai/deepseek-v3.2", "moonshotai/kimi-k2.5", "z-ai/glm-5.1"}
 )
 
 
@@ -23,6 +26,9 @@ class CuratorSettings:
     """Environment-driven configuration for Kino Curator."""
 
     data_service_url: str
+    auth_service_url: str
+    auth_client_id: str
+    auth_client_secret: str
     google_api_key: str
     model_provider: str
     model_name: str
@@ -35,6 +41,15 @@ class CuratorSettings:
         data_service_url = os.getenv(
             "KINO_DATA_SERVICE_URL", DEFAULT_DATA_SERVICE_URL
         ).rstrip("/")
+        auth_service_url = os.getenv(
+            "KINO_AUTH_SERVICE_URL", DEFAULT_AUTH_SERVICE_URL
+        ).rstrip("/")
+        auth_client_id = os.getenv(
+            "KINO_AUTH_CLIENT_ID", DEFAULT_AUTH_CLIENT_ID
+        )
+        auth_client_secret = os.getenv(
+            "KINO_AUTH_CLIENT_SECRET", DEFAULT_AUTH_CLIENT_SECRET
+        )
         model_name = os.getenv("KINO_CURATOR_MODEL", DEFAULT_MODEL)
         model_provider = os.getenv("KINO_CURATOR_PROVIDER")
         if model_provider:
@@ -53,6 +68,9 @@ class CuratorSettings:
 
         return cls(
             data_service_url=data_service_url,
+            auth_service_url=auth_service_url,
+            auth_client_id=auth_client_id,
+            auth_client_secret=auth_client_secret,
             google_api_key=google_api_key,
             model_provider=model_provider,
             model_name=model_name,
