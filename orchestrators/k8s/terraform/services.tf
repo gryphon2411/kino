@@ -46,7 +46,7 @@ resource "kubernetes_secret" "auth_service_machine_signing_key" {
   }
 
   data = {
-    "private-key.pem" = tls_private_key.auth_service_machine_signing_key.private_key_pem
+    "private-key.pem" = tls_private_key.auth_service_machine_signing_key.private_key_pem_pkcs8
     "public-key.pem"  = tls_private_key.auth_service_machine_signing_key.public_key_pem
   }
 
