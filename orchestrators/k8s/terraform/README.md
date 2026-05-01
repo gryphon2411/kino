@@ -96,7 +96,7 @@ by default, so it requires `nvidia_api_key` when enabled. Set `gemini_api_key`
 only if you switch the provider to `google_genai`.
 
 Agent-to-data access now uses short-lived JWT machine tokens issued by
-auth-service. Set `agent_service_client_secret` before relying on the curator
+auth-service. Set `agent_service_client_secret` before relying on the discovery
 flow. Terraform also generates a persistent RSA signing key for auth-service
 and mounts it as a Kubernetes secret so the JWT signing key survives pod
 restarts within the same Terraform state.

@@ -1,4 +1,4 @@
-"""Middleware and deterministic post-processing for Kino Curator."""
+"""Middleware and deterministic post-processing for Kino Discover."""
 
 from __future__ import annotations
 
@@ -334,7 +334,7 @@ class CuratorResponseBuilder:
 
 
 class CuratorTitleAnnotation(BaseModel):
-    """Optional formatter output for a selected recommendation title."""
+    """Optional formatter output for a selected discovery title."""
 
     id: str = Field(description="Selected Kino catalog title id.")
     reason: str | None = Field(
@@ -343,7 +343,7 @@ class CuratorTitleAnnotation(BaseModel):
 
 
 class CuratorTitleAnnotationResponse(BaseModel):
-    """Structured formatter output for selected recommendation titles."""
+    """Structured formatter output for selected discovery titles."""
 
     titles: list[CuratorTitleAnnotation] = Field(
         default_factory=list,
@@ -353,11 +353,11 @@ class CuratorTitleAnnotationResponse(BaseModel):
 
 
 class CuratorResponseFormatter:
-    """Use the model only to enrich selected titles with optional text."""
+    """Use the model only to enrich selected titles with optional discovery text."""
 
     SYSTEM_PROMPT: ClassVar[str] = """
 # Role
-You are formatting already-selected Kino recommendation titles.
+You are formatting already-selected Kino discovery titles.
 
 # Inputs
 Use only:
@@ -399,7 +399,7 @@ Use only:
                 )
             )
         except Exception:
-            logger.exception("Failed to format curator title annotations.")
+            logger.exception("Failed to format discovery title annotations.")
             return response
         return self._merge_annotations(response, annotations)
 
@@ -419,7 +419,7 @@ Use only:
                 )
             )
         except Exception:
-            logger.exception("Failed to format curator title annotations.")
+            logger.exception("Failed to format discovery title annotations.")
             return response
         return self._merge_annotations(response, annotations)
 

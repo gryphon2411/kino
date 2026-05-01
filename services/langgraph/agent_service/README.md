@@ -1,8 +1,8 @@
 # Kino Agent Service
 
-LangGraph-based agent service for Kino. The first workflow is **Kino Curator**:
+LangGraph-based agent service for Kino. The first workflow is **Kino Discover**:
 a small `create_agent` tool-calling title discovery agent that turns fuzzy taste
-requests into structured title recommendations.
+requests into structured title discoveries.
 
 ## Development
 
@@ -27,7 +27,7 @@ Example local invocation payload:
 }
 ```
 
-Kino Curator uses LangChain's `create_agent`, which builds a LangGraph runtime
+Kino Discover uses LangChain's `create_agent`, which builds a LangGraph runtime
 for the model/tool loop. The model decides when to call the `search_titles` tool.
 The tool uses the internal data-service search endpoint and authenticates with
 short-lived JWT machine tokens from auth-service when

@@ -1,4 +1,4 @@
-"""Configuration for the Kino Curator."""
+"""Configuration for Kino Discover."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from agent_service.model_catalog import CuratorModelCatalog
 
 @dataclass(frozen=True)
 class CuratorSettings:
-    """Environment-driven configuration for Kino Curator."""
+    """Environment-driven configuration for Kino Discover."""
 
     DEFAULT_MODEL: ClassVar[str] = "gemini-3.1-flash-lite-preview"
     DEFAULT_THINKING_LEVEL: ClassVar[str] = "high"

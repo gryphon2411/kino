@@ -1,4 +1,4 @@
-"""Structured response models for Kino Curator."""
+"""Structured response models for Kino Discover."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class CuratorTitle(BaseModel):
-    """Single Kino title recommendation."""
+    """Single Kino title discovery result."""
 
     id: str = Field(description="Kino catalog title id.")
     title: str = Field(description="Display title.")
@@ -25,11 +25,11 @@ class CuratorTitle(BaseModel):
 
 
 class CuratorResponse(BaseModel):
-    """Structured Kino Curator response."""
+    """Structured Kino Discover response."""
 
     titles: list[CuratorTitle] = Field(
         default_factory=list,
-        description="Grounded Kino title recommendations.",
+        description="Grounded Kino title discoveries.",
         max_length=5,
     )
     notes: list[str] = Field(

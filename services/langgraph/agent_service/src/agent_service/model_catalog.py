@@ -1,4 +1,4 @@
-"""Static provider and model-family policy for Kino Curator."""
+"""Static provider and model-family policy for Kino Discover."""
 
 from __future__ import annotations
 

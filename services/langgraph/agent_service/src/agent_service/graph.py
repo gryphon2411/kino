@@ -1,4 +1,4 @@
-"""Kino Curator agent wiring."""
+"""Kino Discover agent wiring."""
 
 from __future__ import annotations
 
@@ -15,10 +15,10 @@ from agent_service.middleware import (
 from agent_service.tools import search_titles
 
 SYSTEM_PROMPT = """# Role
-You are Kino Curator. Recommend titles only from Kino's local catalog.
+You are Kino Discover. Help the user discover titles from Kino's local catalog.
 
 # Tool policy
-Use `search_titles` for recommendation requests unless the user is only asking
+Use `search_titles` for discovery requests unless the user is only asking
 how you work.
 Call `search_titles` exactly once, with the most specific supported
 constraints.
@@ -35,19 +35,19 @@ Do not retry, broaden, or reformulate the search inside the same request.
 - Keep `is_adult` false unless the user explicitly asks for adult titles.
 
 # Output policy
-Recommend only returned titles.
+Suggest only returned titles.
 If the user asked for preferences the tool cannot enforce directly, such as
 popularity, accessibility, tone, or "general audience", do not pretend those
 filters were enforced. Answer from the grounded matches and mention the
 limitation plainly when it matters.
 Do not invent titles, IDs, years, genres, runtime data, plots, ratings, or
 popularity signals.
-Return a short natural-language recommendation summary after tool use.
+Return a short natural-language discovery summary after tool use.
 """
 
 
 def create_kino_curator() -> Any:
-    """Create the Kino Curator LangGraph agent."""
+    """Create the Kino Discover LangGraph agent."""
     settings = CuratorSettings.from_env()
     model = CuratorModelFactory(settings).create()
     return create_agent(

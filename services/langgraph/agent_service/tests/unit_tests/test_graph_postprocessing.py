@@ -376,7 +376,7 @@ def test_formatter_failure_is_logged_and_response_is_preserved(caplog) -> None:
         )
 
     assert formatted == response
-    assert "Failed to format curator title annotations." in caplog.text
+    assert "Failed to format discovery title annotations." in caplog.text
 
 
 def test_sync_middleware_short_circuits_after_search() -> None:

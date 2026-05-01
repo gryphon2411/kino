@@ -1,4 +1,4 @@
-"""LLM construction for Kino Curator."""
+"""LLM construction for Kino Discover."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from agent_service.model_catalog import CuratorModelCatalog
 
 @dataclass(frozen=True)
 class CuratorModelFactory:
-    """Build the chat model used by the curator."""
+    """Build the chat model used by the discovery flow."""
 
     settings: CuratorSettings
 

@@ -1,4 +1,4 @@
-"""Tools available to Kino Curator."""
+"""Tools available to Kino Discover."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ async def search_titles(
     """Search Kino's local IMDb title catalog.
 
     Use this tool to retrieve real Kino catalog candidates before making
-    recommendations. The tool returns compact title records with id, title, year,
+    grounded discovery suggestions. The tool returns compact title records with id, title, year,
     title type, runtime minutes, and genres. It does not return plots, ratings,
     popularity, trend data, or external web results. If the request mentions
     constraints this tool does not support directly, such as runtime,

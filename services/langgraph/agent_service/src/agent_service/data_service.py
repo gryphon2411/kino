@@ -146,7 +146,7 @@ class TitleCompactor:
 
     @classmethod
     def compact(cls, title: dict[str, Any]) -> dict[str, Any]:
-        """Return the title fields the curator needs."""
+        """Return the title fields the discovery flow needs."""
         title_id = str(title.get("id") or title.get("titleConst") or "")
         title_name = (
             title.get("primaryTitle")
