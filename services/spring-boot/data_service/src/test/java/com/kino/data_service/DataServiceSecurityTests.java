@@ -70,11 +70,11 @@ class DataServiceSecurityTests {
     @Test
     void machineTokenCanAccessInternalSearchRoute() throws Exception {
         when(this.titleService.getTitlesPage(
-                any(), any(), any(), any(), any(), any(), any()
+                any(), any(), any(), any(), any(), any(), any(), any()
         )).thenReturn(new PageImpl<>(List.of(this.sampleTitleDto())));
 
         this.mockMvc.perform(
-                        get("/api/v1/data/internal/titles/search?page=0&size=1&startYearGte=1990")
+                        get("/api/v1/data/internal/titles/search?page=0&size=1&minYear=1990")
                                 .with(this.machineToken())
                 )
                 .andExpect(status().isOk());

@@ -19,8 +19,12 @@ class CuratorCard(BaseModel):
     genres: list[str] = Field(
         default_factory=list, description="Known title genres."
     )
-    reason: str = Field(description="Why this title fits the user request.")
-    tradeoff: str = Field(description="One useful caveat or uncertainty.")
+    reason: str | None = Field(
+        default=None, description="Why this title fits the user request."
+    )
+    tradeoff: str | None = Field(
+        default=None, description="One useful caveat or uncertainty."
+    )
 
 
 class CuratorResponse(BaseModel):

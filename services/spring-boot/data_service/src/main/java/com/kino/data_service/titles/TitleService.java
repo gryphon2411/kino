@@ -35,15 +35,15 @@ public class TitleService {
     public Page<TitleDto> getTitlesPage(Pageable pageable, String titleType, String primaryTitle, Boolean isAdult,
                                         List<String> genres, String freeText) {
         return getTitlesPage(
-                pageable, titleType, primaryTitle, isAdult, genres, freeText, null
+                pageable, titleType, primaryTitle, isAdult, genres, freeText, null, null
         );
     }
 
     public Page<TitleDto> getTitlesPage(Pageable pageable, String titleType, String primaryTitle, Boolean isAdult,
-                                        List<String> genres, String freeText, Integer startYearGte) {
+                                        List<String> genres, String freeText, Integer minYear, Integer maxYear) {
         Page<Title> titlesPage = repository.getTitlesPage(
                 pageable, titleType, primaryTitle, isAdult, genres, freeText,
-                startYearGte
+                minYear, maxYear
         );
         Page<TitleDto> titlesDtoPage = titlesPage.map(TitleDto::new);
 

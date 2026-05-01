@@ -55,7 +55,8 @@ class KinoDataServiceClient:
         free_text: str | None,
         genres: list[str] | None,
         title_type: str | None,
-        start_year_gte: int | None,
+        min_year: int | None,
+        max_year: int | None,
         is_adult: bool,
         size: int,
     ) -> list[dict[str, Any]]:
@@ -67,7 +68,8 @@ class KinoDataServiceClient:
             free_text=free_text,
             genres=genres,
             title_type=title_type,
-            start_year_gte=start_year_gte,
+            min_year=min_year,
+            max_year=max_year,
             is_adult=is_adult,
             size=size,
         )
@@ -107,7 +109,8 @@ class KinoDataServiceClient:
         free_text: str | None,
         genres: list[str] | None,
         title_type: str | None,
-        start_year_gte: int | None,
+        min_year: int | None,
+        max_year: int | None,
         is_adult: bool,
         size: int,
     ) -> dict[str, Any]:
@@ -122,8 +125,10 @@ class KinoDataServiceClient:
             params["genres"] = genres
         if title_type:
             params["titleType"] = title_type
-        if start_year_gte is not None:
-            params["startYearGte"] = start_year_gte
+        if min_year is not None:
+            params["minYear"] = min_year
+        if max_year is not None:
+            params["maxYear"] = max_year
         return params
 
     async def _authorization_header(self) -> dict[str, str]:

@@ -7,5 +7,5 @@ import java.util.List;
 
 public interface CustomTitleRepository {
     Page<Title> getTitlesPage(Pageable pageable, String titleType, String primaryTitle, Boolean isAdult,
-                              List<String> genres, String freeText, Integer startYearGte);
+                              List<String> genres, String freeText, Integer minYear, Integer maxYear);
 }

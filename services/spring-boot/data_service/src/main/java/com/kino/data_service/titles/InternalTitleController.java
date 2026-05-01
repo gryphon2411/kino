@@ -26,11 +26,12 @@ public class InternalTitleController {
             @RequestParam(required = false) Boolean isAdult,
             @RequestParam(required = false) List<String> genres,
             @RequestParam(required = false) String freeText,
-            @RequestParam(required = false) Integer startYearGte
+            @RequestParam(required = false) Integer minYear,
+            @RequestParam(required = false) Integer maxYear
     ) {
         return this.service.getTitlesPage(
                 pageable, titleType, primaryTitle, isAdult, genres, freeText,
-                startYearGte
+                minYear, maxYear
         );
     }
 }

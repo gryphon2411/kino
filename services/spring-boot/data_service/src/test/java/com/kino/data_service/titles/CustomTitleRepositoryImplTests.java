@@ -29,7 +29,7 @@ class CustomTitleRepositoryImplTests {
     private CustomTitleRepositoryImpl repository;
 
     @Test
-    void getTitlesPageAppliesStartYearLowerBound() {
+    void getTitlesPageAppliesYearBounds() {
         Pageable pageable = PageRequest.of(0, 8);
         when(this.mongoTemplate.find(any(Query.class), eq(Title.class)))
                 .thenReturn(List.of());
@@ -37,7 +37,7 @@ class CustomTitleRepositoryImplTests {
                 .thenReturn(0L);
 
         this.repository.getTitlesPage(
-                pageable, "movie", null, false, List.of("Action"), null, 1990
+                pageable, "movie", null, false, List.of("Action"), null, 1990, 2000
         );
 
         ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
@@ -53,5 +53,7 @@ class CustomTitleRepositoryImplTests {
                 .isEqualTo("Action");
         assertThat(((Document) queryObject.get("startYear")).get("$gte"))
                 .isEqualTo(1990);
+        assertThat(((Document) queryObject.get("startYear")).get("$lte"))
+                .isEqualTo(2000);
     }
 }

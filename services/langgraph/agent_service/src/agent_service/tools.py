@@ -15,7 +15,8 @@ async def search_titles(
     free_text: str | None = None,
     genres: list[str] | None = None,
     title_type: str | None = None,
-    start_year_gte: int | None = None,
+    min_year: int | None = None,
+    max_year: int | None = None,
     is_adult: bool = False,
     size: int = 8,
 ) -> list[dict[str, Any]]:
@@ -40,9 +41,12 @@ async def search_titles(
         title_type: IMDb-style title type, such as "movie", "tvSeries",
             "tvEpisode", or "short". Leave empty unless the user asks for a
             specific format.
-        start_year_gte: Minimum release year, such as 1990 for requests like
+        min_year: Minimum release/start year, such as 1990 for requests like
             "from 1990 onward". Leave empty if the user did not give an
             explicit lower year bound.
+        max_year: Maximum release/start year, such as 2000 for requests like
+            "through 2000" or "between 1990 and 2000". Leave empty if the
+            user did not give an explicit upper year bound.
         is_adult: Whether adult titles are allowed. Keep false unless the user
             explicitly asks to include adult content.
         size: Number of candidates to return. Use 5 to 12; default is 8.
@@ -58,7 +62,8 @@ async def search_titles(
         free_text=free_text,
         genres=genres,
         title_type=title_type,
-        start_year_gte=start_year_gte,
+        min_year=min_year,
+        max_year=max_year,
         is_adult=is_adult,
         size=size,
     )

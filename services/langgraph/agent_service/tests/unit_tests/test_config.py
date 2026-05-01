@@ -2,18 +2,9 @@ import pytest
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
-from agent_service.config import (
-    DEFAULT_AUTH_CLIENT_ID,
-    DEFAULT_AUTH_CLIENT_SECRET,
-    DEFAULT_AUTH_SERVICE_URL,
-    DEFAULT_DATA_SERVICE_URL,
-    DEFAULT_GOOGLE_API_KEY,
-    DEFAULT_THINKING_LEVEL,
-    GOOGLE_GENAI_PROVIDER,
-    NVIDIA_NIM_PROVIDER,
-    CuratorSettings,
-)
+from agent_service.config import CuratorSettings
 from agent_service.llm import CuratorModelFactory
+from agent_service.model_catalog import CuratorModelCatalog
 
 
 def test_settings_infers_nvidia_provider_for_kimi(
@@ -24,7 +15,7 @@ def test_settings_infers_nvidia_provider_for_kimi(
 
     settings = CuratorSettings.from_env()
 
-    assert settings.model_provider == NVIDIA_NIM_PROVIDER
+    assert settings.model_provider == CuratorModelCatalog.NVIDIA_NIM_PROVIDER
 
 
 def test_settings_infers_nvidia_provider_for_glm(
@@ -35,7 +26,7 @@ def test_settings_infers_nvidia_provider_for_glm(
 
     settings = CuratorSettings.from_env()
 
-    assert settings.model_provider == NVIDIA_NIM_PROVIDER
+    assert settings.model_provider == CuratorModelCatalog.NVIDIA_NIM_PROVIDER
 
 
 def test_settings_reads_nvidia_configuration(
@@ -47,7 +38,7 @@ def test_settings_reads_nvidia_configuration(
 
     settings = CuratorSettings.from_env()
 
-    assert settings.model_provider == NVIDIA_NIM_PROVIDER
+    assert settings.model_provider == CuratorModelCatalog.NVIDIA_NIM_PROVIDER
     assert settings.model_name == "deepseek-ai/deepseek-v3.2"
     assert settings.nvidia_api_key == "nvapi-test"
 
@@ -68,14 +59,14 @@ def test_settings_reads_machine_auth_configuration(
 
 def test_nvidia_model_rejects_google_provider() -> None:
     settings = CuratorSettings(
-        data_service_url=DEFAULT_DATA_SERVICE_URL,
-        auth_service_url=DEFAULT_AUTH_SERVICE_URL,
-        auth_client_id=DEFAULT_AUTH_CLIENT_ID,
-        auth_client_secret=DEFAULT_AUTH_CLIENT_SECRET,
-        google_api_key=DEFAULT_GOOGLE_API_KEY,
-        model_provider=GOOGLE_GENAI_PROVIDER,
+        data_service_url=CuratorSettings.DEFAULT_DATA_SERVICE_URL,
+        auth_service_url=CuratorSettings.DEFAULT_AUTH_SERVICE_URL,
+        auth_client_id=CuratorSettings.DEFAULT_AUTH_CLIENT_ID,
+        auth_client_secret=CuratorSettings.DEFAULT_AUTH_CLIENT_SECRET,
+        google_api_key=CuratorSettings.DEFAULT_GOOGLE_API_KEY,
+        model_provider=CuratorModelCatalog.GOOGLE_GENAI_PROVIDER,
         model_name="moonshotai/kimi-k2.5",
-        thinking_level=DEFAULT_THINKING_LEVEL,
+        thinking_level=CuratorSettings.DEFAULT_THINKING_LEVEL,
         nvidia_api_key="",
     )
 
@@ -85,14 +76,14 @@ def test_nvidia_model_rejects_google_provider() -> None:
 
 def test_nvidia_model_uses_low_latency_settings() -> None:
     settings = CuratorSettings(
-        data_service_url=DEFAULT_DATA_SERVICE_URL,
-        auth_service_url=DEFAULT_AUTH_SERVICE_URL,
-        auth_client_id=DEFAULT_AUTH_CLIENT_ID,
-        auth_client_secret=DEFAULT_AUTH_CLIENT_SECRET,
-        google_api_key=DEFAULT_GOOGLE_API_KEY,
-        model_provider=NVIDIA_NIM_PROVIDER,
+        data_service_url=CuratorSettings.DEFAULT_DATA_SERVICE_URL,
+        auth_service_url=CuratorSettings.DEFAULT_AUTH_SERVICE_URL,
+        auth_client_id=CuratorSettings.DEFAULT_AUTH_CLIENT_ID,
+        auth_client_secret=CuratorSettings.DEFAULT_AUTH_CLIENT_SECRET,
+        google_api_key=CuratorSettings.DEFAULT_GOOGLE_API_KEY,
+        model_provider=CuratorModelCatalog.NVIDIA_NIM_PROVIDER,
         model_name="z-ai/glm-5.1",
-        thinking_level=DEFAULT_THINKING_LEVEL,
+        thinking_level=CuratorSettings.DEFAULT_THINKING_LEVEL,
         nvidia_api_key="nvapi-test",
     )
 
@@ -109,14 +100,14 @@ def test_nvidia_model_uses_low_latency_settings() -> None:
 
 def test_google_gemma_model_uses_best_effort_thinking_settings() -> None:
     settings = CuratorSettings(
-        data_service_url=DEFAULT_DATA_SERVICE_URL,
-        auth_service_url=DEFAULT_AUTH_SERVICE_URL,
-        auth_client_id=DEFAULT_AUTH_CLIENT_ID,
-        auth_client_secret=DEFAULT_AUTH_CLIENT_SECRET,
+        data_service_url=CuratorSettings.DEFAULT_DATA_SERVICE_URL,
+        auth_service_url=CuratorSettings.DEFAULT_AUTH_SERVICE_URL,
+        auth_client_id=CuratorSettings.DEFAULT_AUTH_CLIENT_ID,
+        auth_client_secret=CuratorSettings.DEFAULT_AUTH_CLIENT_SECRET,
         google_api_key="test-google-api-key",
-        model_provider=GOOGLE_GENAI_PROVIDER,
+        model_provider=CuratorModelCatalog.GOOGLE_GENAI_PROVIDER,
         model_name="gemma-4-31b-it",
-        thinking_level=DEFAULT_THINKING_LEVEL,
+        thinking_level=CuratorSettings.DEFAULT_THINKING_LEVEL,
         nvidia_api_key="",
     )
 
@@ -124,6 +115,6 @@ def test_google_gemma_model_uses_best_effort_thinking_settings() -> None:
 
     assert isinstance(model, ChatGoogleGenerativeAI)
     assert model.model == "gemma-4-31b-it"
-    assert model.thinking_level == DEFAULT_THINKING_LEVEL
+    assert model.thinking_level == CuratorSettings.DEFAULT_THINKING_LEVEL
     assert model.include_thoughts is True
     assert model.temperature == 0.2

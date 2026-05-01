@@ -19,9 +19,9 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
     
     @Override
     public Page<Title> getTitlesPage(Pageable pageable, String titleType, String primaryTitle, Boolean isAdult,
-                                     List<String> genres, String freeText, Integer startYearGte) {
+                                     List<String> genres, String freeText, Integer minYear, Integer maxYear) {
         Query query = buildTitlesQuery(
-                titleType, primaryTitle, isAdult, genres, freeText, startYearGte
+                titleType, primaryTitle, isAdult, genres, freeText, minYear, maxYear
         );
 
         query.with(pageable);
@@ -32,7 +32,7 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
     }
 
     private Query buildTitlesQuery(String titleType, String primaryTitle, Boolean isAdult,
-                                   List<String> genres, String freeText, Integer startYearGte) {
+                                   List<String> genres, String freeText, Integer minYear, Integer maxYear) {
         Query query;
         
         // Use text search if freeText is provided
@@ -53,8 +53,15 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
         if (isAdult != null) {
             query.addCriteria(Criteria.where("isAdult").is(isAdult));
         }
-        if (startYearGte != null) {
-            query.addCriteria(Criteria.where("startYear").gte(startYearGte));
+        if (minYear != null || maxYear != null) {
+            Criteria yearCriteria = Criteria.where("startYear");
+            if (minYear != null) {
+                yearCriteria = yearCriteria.gte(minYear);
+            }
+            if (maxYear != null) {
+                yearCriteria = yearCriteria.lte(maxYear);
+            }
+            query.addCriteria(yearCriteria);
         }
         if (genres != null && !genres.isEmpty()) {
             // For genres, we'll use regex matching to search within the list
