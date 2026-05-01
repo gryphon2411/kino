@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from typing import Any, ClassVar, cast
 
 from langchain.agents.middleware import AgentMiddleware
@@ -88,7 +87,7 @@ class CuratorResponseBuilder:
         if snapshot["error"]:
             return CuratorResponse(notes=[snapshot["error"]])
         candidates, notes = cls.apply_request_filters(
-            user_request, snapshot["candidates"], snapshot["args"]
+            snapshot["candidates"], snapshot["args"]
         )
         if not candidates:
             return CuratorResponse(
@@ -214,7 +213,6 @@ class CuratorResponseBuilder:
     @classmethod
     def apply_request_filters(
         cls,
-        user_request: str,
         candidates: list[dict[str, Any]],
         search_args: dict[str, Any] | None,
     ) -> tuple[list[dict[str, Any]], list[str]]:
@@ -222,9 +220,8 @@ class CuratorResponseBuilder:
         notes: list[str] = []
         filtered = candidates
 
-        min_year, max_year = cls.effective_year_bounds(
-            user_request, search_args
-        )
+        min_year = cls.to_int((search_args or {}).get("min_year"))
+        max_year = cls.to_int((search_args or {}).get("max_year"))
         if min_year is not None or max_year is not None:
             year_filtered = [
                 candidate
@@ -242,62 +239,6 @@ class CuratorResponseBuilder:
                 return [], notes
 
         return filtered, notes
-
-    @classmethod
-    def effective_year_bounds(
-        cls, user_request: str, search_args: dict[str, Any] | None
-    ) -> tuple[int | None, int | None]:
-        """Return year bounds from tool args, falling back to legacy parsing."""
-        min_year = cls.to_int((search_args or {}).get("min_year"))
-        max_year = cls.to_int((search_args or {}).get("max_year"))
-        if min_year is not None or max_year is not None:
-            return min_year, max_year
-        return cls.requested_year_bounds(user_request)
-
-    @classmethod
-    def requested_year_bounds(
-        cls, user_request: str
-    ) -> tuple[int | None, int | None]:
-        """Extract simple release/start-year bounds from common phrasing."""
-        request = user_request.lower()
-
-        match = re.search(
-            r"\bbetween\s+((?:19|20)\d{2})\s+and\s+((?:19|20)\d{2})\b", request
-        )
-        if match:
-            start = int(match.group(1))
-            end = int(match.group(2))
-            return min(start, end), max(start, end)
-
-        match = re.search(
-            r"\bfrom\s+((?:19|20)\d{2})\s+to\s+((?:19|20)\d{2})\b", request
-        )
-        if match:
-            start = int(match.group(1))
-            end = int(match.group(2))
-            return min(start, end), max(start, end)
-
-        match = re.search(
-            r"\bfrom\s+((?:19|20)\d{2})\s+(?:onward|onwards|or later)\b",
-            request,
-        )
-        if match:
-            return int(match.group(1)), None
-
-        match = re.search(
-            r"\b((?:19|20)\d{2})\s*(?:\+|and up|onward|onwards|or later)\b",
-            request,
-        )
-        if match:
-            return int(match.group(1)), None
-
-        match = re.search(
-            r"\b(?:through|until|up to)\s+((?:19|20)\d{2})\b", request
-        )
-        if match:
-            return None, int(match.group(1))
-
-        return None, None
 
     @staticmethod
     def year_range_note(min_year: int | None, max_year: int | None) -> str:
@@ -415,20 +356,27 @@ class CuratorResponseFormatter:
     """Use the model only to enrich selected titles with optional text."""
 
     SYSTEM_PROMPT: ClassVar[str] = """
+# Role
 You are formatting already-selected Kino recommendation titles.
 
+# Inputs
 Use only:
 - the user request
 - the provided title metadata
 
-Rules:
+# Rules
 - Do not add, remove, reorder, or change title ids.
 - Do not change title, year, titleType, or genres.
-- Fill only reason.
-- Do not invent plots, popularity, ratings, runtime, tone, or themes not present in the metadata.
-- If the provided request and metadata do not support a grounded reason, return null.
-- Keep each reason to one short sentence.
-- Prefer natural phrasing that combines the useful metadata instead of a rigid field-by-field template.
+- Fill only `reason`.
+- Write at most one short sentence per title.
+- Base the reason only on metadata that clearly overlaps with the user request.
+- Prefer the most relevant overlap, such as requested genre, title type, or an
+  explicit year bound.
+- Do not merely restate every metadata field in list form.
+- Avoid flat reasons like "A 1991 action and drama movie."
+- Do not invent plots, popularity, ratings, runtime, tone, themes, or audience
+  fit not present in the metadata.
+- If the metadata does not support a grounded reason, return null.
 """.strip()
 
     def __init__(self, formatter_model: Any) -> None:

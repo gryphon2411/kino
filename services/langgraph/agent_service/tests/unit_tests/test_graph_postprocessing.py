@@ -280,6 +280,43 @@ def test_finalize_agent_state_reads_year_bounds_from_tool_args() -> None:
     assert [title.id for title in response.titles] == ["a1"]
 
 
+def test_finalize_agent_state_does_not_parse_year_bounds_from_prompt() -> None:
+    state = {
+        "messages": [
+            HumanMessage(content="Recommend action movies from 1990 onward."),
+            ToolMessage(
+                content=json.dumps(
+                    [
+                        {
+                            "id": "a1",
+                            "title": "The Story of the Kelly Gang",
+                            "year": 1906,
+                            "titleType": "movie",
+                            "genres": ["Action", "Biography", "Crime"],
+                        },
+                        {
+                            "id": "a2",
+                            "title": "Bloody Hero",
+                            "year": 1991,
+                            "titleType": "movie",
+                            "genres": ["Action", "Drama"],
+                        },
+                    ]
+                ),
+                tool_call_id="call-1",
+                name="search_titles",
+            ),
+        ]
+    }
+
+    response = builder.finalize_agent_state(state)
+
+    assert [title.id for title in response.titles] == ["a1", "a2"]
+    assert response.notes == [
+        "The catalog search returned fewer than three grounded matches."
+    ]
+
+
 def test_formatter_merge_applies_annotations_by_id() -> None:
     response = CuratorResponse(
         titles=[
