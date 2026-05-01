@@ -19,8 +19,10 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
     
     @Override
     public Page<Title> getTitlesPage(Pageable pageable, String titleType, String primaryTitle, Boolean isAdult,
-                                     List<String> genres, String freeText) {
-        Query query = buildTitlesQuery(titleType, primaryTitle, isAdult, genres, freeText);
+                                     List<String> genres, String freeText, Integer minYear, Integer maxYear) {
+        Query query = buildTitlesQuery(
+                titleType, primaryTitle, isAdult, genres, freeText, minYear, maxYear
+        );
 
         query.with(pageable);
 
@@ -29,7 +31,8 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
         return new PageImpl<>(content, pageable, mongoTemplate.count(query, Title.class));
     }
 
-    private Query buildTitlesQuery(String titleType, String primaryTitle, Boolean isAdult, List<String> genres, String freeText) {
+    private Query buildTitlesQuery(String titleType, String primaryTitle, Boolean isAdult,
+                                   List<String> genres, String freeText, Integer minYear, Integer maxYear) {
         Query query;
         
         // Use text search if freeText is provided
@@ -49,6 +52,16 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
         }
         if (isAdult != null) {
             query.addCriteria(Criteria.where("isAdult").is(isAdult));
+        }
+        if (minYear != null || maxYear != null) {
+            Criteria yearCriteria = Criteria.where("startYear");
+            if (minYear != null) {
+                yearCriteria = yearCriteria.gte(minYear);
+            }
+            if (maxYear != null) {
+                yearCriteria = yearCriteria.lte(maxYear);
+            }
+            query.addCriteria(yearCriteria);
         }
         if (genres != null && !genres.isEmpty()) {
             // For genres, we'll use regex matching to search within the list

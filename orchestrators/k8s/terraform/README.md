@@ -77,6 +77,7 @@ task clean
 | `agent_service_provider` | `string` | `"nvidia_nim"` | Kino Agent Service model provider |
 | `agent_service_model` | `string` | `"deepseek-ai/deepseek-v3.2"` | Kino Agent Service model |
 | `nvidia_api_key` | `string` | `null` | NVIDIA API key for Kino Agent Service |
+| `agent_service_client_secret` | `string` | `"replace-me-agent-secret"` | Auth-service client secret for agent-service machine tokens |
 
 ## Outputs
 
@@ -90,15 +91,23 @@ task clean
 ## Agent Service
 
 The LangGraph agent service runs the in-memory `langgraph dev` runtime in
-Kubernetes. It is disabled by default and requires `nvidia_api_key` when
-enabled with the default `nvidia_nim` provider.
+Kubernetes. It is disabled by default and uses DeepSeek V3.2 on `nvidia_nim`
+by default, so it requires `nvidia_api_key` when enabled. Set `gemini_api_key`
+only if you switch the provider to `google_genai`.
+
+Agent-to-data access now uses short-lived JWT machine tokens issued by
+auth-service. Set `agent_service_client_secret` before relying on the discovery
+flow. Terraform also generates a persistent RSA signing key for auth-service
+and mounts it as a Kubernetes secret so the JWT signing key survives pod
+restarts within the same Terraform state.
 
 ## Security
 
 Secrets are managed via:
 - **TF_VAR_*** environment variables (`.env` file, gitignored)
 - **HashiCorp Vault** for API keys (synced via External Secrets Operator)
-- **Terraform state in the local workspace** for this localhost/minikube demo
+- **Terraform state in the local workspace** for this localhost/minikube demo,
+  including the auth-service JWT signing key
 
 Runtime defaults:
 - `playbook.yaml` starts Minikube with conservative defaults (`MINIKUBE_CPUS=4`, `MINIKUBE_MEMORY=7800mb`) unless you override them in the shell or `.env`
