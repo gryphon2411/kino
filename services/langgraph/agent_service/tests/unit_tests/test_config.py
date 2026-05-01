@@ -1,4 +1,5 @@
 import pytest
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
 from agent_service.config import (
@@ -104,3 +105,25 @@ def test_nvidia_model_uses_low_latency_settings() -> None:
     assert model.extra_body == {
         "chat_template_kwargs": {"enable_thinking": False}
     }
+
+
+def test_google_gemma_model_uses_best_effort_thinking_settings() -> None:
+    settings = CuratorSettings(
+        data_service_url=DEFAULT_DATA_SERVICE_URL,
+        auth_service_url=DEFAULT_AUTH_SERVICE_URL,
+        auth_client_id=DEFAULT_AUTH_CLIENT_ID,
+        auth_client_secret=DEFAULT_AUTH_CLIENT_SECRET,
+        google_api_key="test-google-api-key",
+        model_provider=GOOGLE_GENAI_PROVIDER,
+        model_name="gemma-4-31b-it",
+        thinking_level=DEFAULT_THINKING_LEVEL,
+        nvidia_api_key="",
+    )
+
+    model = CuratorModelFactory(settings).create()
+
+    assert isinstance(model, ChatGoogleGenerativeAI)
+    assert model.model == "gemma-4-31b-it"
+    assert model.thinking_level == DEFAULT_THINKING_LEVEL
+    assert model.include_thoughts is True
+    assert model.temperature == 0.2

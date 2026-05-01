@@ -17,6 +17,7 @@ from agent_service.config import (
 )
 
 NVIDIA_OPENAI_BASE_URL = "https://integrate.api.nvidia.com/v1"
+GEMMA_MODEL_PREFIX = "gemma-"
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,13 @@ class CuratorModelFactory:
             model_kwargs["temperature"] = 0.2
         elif self.settings.model_name.startswith("gemini-3"):
             model_kwargs["thinking_level"] = self.settings.thinking_level
+        elif self.settings.model_name.startswith(GEMMA_MODEL_PREFIX):
+            # Best-effort Gemma-on-Google path. The Google wrapper exposes the
+            # same thought controls used by Gemini models, but Gemma-specific
+            # support still has to be validated against a live API key.
+            model_kwargs["thinking_level"] = self.settings.thinking_level
+            model_kwargs["include_thoughts"] = True
+            model_kwargs["temperature"] = 0.2
         else:
             model_kwargs["temperature"] = 0.2
 
