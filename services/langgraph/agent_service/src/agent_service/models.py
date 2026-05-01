@@ -19,9 +19,6 @@ class CuratorTitle(BaseModel):
     genres: list[str] = Field(
         default_factory=list, description="Known title genres."
     )
-    reason: str | None = Field(
-        default=None, description="Why this title fits the user request."
-    )
 
 
 class CuratorResponse(BaseModel):

@@ -8,10 +8,7 @@ from langchain.agents import create_agent
 
 from agent_service.config import CuratorSettings
 from agent_service.llm import CuratorModelFactory
-from agent_service.middleware import (
-    CuratorResponseMiddleware,
-    CuratorTitleAnnotationResponse,
-)
+from agent_service.middleware import CuratorResponseMiddleware
 from agent_service.tools import search_titles
 
 SYSTEM_PROMPT = """# Role
@@ -54,13 +51,7 @@ def create_kino_curator() -> Any:
         model=model,
         tools=[search_titles],
         system_prompt=SYSTEM_PROMPT,
-        middleware=[
-            CuratorResponseMiddleware(
-                formatter_model=model.with_structured_output(
-                    CuratorTitleAnnotationResponse
-                )
-            )
-        ],
+        middleware=[CuratorResponseMiddleware()],
         name="kino_curator",
     )
 

@@ -1,6 +1,5 @@
 import importlib
 import json
-import logging
 from unittest.mock import Mock
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -9,9 +8,6 @@ from agent_service.models import CuratorResponse
 
 middleware_module = importlib.import_module("agent_service.middleware")
 builder = middleware_module.CuratorResponseBuilder
-formatter = middleware_module.CuratorResponseFormatter
-annotation = middleware_module.CuratorTitleAnnotation
-annotation_response = middleware_module.CuratorTitleAnnotationResponse
 middleware = middleware_module.CuratorResponseMiddleware
 
 
@@ -96,7 +92,6 @@ def test_finalize_agent_state_builds_grounded_titles() -> None:
     response = builder.finalize_agent_state(state)
 
     assert [title.id for title in response.titles] == ["a1", "a2", "a3"]
-    assert response.titles[0].reason is None
     assert response.notes == []
 
 
@@ -133,7 +128,6 @@ def test_finalize_agent_state_uses_grounded_candidate_fields() -> None:
     assert response.titles[0].year == 1995
     assert response.titles[0].titleType == "movie"
     assert response.titles[0].genres == ["Crime", "Thriller"]
-    assert response.titles[0].reason is None
 
 
 def test_finalize_agent_state_reports_missing_year_matches() -> None:
@@ -317,68 +311,6 @@ def test_finalize_agent_state_does_not_parse_year_bounds_from_prompt() -> None:
     ]
 
 
-def test_formatter_merge_applies_annotations_by_id() -> None:
-    response = CuratorResponse(
-        titles=[
-            {
-                "id": "a1",
-                "title": "Heat",
-                "year": 1995,
-                "titleType": "movie",
-                "genres": ["Crime", "Thriller"],
-            },
-            {
-                "id": "a2",
-                "title": "Se7en",
-                "year": 1995,
-                "titleType": "movie",
-                "genres": ["Crime", "Mystery", "Thriller"],
-            },
-        ]
-    )
-    annotations = annotation_response(
-        titles=[
-            annotation(id="a1", reason="It fits the requested year range."),
-            annotation(id="unknown", reason="ignore me"),
-        ]
-    )
-
-    merged = formatter._merge_annotations(response, annotations)
-
-    assert merged.titles[0].reason == "It fits the requested year range."
-    assert merged.titles[1].reason is None
-
-
-def test_formatter_failure_is_logged_and_response_is_preserved(caplog) -> None:
-    response = CuratorResponse(
-        titles=[
-            {
-                "id": "a1",
-                "title": "Heat",
-                "year": 1995,
-                "titleType": "movie",
-                "genres": ["Crime", "Thriller"],
-            }
-        ]
-    )
-    structured_model = Mock()
-    structured_model.invoke.side_effect = RuntimeError("boom")
-    title_formatter = formatter(structured_model)
-
-    with caplog.at_level(logging.ERROR):
-        formatted = title_formatter.format_response(
-            {
-                "messages": [
-                    HumanMessage(content="Recommend a thriller movie.")
-                ]
-            },
-            response,
-        )
-
-    assert formatted == response
-    assert "Failed to format discovery title annotations." in caplog.text
-
-
 def test_sync_middleware_short_circuits_after_search() -> None:
     request = Mock()
     request.state = {
@@ -403,7 +335,7 @@ def test_sync_middleware_short_circuits_after_search() -> None:
             ),
         ]
     }
-    response_middleware = middleware(formatter_model=Mock())
+    response_middleware = middleware()
     handler = Mock()
 
     result = response_middleware.wrap_model_call(request, handler)
@@ -413,3 +345,61 @@ def test_sync_middleware_short_circuits_after_search() -> None:
         == "Based on Kino's catalog, I can ground this match: Heat (1995). Note: The catalog search returned fewer than three grounded matches."
     )
     handler.assert_not_called()
+
+
+def test_after_agent_returns_deterministic_titles_only() -> None:
+    response_middleware = middleware()
+
+    result = response_middleware.after_agent(
+        {
+            "messages": [
+                HumanMessage(
+                    content="Discover action movies from 1990 onward."
+                ),
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "search_titles",
+                            "args": {"genres": ["Action"], "min_year": 1990},
+                            "id": "call-1",
+                            "type": "tool_call",
+                        }
+                    ],
+                ),
+                ToolMessage(
+                    content=json.dumps(
+                        [
+                            {
+                                "id": "a1",
+                                "title": "Heat",
+                                "year": 1995,
+                                "titleType": "movie",
+                                "genres": ["Crime", "Thriller"],
+                            }
+                        ]
+                    ),
+                    tool_call_id="call-1",
+                    name="search_titles",
+                ),
+            ]
+        },
+        runtime=None,
+    )
+
+    assert result == {
+        "structured_response": {
+            "titles": [
+                {
+                    "id": "a1",
+                    "title": "Heat",
+                    "year": 1995,
+                    "titleType": "movie",
+                    "genres": ["Crime", "Thriller"],
+                }
+            ],
+            "notes": [
+                "The catalog search returned fewer than three grounded matches."
+            ],
+        }
+    }
