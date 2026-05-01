@@ -16,6 +16,9 @@ on:
       - services/langgraph/agent_service/**
       - .github/workflows/kino-agent-service.yaml
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     runs-on: ubuntu-latest

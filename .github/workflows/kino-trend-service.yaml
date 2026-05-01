@@ -10,6 +10,9 @@ on:
       - services/spring-boot/trend_service/**
 
 # Creates a job ID (build) and declares the type of machine that the job should run on.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
