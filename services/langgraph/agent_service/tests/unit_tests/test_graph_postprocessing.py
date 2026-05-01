@@ -10,8 +10,8 @@ from agent_service.models import CuratorResponse
 middleware_module = importlib.import_module("agent_service.middleware")
 builder = middleware_module.CuratorResponseBuilder
 formatter = middleware_module.CuratorResponseFormatter
-annotation = middleware_module.CuratorCardAnnotation
-annotation_response = middleware_module.CuratorCardAnnotationResponse
+annotation = middleware_module.CuratorTitleAnnotation
+annotation_response = middleware_module.CuratorTitleAnnotationResponse
 middleware = middleware_module.CuratorResponseMiddleware
 
 
@@ -36,7 +36,7 @@ def test_finalize_agent_state_returns_tool_error_note() -> None:
     )
 
 
-def test_finalize_agent_state_builds_grounded_cards() -> None:
+def test_finalize_agent_state_builds_grounded_titles() -> None:
     candidates = [
         {
             "id": "a1",
@@ -95,9 +95,8 @@ def test_finalize_agent_state_builds_grounded_cards() -> None:
 
     response = builder.finalize_agent_state(state)
 
-    assert [card.id for card in response.cards] == ["a1", "a2", "a3"]
-    assert response.cards[0].reason is None
-    assert response.cards[0].tradeoff is None
+    assert [title.id for title in response.titles] == ["a1", "a2", "a3"]
+    assert response.titles[0].reason is None
     assert response.notes == []
 
 
@@ -125,17 +124,16 @@ def test_finalize_agent_state_uses_grounded_candidate_fields() -> None:
 
     response = builder.finalize_agent_state(state)
 
-    assert len(response.cards) == 1
+    assert len(response.titles) == 1
     assert response.notes == [
         "The catalog search returned fewer than three grounded matches."
     ]
-    assert response.cards[0].id == "a1"
-    assert response.cards[0].title == "Heat"
-    assert response.cards[0].year == 1995
-    assert response.cards[0].titleType == "movie"
-    assert response.cards[0].genres == ["Crime", "Thriller"]
-    assert response.cards[0].reason is None
-    assert response.cards[0].tradeoff is None
+    assert response.titles[0].id == "a1"
+    assert response.titles[0].title == "Heat"
+    assert response.titles[0].year == 1995
+    assert response.titles[0].titleType == "movie"
+    assert response.titles[0].genres == ["Crime", "Thriller"]
+    assert response.titles[0].reason is None
 
 
 def test_finalize_agent_state_reports_missing_year_matches() -> None:
@@ -175,7 +173,7 @@ def test_finalize_agent_state_reports_missing_year_matches() -> None:
 
     response = builder.finalize_agent_state(state)
 
-    assert response.cards == []
+    assert response.titles == []
     assert response.notes == [
         "The grounded catalog search did not return any matches from 1990 onward."
     ]
@@ -227,7 +225,7 @@ def test_finalize_agent_state_applies_bounded_year_range() -> None:
 
     response = builder.finalize_agent_state(state)
 
-    assert [card.id for card in response.cards] == ["a1"]
+    assert [title.id for title in response.titles] == ["a1"]
     assert response.notes == [
         "The catalog search returned fewer than three grounded matches."
     ]
@@ -279,12 +277,12 @@ def test_finalize_agent_state_reads_year_bounds_from_tool_args() -> None:
 
     response = builder.finalize_agent_state(state)
 
-    assert [card.id for card in response.cards] == ["a1"]
+    assert [title.id for title in response.titles] == ["a1"]
 
 
 def test_formatter_merge_applies_annotations_by_id() -> None:
     response = CuratorResponse(
-        cards=[
+        titles=[
             {
                 "id": "a1",
                 "title": "Heat",
@@ -302,30 +300,21 @@ def test_formatter_merge_applies_annotations_by_id() -> None:
         ]
     )
     annotations = annotation_response(
-        cards=[
-            annotation(
-                id="a1",
-                reason="It fits the requested year range.",
-                tradeoff="It is older than a typical contemporary recommendation.",
-            ),
-            annotation(id="unknown", reason="ignore me", tradeoff="ignore me"),
+        titles=[
+            annotation(id="a1", reason="It fits the requested year range."),
+            annotation(id="unknown", reason="ignore me"),
         ]
     )
 
     merged = formatter._merge_annotations(response, annotations)
 
-    assert merged.cards[0].reason == "It fits the requested year range."
-    assert (
-        merged.cards[0].tradeoff
-        == "It is older than a typical contemporary recommendation."
-    )
-    assert merged.cards[1].reason is None
-    assert merged.cards[1].tradeoff is None
+    assert merged.titles[0].reason == "It fits the requested year range."
+    assert merged.titles[1].reason is None
 
 
 def test_formatter_failure_is_logged_and_response_is_preserved(caplog) -> None:
     response = CuratorResponse(
-        cards=[
+        titles=[
             {
                 "id": "a1",
                 "title": "Heat",
@@ -337,10 +326,10 @@ def test_formatter_failure_is_logged_and_response_is_preserved(caplog) -> None:
     )
     structured_model = Mock()
     structured_model.invoke.side_effect = RuntimeError("boom")
-    card_formatter = formatter(structured_model)
+    title_formatter = formatter(structured_model)
 
     with caplog.at_level(logging.ERROR):
-        formatted = card_formatter.format_response(
+        formatted = title_formatter.format_response(
             {
                 "messages": [
                     HumanMessage(content="Recommend a thriller movie.")
@@ -350,7 +339,7 @@ def test_formatter_failure_is_logged_and_response_is_preserved(caplog) -> None:
         )
 
     assert formatted == response
-    assert "Failed to format curator card annotations." in caplog.text
+    assert "Failed to format curator title annotations." in caplog.text
 
 
 def test_sync_middleware_short_circuits_after_search() -> None:

@@ -12,7 +12,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
-from agent_service.models import CuratorCard, CuratorResponse
+from agent_service.models import CuratorResponse, CuratorTitle
 
 logger = logging.getLogger(__name__)
 
@@ -321,9 +321,9 @@ class CuratorResponseBuilder:
     def fallback_response(
         cls, user_request: str, candidates: list[dict[str, Any]]
     ) -> CuratorResponse:
-        """Return deterministic grounded cards from the latest search result."""
-        cards = [
-            CuratorCard(
+        """Return deterministic grounded titles from the latest search result."""
+        titles = [
+            CuratorTitle(
                 id=str(candidate["id"]),
                 title=str(candidate.get("title") or "Untitled"),
                 year=cls.to_int(candidate.get("year")),
@@ -333,7 +333,6 @@ class CuratorResponseBuilder:
                     for genre in cast(list[Any], candidate.get("genres", []))
                 ],
                 reason=None,
-                tradeoff=None,
             )
             for candidate in candidates[:3]
         ]
@@ -342,21 +341,21 @@ class CuratorResponseBuilder:
             notes.append(
                 "The catalog search returned fewer than three grounded matches."
             )
-        return CuratorResponse(cards=cards, notes=notes[:3])
+        return CuratorResponse(titles=titles, notes=notes[:3])
 
     @staticmethod
     def natural_language_summary(response: CuratorResponse) -> str:
         """Build a short grounded summary without another model call."""
-        if not response.cards:
+        if not response.titles:
             if response.notes:
                 return response.notes[0]
             return "I could not find grounded matches in Kino's catalog."
 
         titles = [
-            f"{card.title} ({card.year})"
-            if card.year is not None
-            else card.title
-            for card in response.cards
+            f"{title.title} ({title.year})"
+            if title.year is not None
+            else title.title
+            for title in response.titles
         ]
         if len(titles) == 1:
             summary = f"Based on Kino's catalog, I can ground this match: {titles[0]}."
@@ -393,45 +392,43 @@ class CuratorResponseBuilder:
         return str(value)
 
 
-class CuratorCardAnnotation(BaseModel):
-    """Optional formatter output for a selected recommendation card."""
+class CuratorTitleAnnotation(BaseModel):
+    """Optional formatter output for a selected recommendation title."""
 
     id: str = Field(description="Selected Kino catalog title id.")
     reason: str | None = Field(
         default=None, description="Short grounded fit explanation."
     )
-    tradeoff: str | None = Field(
-        default=None, description="Short grounded caveat or uncertainty."
-    )
 
 
-class CuratorCardAnnotationResponse(BaseModel):
-    """Structured formatter output for selected recommendation cards."""
+class CuratorTitleAnnotationResponse(BaseModel):
+    """Structured formatter output for selected recommendation titles."""
 
-    cards: list[CuratorCardAnnotation] = Field(
+    titles: list[CuratorTitleAnnotation] = Field(
         default_factory=list,
-        description="Formatter annotations keyed by selected card id.",
+        description="Formatter annotations keyed by selected title id.",
         max_length=5,
     )
 
 
 class CuratorResponseFormatter:
-    """Use the model only to enrich selected cards with optional text."""
+    """Use the model only to enrich selected titles with optional text."""
 
     SYSTEM_PROMPT: ClassVar[str] = """
-You are formatting already-selected Kino recommendation cards.
+You are formatting already-selected Kino recommendation titles.
 
 Use only:
 - the user request
-- the provided card metadata
+- the provided title metadata
 
 Rules:
-- Do not add, remove, reorder, or change card ids.
+- Do not add, remove, reorder, or change title ids.
 - Do not change title, year, titleType, or genres.
-- Fill only reason and tradeoff.
+- Fill only reason.
 - Do not invent plots, popularity, ratings, runtime, tone, or themes not present in the metadata.
-- If the provided request and metadata do not support a grounded reason or tradeoff, return null for that field.
-- Keep each field to one short sentence.
+- If the provided request and metadata do not support a grounded reason, return null.
+- Keep each reason to one short sentence.
+- Prefer natural phrasing that combines the useful metadata instead of a rigid field-by-field template.
 """.strip()
 
     def __init__(self, formatter_model: Any) -> None:
@@ -441,8 +438,8 @@ Rules:
     def format_response(
         self, state: dict[str, Any], response: CuratorResponse
     ) -> CuratorResponse:
-        """Enrich grounded cards with optional text synchronously."""
-        if not response.cards:
+        """Enrich grounded titles with optional text synchronously."""
+        if not response.titles:
             return response
         try:
             annotations = self._structured_model.invoke(
@@ -450,19 +447,19 @@ Rules:
                     CuratorResponseBuilder.extract_user_request(
                         state.get("messages", [])
                     ),
-                    response.cards,
+                    response.titles,
                 )
             )
         except Exception:
-            logger.exception("Failed to format curator card annotations.")
+            logger.exception("Failed to format curator title annotations.")
             return response
         return self._merge_annotations(response, annotations)
 
     async def aformat_response(
         self, state: dict[str, Any], response: CuratorResponse
     ) -> CuratorResponse:
-        """Enrich grounded cards with optional text asynchronously."""
-        if not response.cards:
+        """Enrich grounded titles with optional text asynchronously."""
+        if not response.titles:
             return response
         try:
             annotations = await self._structured_model.ainvoke(
@@ -470,30 +467,30 @@ Rules:
                     CuratorResponseBuilder.extract_user_request(
                         state.get("messages", [])
                     ),
-                    response.cards,
+                    response.titles,
                 )
             )
         except Exception:
-            logger.exception("Failed to format curator card annotations.")
+            logger.exception("Failed to format curator title annotations.")
             return response
         return self._merge_annotations(response, annotations)
 
     @classmethod
     def _formatter_prompt(
-        cls, user_request: str, cards: list[CuratorCard]
+        cls, user_request: str, titles: list[CuratorTitle]
     ) -> str:
-        """Render formatter input from the selected cards."""
+        """Render formatter input from the selected titles."""
         payload = {
             "user_request": user_request,
-            "cards": [
+            "titles": [
                 {
-                    "id": card.id,
-                    "title": card.title,
-                    "year": card.year,
-                    "titleType": card.titleType,
-                    "genres": card.genres,
+                    "id": title.id,
+                    "title": title.title,
+                    "year": title.year,
+                    "titleType": title.titleType,
+                    "genres": title.genres,
                 }
-                for card in cards
+                for title in titles
             ],
         }
         return (
@@ -506,20 +503,19 @@ Rules:
     def _merge_annotations(
         cls,
         response: CuratorResponse,
-        annotations: CuratorCardAnnotationResponse | Any,
+        annotations: CuratorTitleAnnotationResponse | Any,
     ) -> CuratorResponse:
-        """Merge formatter output onto already-selected cards by id."""
-        if not isinstance(annotations, CuratorCardAnnotationResponse):
+        """Merge formatter output onto already-selected titles by id."""
+        if not isinstance(annotations, CuratorTitleAnnotationResponse):
             return response
 
         merged = response.model_copy(deep=True)
-        annotation_map = {item.id: item for item in annotations.cards}
-        for card in merged.cards:
-            annotation = annotation_map.get(card.id)
+        annotation_map = {item.id: item for item in annotations.titles}
+        for title in merged.titles:
+            annotation = annotation_map.get(title.id)
             if annotation is None:
                 continue
-            card.reason = cls._normalize_optional_text(annotation.reason)
-            card.tradeoff = cls._normalize_optional_text(annotation.tradeoff)
+            title.reason = cls._normalize_optional_text(annotation.reason)
         return merged
 
     @staticmethod

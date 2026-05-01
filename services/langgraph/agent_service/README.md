@@ -2,7 +2,7 @@
 
 LangGraph-based agent service for Kino. The first workflow is **Kino Curator**:
 a small `create_agent` tool-calling title discovery agent that turns fuzzy taste
-requests into structured title cards.
+requests into structured title recommendations.
 
 ## Development
 

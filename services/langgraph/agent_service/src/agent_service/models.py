@@ -5,7 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
-class CuratorCard(BaseModel):
+class CuratorTitle(BaseModel):
     """Single Kino title recommendation."""
 
     id: str = Field(description="Kino catalog title id.")
@@ -22,15 +22,12 @@ class CuratorCard(BaseModel):
     reason: str | None = Field(
         default=None, description="Why this title fits the user request."
     )
-    tradeoff: str | None = Field(
-        default=None, description="One useful caveat or uncertainty."
-    )
 
 
 class CuratorResponse(BaseModel):
     """Structured Kino Curator response."""
 
-    cards: list[CuratorCard] = Field(
+    titles: list[CuratorTitle] = Field(
         default_factory=list,
         description="Grounded Kino title recommendations.",
         max_length=5,
