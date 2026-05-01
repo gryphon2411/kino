@@ -10,9 +10,6 @@ on:
       - services/django-rest-framework/generative_service/**
 
 # Creates a job ID (build) and declares the type of machine that the job should run on.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,7 +27,7 @@ jobs:
       
       # Creates a BuildKit builder instance using the "Docker Setup Buildx" action.
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
         
       # Builds the container image and pushes it to the Docker Hub repository, using "Build and push Docker images".
       - name: Build and push
