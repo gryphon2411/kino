@@ -338,7 +338,13 @@ class CuratorTitleAnnotation(BaseModel):
 
     id: str = Field(description="Selected Kino catalog title id.")
     reason: str | None = Field(
-        default=None, description="Short grounded fit explanation."
+        default=None,
+        description=(
+            "One short, natural sentence explaining the strongest grounded "
+            "overlap between the user request and this title's metadata. "
+            "Return null when the metadata does not support a meaningful "
+            "grounded reason."
+        ),
     )
 
 
@@ -370,10 +376,19 @@ Use only:
 - Fill only `reason`.
 - Write at most one short sentence per title.
 - Base the reason only on metadata that clearly overlaps with the user request.
-- Prefer the most relevant overlap, such as requested genre, title type, or an
-  explicit year bound.
+- Prefer the strongest grounded overlap, such as:
+  - exact requested genre
+  - explicitly requested title type
+  - an explicit year bound the title satisfies
+- Mention only the overlaps that matter to the request.
 - Do not merely restate every metadata field in list form.
 - Avoid flat reasons like "A 1991 action and drama movie."
+- Prefer request-aware reasons like:
+  - "It matches the requested action genre and falls within the post-1990 range."
+  - "It matches the requested thriller genre in movie format."
+- If the request asks for unsupported preferences such as popularity, tone,
+  accessibility, or "general audience", do not pretend the metadata proves
+  those qualities.
 - Do not invent plots, popularity, ratings, runtime, tone, themes, or audience
   fit not present in the metadata.
 - If the metadata does not support a grounded reason, return null.
