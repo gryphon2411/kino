@@ -83,29 +83,34 @@
         msg: "Terraform apply failed after retries."
       when: terraform_result is failed
 
-    - name: Get MongoDB Password
-      ansible.builtin.command: >-
-        kubectl get secret -n mongodb-system mongodb-root-user-credentials
-        -o jsonpath='{.data.password}'
-      register: mongodb_pass_b64
-      changed_when: false
-
-    - name: Fetch valid Title ID for Warmup
-      ansible.builtin.command: >-
-        kubectl exec -n mongodb-system mongodb-0 --
-        mongosh kino -u root -p {{ mongodb_pass_b64.stdout | b64decode }}
-        --authenticationDatabase admin --quiet
-        --eval "db.title_basics.findOne({},{_id:1})._id.toString()"
-      register: mongo_id_output
-      changed_when: false
-
-    - name: Parse Title ID
-      ansible.builtin.set_fact:
-        title_id: "{{ mongo_id_output.stdout | trim }}"
-
-    - name: Wait for Data Service
+    - name: Wait for auth-service machine token endpoint
       ansible.builtin.uri:
-        url: "http://{{ ingress_host }}/api/v1/data/titles/{{ title_id }}"
+        url: "http://{{ ingress_host }}/api/v1/auth/oauth2/token"
+        method: POST
+        force_basic_auth: true
+        user: "agent-service"
+        password: "{{ lookup('env', 'TF_VAR_agent_service_client_secret') | default('replace-me-agent-secret', true) }}"
+        body_format: form-urlencoded
+        body:
+          grant_type: client_credentials
+        status_code: 200
+        return_content: true
+      register: token_result
+      until: token_result.status == 200
+      retries: 30
+      delay: 5
+      failed_when: false
+
+    - name: Set machine access token
+      ansible.builtin.set_fact:
+        machine_access_token: "{{ token_result.json.access_token }}"
+      when: token_result.status == 200
+
+    - name: Wait for data-service internal search route
+      ansible.builtin.uri:
+        url: "http://{{ ingress_host }}/api/v1/data/internal/titles/search?page=0&size=1&isAdult=false"
+        headers:
+          Authorization: "Bearer {{ machine_access_token }}"
         status_code: 200
         return_content: false
       register: result
@@ -113,10 +118,15 @@
       retries: 30
       delay: 5
       failed_when: false
+      when: token_result.status == 200
 
     - name: Warm up Kafka topics (Trigger Search)
       ansible.builtin.uri:
-        url: "http://{{ ingress_host }}/api/v1/data/titles/{{ title_id }}"
+        url: "http://{{ ingress_host }}/api/v1/data/internal/titles/search?page=0&size=1&isAdult=false"
         method: GET
+        headers:
+          Authorization: "Bearer {{ machine_access_token }}"
         status_code: 200
-      when: result.status == 200
+      when:
+        - token_result.status == 200
+        - result.status == 200

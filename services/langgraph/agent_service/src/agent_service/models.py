@@ -1,12 +1,12 @@
-"""Structured response models for Kino Curator."""
+"""Structured response models for Kino Discover."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
 
-class CuratorCard(BaseModel):
-    """Single Kino title recommendation."""
+class CuratorTitle(BaseModel):
+    """Single Kino title discovery result."""
 
     id: str = Field(description="Kino catalog title id.")
     title: str = Field(description="Display title.")
@@ -19,16 +19,14 @@ class CuratorCard(BaseModel):
     genres: list[str] = Field(
         default_factory=list, description="Known title genres."
     )
-    reason: str = Field(description="Why this title fits the user request.")
-    tradeoff: str = Field(description="One useful caveat or uncertainty.")
 
 
 class CuratorResponse(BaseModel):
-    """Structured Kino Curator response."""
+    """Structured Kino Discover response."""
 
-    cards: list[CuratorCard] = Field(
+    titles: list[CuratorTitle] = Field(
         default_factory=list,
-        description="Grounded Kino title recommendations.",
+        description="Grounded Kino title discoveries.",
         max_length=5,
     )
     notes: list[str] = Field(

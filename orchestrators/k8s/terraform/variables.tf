@@ -165,3 +165,10 @@ variable "nvidia_api_key" {
   default     = null
   nullable    = true
 }
+
+variable "agent_service_client_secret" {
+  type        = string
+  description = "Client secret for the auth-service machine token issuer client."
+  sensitive   = true
+  default     = "replace-me-agent-secret"
+}
