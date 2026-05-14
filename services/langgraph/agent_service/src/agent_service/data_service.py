@@ -11,6 +11,34 @@ MAX_EXCLUSION_SEARCH_PAGES = 5
 
 
 @dataclass(frozen=True)
+class TitleSearchRequest:
+    """Normalized input for a single title search."""
+
+    free_text: str | None
+    genres: list[str] | None
+    title_type: str | None
+    min_year: int | None
+    max_year: int | None
+    exclude_ids: list[str] | None
+    is_adult: bool
+    size: int
+
+    @property
+    def requested_size(self) -> int:
+        """Return the bounded page size for this search."""
+        return min(max(self.size, 1), 12)
+
+    @property
+    def excluded_ids(self) -> set[str]:
+        """Return normalized IDs that should be excluded."""
+        return {
+            str(title_id)
+            for title_id in (self.exclude_ids or [])
+            if title_id not in (None, "")
+        }
+
+
+@dataclass(frozen=True)
 class MachineAccessTokenClient:
     """Client for Kino auth service client-credentials tokens."""
 
@@ -54,75 +82,26 @@ class KinoDataServiceClient:
 
     async def search_titles(
         self,
-        free_text: str | None,
-        genres: list[str] | None,
-        title_type: str | None,
-        min_year: int | None,
-        max_year: int | None,
-        exclude_ids: list[str] | None,
-        is_adult: bool,
-        size: int,
+        search: TitleSearchRequest,
     ) -> list[dict[str, Any]]:
         """Search titles and return compact catalog records."""
         if not self.base_url:
             return [{"error": "KINO_DATA_SERVICE_URL is not configured."}]
 
-        requested_size = min(max(size, 1), 12)
-        excluded_ids = {
-            str(title_id)
-            for title_id in (exclude_ids or [])
-            if title_id not in (None, "")
-        }
-
         try:
             headers = await self._authorization_header()
             async with httpx.AsyncClient(timeout=5.0) as client:
-                if not excluded_ids:
-                    titles, _ = await self._fetch_titles_page(
+                if not search.excluded_ids:
+                    return await self._search_first_page(
                         client,
                         headers=headers,
-                        free_text=free_text,
-                        genres=genres,
-                        title_type=title_type,
-                        min_year=min_year,
-                        max_year=max_year,
-                        is_adult=is_adult,
-                        page=0,
-                        size=requested_size,
+                        search=search,
                     )
-                    return titles[:requested_size]
-
-                collected: list[dict[str, Any]] = []
-                seen_ids = set(excluded_ids)
-                page = 0
-                while (
-                    len(collected) < requested_size
-                    and page < MAX_EXCLUSION_SEARCH_PAGES
-                ):
-                    titles, is_last = await self._fetch_titles_page(
-                        client,
-                        headers=headers,
-                        free_text=free_text,
-                        genres=genres,
-                        title_type=title_type,
-                        min_year=min_year,
-                        max_year=max_year,
-                        is_adult=is_adult,
-                        page=page,
-                        size=12,
-                    )
-                    for title in titles:
-                        title_id = str(title.get("id") or "")
-                        if title_id and title_id in seen_ids:
-                            continue
-                        if title_id:
-                            seen_ids.add(title_id)
-                        collected.append(title)
-                        if len(collected) >= requested_size:
-                            break
-                    if is_last:
-                        break
-                    page += 1
+                return await self._search_titles_with_exclusions(
+                    client,
+                    headers=headers,
+                    search=search,
+                )
         except ValueError as exc:
             return [
                 {
@@ -135,34 +114,27 @@ class KinoDataServiceClient:
         except httpx.HTTPError as exc:
             return [{"error": f"Failed to query Kino data service: {exc}"}]
 
-        return collected[:requested_size]
-
     @staticmethod
     def _search_params(
-        free_text: str | None,
-        genres: list[str] | None,
-        title_type: str | None,
-        min_year: int | None,
-        max_year: int | None,
-        is_adult: bool,
+        search: TitleSearchRequest,
         page: int,
         size: int,
     ) -> dict[str, Any]:
         params: dict[str, Any] = {
-            "isAdult": str(is_adult).lower(),
+            "isAdult": str(search.is_adult).lower(),
             "page": max(page, 0),
             "size": min(max(size, 1), 12),
         }
-        if free_text:
-            params["freeText"] = free_text
-        if genres:
-            params["genres"] = genres
-        if title_type:
-            params["titleType"] = title_type
-        if min_year is not None:
-            params["minYear"] = min_year
-        if max_year is not None:
-            params["maxYear"] = max_year
+        if search.free_text:
+            params["freeText"] = search.free_text
+        if search.genres:
+            params["genres"] = search.genres
+        if search.title_type:
+            params["titleType"] = search.title_type
+        if search.min_year is not None:
+            params["minYear"] = search.min_year
+        if search.max_year is not None:
+            params["maxYear"] = search.max_year
         return params
 
     async def _authorization_header(self) -> dict[str, str]:
@@ -179,22 +151,12 @@ class KinoDataServiceClient:
         client: httpx.AsyncClient,
         *,
         headers: dict[str, str],
-        free_text: str | None,
-        genres: list[str] | None,
-        title_type: str | None,
-        min_year: int | None,
-        max_year: int | None,
-        is_adult: bool,
+        search: TitleSearchRequest,
         page: int,
         size: int,
     ) -> tuple[list[dict[str, Any]], bool]:
         params = self._search_params(
-            free_text=free_text,
-            genres=genres,
-            title_type=title_type,
-            min_year=min_year,
-            max_year=max_year,
-            is_adult=is_adult,
+            search=search,
             page=page,
             size=size,
         )
@@ -222,6 +184,57 @@ class KinoDataServiceClient:
             if isinstance(page_number, int) and isinstance(total_pages, int):
                 return titles, page_number + 1 >= total_pages
         return titles, len(content) < params["size"]
+
+    async def _search_first_page(
+        self,
+        client: httpx.AsyncClient,
+        *,
+        headers: dict[str, str],
+        search: TitleSearchRequest,
+    ) -> list[dict[str, Any]]:
+        titles, _ = await self._fetch_titles_page(
+            client,
+            headers=headers,
+            search=search,
+            page=0,
+            size=search.requested_size,
+        )
+        return titles[: search.requested_size]
+
+    async def _search_titles_with_exclusions(
+        self,
+        client: httpx.AsyncClient,
+        *,
+        headers: dict[str, str],
+        search: TitleSearchRequest,
+    ) -> list[dict[str, Any]]:
+        collected: list[dict[str, Any]] = []
+        seen_ids = set(search.excluded_ids)
+        page = 0
+        while (
+            len(collected) < search.requested_size
+            and page < MAX_EXCLUSION_SEARCH_PAGES
+        ):
+            titles, is_last = await self._fetch_titles_page(
+                client,
+                headers=headers,
+                search=search,
+                page=page,
+                size=12,
+            )
+            for title in titles:
+                title_id = str(title.get("id") or "")
+                if title_id and title_id in seen_ids:
+                    continue
+                if title_id:
+                    seen_ids.add(title_id)
+                collected.append(title)
+                if len(collected) >= search.requested_size:
+                    break
+            if is_last:
+                break
+            page += 1
+        return collected[: search.requested_size]
 
 
 class TitleCompactor:

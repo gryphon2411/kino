@@ -2,19 +2,27 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from agent_service.data_service import KinoDataServiceClient
+from agent_service.data_service import (
+    KinoDataServiceClient,
+    TitleSearchRequest,
+)
 
 pytestmark = pytest.mark.anyio
 
 
 def test_search_params_include_year_bounds() -> None:
-    params = KinoDataServiceClient._search_params(
+    search = TitleSearchRequest(
         free_text=None,
         genres=["Action"],
         title_type="movie",
         min_year=1990,
         max_year=2000,
+        exclude_ids=None,
         is_adult=False,
+        size=8,
+    )
+    params = KinoDataServiceClient._search_params(
+        search=search,
         page=0,
         size=8,
     )
@@ -31,13 +39,18 @@ def test_search_params_include_year_bounds() -> None:
 
 
 def test_search_params_include_page_number() -> None:
-    params = KinoDataServiceClient._search_params(
+    search = TitleSearchRequest(
         free_text="fargo",
         genres=None,
         title_type=None,
         min_year=None,
         max_year=None,
+        exclude_ids=None,
         is_adult=False,
+        size=12,
+    )
+    params = KinoDataServiceClient._search_params(
+        search=search,
         page=2,
         size=12,
     )
@@ -82,8 +95,7 @@ async def test_search_titles_fetches_additional_pages_for_exclusions() -> None:
         client, "_authorization_header", AsyncMock(return_value={})
     )
     object.__setattr__(client, "_fetch_titles_page", fake_fetch_titles_page)
-
-    result = await client.search_titles(
+    search = TitleSearchRequest(
         free_text=None,
         genres=["Action"],
         title_type="movie",
@@ -93,6 +105,8 @@ async def test_search_titles_fetches_additional_pages_for_exclusions() -> None:
         is_adult=False,
         size=3,
     )
+
+    result = await client.search_titles(search)
 
     assert result == [
         {"id": "a3", "title": "Ronin"},

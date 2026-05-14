@@ -7,7 +7,10 @@ from typing import Any
 from langchain_core.tools import tool
 
 from agent_service.config import CuratorSettings
-from agent_service.data_service import KinoDataServiceClient
+from agent_service.data_service import (
+    KinoDataServiceClient,
+    TitleSearchRequest,
+)
 
 
 @tool(parse_docstring=True)
@@ -66,7 +69,7 @@ async def search_titles(
         auth_client_id=settings.auth_client_id,
         auth_client_secret=settings.auth_client_secret,
     )
-    return await client.search_titles(
+    search = TitleSearchRequest(
         free_text=free_text,
         genres=genres,
         title_type=title_type,
@@ -76,3 +79,4 @@ async def search_titles(
         is_adult=is_adult,
         size=size,
     )
+    return await client.search_titles(search)
