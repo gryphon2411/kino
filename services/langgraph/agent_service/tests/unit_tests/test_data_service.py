@@ -22,9 +22,7 @@ def test_search_params_include_year_bounds() -> None:
         size=8,
     )
     params = KinoDataServiceClient._search_params(
-        search=search,
-        page=0,
-        size=8,
+        search=search, page=0, size=8
     )
 
     assert params == {
@@ -50,9 +48,7 @@ def test_search_params_include_page_number() -> None:
         size=12,
     )
     params = KinoDataServiceClient._search_params(
-        search=search,
-        page=2,
-        size=12,
+        search=search, page=2, size=12
     )
 
     assert params["page"] == 2

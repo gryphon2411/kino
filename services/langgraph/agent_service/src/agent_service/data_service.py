@@ -81,8 +81,7 @@ class KinoDataServiceClient:
     auth_client_secret: str
 
     async def search_titles(
-        self,
-        search: TitleSearchRequest,
+        self, search: TitleSearchRequest
     ) -> list[dict[str, Any]]:
         """Search titles and return compact catalog records."""
         if not self.base_url:
@@ -93,14 +92,10 @@ class KinoDataServiceClient:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 if not search.excluded_ids:
                     return await self._search_first_page(
-                        client,
-                        headers=headers,
-                        search=search,
+                        client, headers=headers, search=search
                     )
                 return await self._search_titles_with_exclusions(
-                    client,
-                    headers=headers,
-                    search=search,
+                    client, headers=headers, search=search
                 )
         except ValueError as exc:
             return [
@@ -116,9 +111,7 @@ class KinoDataServiceClient:
 
     @staticmethod
     def _search_params(
-        search: TitleSearchRequest,
-        page: int,
-        size: int,
+        search: TitleSearchRequest, page: int, size: int
     ) -> dict[str, Any]:
         params: dict[str, Any] = {
             "isAdult": str(search.is_adult).lower(),
@@ -155,11 +148,7 @@ class KinoDataServiceClient:
         page: int,
         size: int,
     ) -> tuple[list[dict[str, Any]], bool]:
-        params = self._search_params(
-            search=search,
-            page=page,
-            size=size,
-        )
+        params = self._search_params(search=search, page=page, size=size)
         response = await client.get(
             f"{self.base_url}/internal/titles/search",
             params=params,
@@ -216,11 +205,7 @@ class KinoDataServiceClient:
             and page < MAX_EXCLUSION_SEARCH_PAGES
         ):
             titles, is_last = await self._fetch_titles_page(
-                client,
-                headers=headers,
-                search=search,
-                page=page,
-                size=12,
+                client, headers=headers, search=search, page=page, size=12
             )
             for title in titles:
                 title_id = str(title.get("id") or "")
