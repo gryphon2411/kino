@@ -141,7 +141,7 @@ variable "rabbitmq_admin_password" {
 variable "agent_service_provider" {
   type        = string
   description = "Kino Agent Service model provider"
-  default     = "nvidia_nim"
+  default     = "google_genai"
 
   validation {
     condition = contains(
@@ -155,7 +155,7 @@ variable "agent_service_provider" {
 variable "agent_service_model" {
   type        = string
   description = "Kino Agent Service model name"
-  default     = "deepseek-ai/deepseek-v3.2"
+  default     = "gemini-3.1-flash-lite-preview"
 }
 
 variable "nvidia_api_key" {

@@ -21,6 +21,33 @@ class CuratorTitle(BaseModel):
     )
 
 
+class CuratorActiveContext(BaseModel):
+    """Inspectable effective search arguments used for the latest turn."""
+
+    freeText: str | None = Field(
+        default=None, description="Effective free-text title search."
+    )
+    genres: list[str] = Field(
+        default_factory=list, description="Effective genre constraints."
+    )
+    titleType: str | None = Field(
+        default=None, description="Effective title format constraint."
+    )
+    minYear: int | None = Field(
+        default=None, description="Effective lower year bound."
+    )
+    maxYear: int | None = Field(
+        default=None, description="Effective upper year bound."
+    )
+    isAdult: bool = Field(
+        default=False, description="Whether adult titles are allowed."
+    )
+    excludedTitleIds: list[str] = Field(
+        default_factory=list,
+        description="Explicitly excluded prior title IDs for this thread.",
+    )
+
+
 class CuratorResponse(BaseModel):
     """Structured Kino Discover response."""
 
@@ -33,4 +60,8 @@ class CuratorResponse(BaseModel):
         default_factory=list,
         description="Short operational notes, such as search relaxations or missing data.",
         max_length=3,
+    )
+    activeContext: CuratorActiveContext = Field(
+        default_factory=CuratorActiveContext,
+        description="Effective search arguments used for this response turn.",
     )

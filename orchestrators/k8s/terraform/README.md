@@ -74,8 +74,8 @@ task clean
 | `kafka_password` | `string` | — | Kafka password (sensitive) |
 | `rabbitmq_password` | `string` | — | RabbitMQ password (sensitive) |
 | `rabbitmq_admin_password` | `string` | `null` | Optional RabbitMQ admin password. Falls back to `rabbitmq_password` when unset |
-| `agent_service_provider` | `string` | `"nvidia_nim"` | Kino Agent Service model provider |
-| `agent_service_model` | `string` | `"deepseek-ai/deepseek-v3.2"` | Kino Agent Service model |
+| `agent_service_provider` | `string` | `"google_genai"` | Kino Agent Service model provider |
+| `agent_service_model` | `string` | `"gemini-3.1-flash-lite-preview"` | Kino Agent Service model |
 | `nvidia_api_key` | `string` | `null` | NVIDIA API key for Kino Agent Service |
 | `agent_service_client_secret` | `string` | `"replace-me-agent-secret"` | Auth-service client secret for agent-service machine tokens |
 
