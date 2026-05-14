@@ -9,12 +9,17 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from typing_extensions import TypedDict
 
-from agent_service.models import CuratorResponse, CuratorTitle
+from agent_service.models import (
+    CuratorActiveContext,
+    CuratorResponse,
+    CuratorTitle,
+)
 
 
 class SearchSnapshot(TypedDict):
     """Typed snapshot of the latest grounded search results."""
 
+    searched: bool
     candidates: list[dict[str, Any]]
     error: str | None
     args: dict[str, Any] | None
@@ -73,20 +78,27 @@ class CuratorResponseBuilder:
     def finalize_agent_state(cls, state: dict[str, Any]) -> CuratorResponse:
         """Build a grounded structured response from the final agent state."""
         snapshot = cls.latest_search_snapshot(state.get("messages", []))
+        active_context = cls.active_context_from_args(snapshot["args"])
+        if not snapshot["searched"]:
+            return CuratorResponse(activeContext=active_context)
         if snapshot["error"]:
-            return CuratorResponse(notes=[snapshot["error"]])
+            return CuratorResponse(
+                notes=[snapshot["error"]], activeContext=active_context
+            )
         candidates, notes = cls.apply_request_filters(
             snapshot["candidates"], snapshot["args"]
         )
         if not candidates:
             return CuratorResponse(
+                activeContext=active_context,
                 notes=notes
                 or [
                     "The catalog search did not return any grounded candidates."
-                ]
+                ],
             )
         response = cls.fallback_response(candidates)
         response.notes = [*notes, *response.notes][:3]
+        response.activeContext = active_context
         return response
 
     @staticmethod
@@ -100,40 +112,57 @@ class CuratorResponseBuilder:
 
     @classmethod
     def latest_search_snapshot(cls, messages: list[Any]) -> SearchSnapshot:
-        """Return the latest successful search result from the message list."""
-        last_error: str | None = None
-        for index in range(len(messages) - 1, -1, -1):
-            raw_message = messages[index]
+        """Return the latest search result from the current turn."""
+        turn_messages = cls.latest_turn_messages(messages)
+        for index in range(len(turn_messages) - 1, -1, -1):
+            raw_message = turn_messages[index]
             if not isinstance(raw_message, ToolMessage):
                 continue
             if raw_message.name != "search_titles":
                 continue
+            args = cls.latest_search_args(
+                turn_messages[:index],
+                getattr(raw_message, "tool_call_id", None),
+            )
             payload = cls.parse_tool_payload(raw_message)
             if not isinstance(payload, list):
-                continue
+                return SearchSnapshot(
+                    searched=True,
+                    candidates=[],
+                    error="The catalog search returned an unreadable payload.",
+                    args=args,
+                )
             if (
                 payload
                 and isinstance(payload[0], dict)
                 and payload[0].get("error")
             ):
-                last_error = str(payload[0]["error"])
-                continue
+                return SearchSnapshot(
+                    searched=True,
+                    candidates=[],
+                    error=str(payload[0]["error"]),
+                    args=args,
+                )
             candidates = [
                 item
                 for item in payload
                 if isinstance(item, dict) and item.get("id")
             ]
-            if candidates:
-                return SearchSnapshot(
-                    candidates=candidates,
-                    error=None,
-                    args=cls.latest_search_args(
-                        messages[:index],
-                        getattr(raw_message, "tool_call_id", None),
-                    ),
-                )
+            return SearchSnapshot(
+                searched=True, candidates=candidates, error=None, args=args
+            )
 
-        return SearchSnapshot(candidates=[], error=last_error, args=None)
+        return SearchSnapshot(
+            searched=False, candidates=[], error=None, args=None
+        )
+
+    @staticmethod
+    def latest_turn_messages(messages: list[Any]) -> list[Any]:
+        """Return the messages generated after the latest human turn began."""
+        for index in range(len(messages) - 1, -1, -1):
+            if isinstance(messages[index], HumanMessage):
+                return messages[index + 1 :]
+        return messages
 
     @classmethod
     def latest_search_args(
@@ -209,6 +238,14 @@ class CuratorResponseBuilder:
         notes: list[str] = []
         filtered = candidates
 
+        exclude_ids = cls.exclude_ids(search_args)
+        if exclude_ids:
+            filtered = [
+                candidate
+                for candidate in filtered
+                if str(candidate.get("id")) not in exclude_ids
+            ]
+
         min_year = cls.to_int((search_args or {}).get("min_year"))
         max_year = cls.to_int((search_args or {}).get("max_year"))
         if min_year is not None or max_year is not None:
@@ -228,6 +265,40 @@ class CuratorResponseBuilder:
                 return [], notes
 
         return filtered, notes
+
+    @classmethod
+    def active_context_from_args(
+        cls, search_args: dict[str, Any] | None
+    ) -> CuratorActiveContext:
+        """Build the inspectable active discovery context from tool args."""
+        args = search_args or {}
+        raw_genres = args.get("genres") or []
+        if isinstance(raw_genres, str):
+            raw_genres = [raw_genres]
+        genres = [str(genre) for genre in cast(list[Any], raw_genres)]
+        return CuratorActiveContext(
+            freeText=cls.to_str(args.get("free_text")),
+            genres=genres,
+            titleType=cls.to_str(args.get("title_type")),
+            minYear=cls.to_int(args.get("min_year")),
+            maxYear=cls.to_int(args.get("max_year")),
+            isAdult=cls.to_bool(args.get("is_adult"), default=False),
+            excludedTitleIds=cls.exclude_ids(args),
+        )
+
+    @staticmethod
+    def exclude_ids(search_args: dict[str, Any] | None) -> list[str]:
+        """Normalize excluded title IDs from tool args."""
+        if not search_args:
+            return []
+        raw_ids = search_args.get("exclude_ids") or []
+        if isinstance(raw_ids, str):
+            raw_ids = [raw_ids]
+        if not isinstance(raw_ids, list):
+            return []
+        return [
+            str(title_id) for title_id in raw_ids if title_id not in (None, "")
+        ]
 
     @staticmethod
     def year_range_note(min_year: int | None, max_year: int | None) -> str:
@@ -319,3 +390,18 @@ class CuratorResponseBuilder:
         if value in (None, ""):
             return None
         return str(value)
+
+    @staticmethod
+    def to_bool(value: Any, *, default: bool) -> bool:
+        """Coerce optional metadata into booleans."""
+        if value in (None, ""):
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "1", "yes"}:
+                return True
+            if normalized in {"false", "0", "no"}:
+                return False
+        return bool(value)

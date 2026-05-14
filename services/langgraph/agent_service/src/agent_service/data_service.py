@@ -7,6 +7,8 @@ from typing import Any
 
 import httpx
 
+MAX_EXCLUSION_SEARCH_PAGES = 5
+
 
 @dataclass(frozen=True)
 class MachineAccessTokenClient:
@@ -57,6 +59,7 @@ class KinoDataServiceClient:
         title_type: str | None,
         min_year: int | None,
         max_year: int | None,
+        exclude_ids: list[str] | None,
         is_adult: bool,
         size: int,
     ) -> list[dict[str, Any]]:
@@ -64,25 +67,62 @@ class KinoDataServiceClient:
         if not self.base_url:
             return [{"error": "KINO_DATA_SERVICE_URL is not configured."}]
 
-        params = self._search_params(
-            free_text=free_text,
-            genres=genres,
-            title_type=title_type,
-            min_year=min_year,
-            max_year=max_year,
-            is_adult=is_adult,
-            size=size,
-        )
+        requested_size = min(max(size, 1), 12)
+        excluded_ids = {
+            str(title_id)
+            for title_id in (exclude_ids or [])
+            if title_id not in (None, "")
+        }
 
         try:
             headers = await self._authorization_header()
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(
-                    f"{self.base_url}/internal/titles/search",
-                    params=params,
-                    headers=headers,
-                )
-                response.raise_for_status()
+                if not excluded_ids:
+                    titles, _ = await self._fetch_titles_page(
+                        client,
+                        headers=headers,
+                        free_text=free_text,
+                        genres=genres,
+                        title_type=title_type,
+                        min_year=min_year,
+                        max_year=max_year,
+                        is_adult=is_adult,
+                        page=0,
+                        size=requested_size,
+                    )
+                    return titles[:requested_size]
+
+                collected: list[dict[str, Any]] = []
+                seen_ids = set(excluded_ids)
+                page = 0
+                while (
+                    len(collected) < requested_size
+                    and page < MAX_EXCLUSION_SEARCH_PAGES
+                ):
+                    titles, is_last = await self._fetch_titles_page(
+                        client,
+                        headers=headers,
+                        free_text=free_text,
+                        genres=genres,
+                        title_type=title_type,
+                        min_year=min_year,
+                        max_year=max_year,
+                        is_adult=is_adult,
+                        page=page,
+                        size=12,
+                    )
+                    for title in titles:
+                        title_id = str(title.get("id") or "")
+                        if title_id and title_id in seen_ids:
+                            continue
+                        if title_id:
+                            seen_ids.add(title_id)
+                        collected.append(title)
+                        if len(collected) >= requested_size:
+                            break
+                    if is_last:
+                        break
+                    page += 1
         except ValueError as exc:
             return [
                 {
@@ -95,14 +135,7 @@ class KinoDataServiceClient:
         except httpx.HTTPError as exc:
             return [{"error": f"Failed to query Kino data service: {exc}"}]
 
-        payload = response.json()
-        content = payload.get(
-            "content", payload if isinstance(payload, list) else []
-        )
-        return [
-            TitleCompactor.compact(title)
-            for title in content[: params["size"]]
-        ]
+        return collected[:requested_size]
 
     @staticmethod
     def _search_params(
@@ -112,11 +145,12 @@ class KinoDataServiceClient:
         min_year: int | None,
         max_year: int | None,
         is_adult: bool,
+        page: int,
         size: int,
     ) -> dict[str, Any]:
         params: dict[str, Any] = {
             "isAdult": str(is_adult).lower(),
-            "page": 0,
+            "page": max(page, 0),
             "size": min(max(size, 1), 12),
         }
         if free_text:
@@ -139,6 +173,55 @@ class KinoDataServiceClient:
         )
         access_token = await token_client.issue_token()
         return {"Authorization": f"Bearer {access_token}"}
+
+    async def _fetch_titles_page(
+        self,
+        client: httpx.AsyncClient,
+        *,
+        headers: dict[str, str],
+        free_text: str | None,
+        genres: list[str] | None,
+        title_type: str | None,
+        min_year: int | None,
+        max_year: int | None,
+        is_adult: bool,
+        page: int,
+        size: int,
+    ) -> tuple[list[dict[str, Any]], bool]:
+        params = self._search_params(
+            free_text=free_text,
+            genres=genres,
+            title_type=title_type,
+            min_year=min_year,
+            max_year=max_year,
+            is_adult=is_adult,
+            page=page,
+            size=size,
+        )
+        response = await client.get(
+            f"{self.base_url}/internal/titles/search",
+            params=params,
+            headers=headers,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        content = payload.get(
+            "content", payload if isinstance(payload, list) else []
+        )
+        titles = [
+            TitleCompactor.compact(title)
+            for title in content[: params["size"]]
+        ]
+        if isinstance(payload, list):
+            return titles, True
+        if isinstance(payload, dict):
+            if isinstance(payload.get("last"), bool):
+                return titles, payload["last"]
+            page_number = payload.get("number")
+            total_pages = payload.get("totalPages")
+            if isinstance(page_number, int) and isinstance(total_pages, int):
+                return titles, page_number + 1 >= total_pages
+        return titles, len(content) < params["size"]
 
 
 class TitleCompactor:

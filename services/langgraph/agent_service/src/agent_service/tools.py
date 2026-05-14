@@ -17,6 +17,7 @@ async def search_titles(
     title_type: str | None = None,
     min_year: int | None = None,
     max_year: int | None = None,
+    exclude_ids: list[str] | None = None,
     is_adult: bool = False,
     size: int = 8,
 ) -> list[dict[str, Any]]:
@@ -28,8 +29,10 @@ async def search_titles(
     popularity, trend data, or external web results. If the request mentions
     constraints this tool does not support directly, such as runtime,
     search by the closest supported fields first and filter/rank from the
-    returned records. Call this tool once per user request, then answer from the
-    grounded results without retrying or reformulating the search.
+    returned records. In follow-up turns, reuse supported constraints from the
+    current thread unless the user explicitly changes them. Call this tool once
+    per user request, then answer from the grounded results without retrying or
+    reformulating the search.
 
     Args:
         free_text: Keyword or title text for Kino's text search. Use short phrases
@@ -47,6 +50,11 @@ async def search_titles(
         max_year: Maximum release/start year, such as 2000 for requests like
             "through 2000" or "between 1990 and 2000". Leave empty if the
             user did not give an explicit upper year bound.
+        exclude_ids: Earlier Kino title IDs to suppress from the final grounded
+            candidates. Use this only when the user explicitly rejects already
+            shown titles in the same thread, such as "not those" or "different
+            ones". When using exclusions for a refinement turn, prefer `size=12`
+            to reduce empty repeat results.
         is_adult: Whether adult titles are allowed. Keep false unless the user
             explicitly asks to include adult content.
         size: Number of candidates to return. Use 5 to 12; default is 8.
@@ -64,6 +72,7 @@ async def search_titles(
         title_type=title_type,
         min_year=min_year,
         max_year=max_year,
+        exclude_ids=exclude_ids,
         is_adult=is_adult,
         size=size,
     )
