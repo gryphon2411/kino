@@ -18,5 +18,5 @@ enable_grafana            = true
 enable_ingress            = true
 
 # Agent Service
-agent_service_provider = "nvidia_nim"
-agent_service_model    = "deepseek-ai/deepseek-v3.2"
+agent_service_provider = "google_genai"
+agent_service_model    = "gemini-3.1-flash-lite-preview"
