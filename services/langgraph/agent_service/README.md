@@ -33,6 +33,28 @@ The tool uses the internal data-service search endpoint and authenticates with
 short-lived JWT machine tokens from auth-service when
 `KINO_DATA_SERVICE_URL` and the machine-auth settings are configured.
 
+## Session Refinements
+
+Reuse the same LangGraph thread for follow-up turns.
+
+Example:
+
+1. `Discover exactly 3 comedy movies from 2010 onward from Kino's catalog.`
+2. `Different ones.`
+
+On the second turn, Kino carries forward the effective search args from the
+thread, expands the search size, and excludes the first turn's title IDs before
+finalizing the response.
+
+The response remains small:
+
+- `titles`
+- `notes`
+- `activeContext`
+
+`activeContext` shows the effective args used for the latest turn, including
+`excludedTitleIds` when the follow-up explicitly rejects the previous picks.
+
 Enable Gemini for real tool-calling runs:
 
 ```bash
