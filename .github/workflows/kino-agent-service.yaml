@@ -15,6 +15,22 @@ on:
     paths:
       - services/langgraph/agent_service/**
       - .github/workflows/kino-agent-service.yaml
+  # Allows an operator to run the workflow manually from the Actions tab.
+  workflow_dispatch:
+    inputs:
+      publish_image:
+        description: Publish the image from the selected ref. Publishing still requires refs/heads/master.
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: kino-agent_service
+  PUBLISH_REF: refs/heads/master
 
 jobs:
   test:
@@ -66,23 +82,123 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: test
+    outputs:
+      image_ref: ${{ steps.release_manifest.outputs.image_ref }}
+      terraform_export: ${{ steps.release_manifest.outputs.terraform_export }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Decide once whether this run is allowed to publish or should stay in validation mode.
+      - name: Decide publish mode
+        id: publish_decision
+        run: |
+          should_publish=false
+          non_publish_reason="This run will validate only."
+          publish_requested="$(python3 -c 'import json, sys; event = json.load(open(sys.argv[1])); print(str(event.get("inputs", {}).get("publish_image", "false")).lower())' "$GITHUB_EVENT_PATH")"
+
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "${{ env.PUBLISH_REF }}" ]]; then
+            should_publish=true
+            non_publish_reason=""
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "$publish_requested" == "true" && "${{ github.ref }}" == "${{ env.PUBLISH_REF }}" ]]; then
+            should_publish=true
+            non_publish_reason=""
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "$publish_requested" != "true" ]]; then
+            non_publish_reason="publish_image=false"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.ref }}" != "${{ env.PUBLISH_REF }}" ]]; then
+            non_publish_reason="selected ref does not match ${{ env.PUBLISH_REF }}"
+          fi
+
+          {
+            echo "should_publish=$should_publish"
+            echo "non_publish_reason<<EOF"
+            echo "$non_publish_reason"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Docker Hub credentials are only needed when this run is actually allowed to publish the image.
       - name: Login to Docker Hub
+        if: steps.publish_decision.outputs.should_publish == 'true'
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Buildx is used consistently for both CI-only image builds and published images.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
+      # Pull requests and non-publishing manual runs only validate that the Dockerfile still builds.
+      - name: Build image for CI validation
+        if: steps.publish_decision.outputs.should_publish != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: services/langgraph/agent_service
+          file: services/langgraph/agent_service/Dockerfile
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:ci
+
+      # Manual runs that stay in validation mode still explain why no publish happened.
+      - name: Publish validation summary
+        if: github.event_name == 'workflow_dispatch' && steps.publish_decision.outputs.should_publish != 'true'
+        run: |
+          {
+            echo "## Validation-only run"
+            echo
+            echo "- Ref: \`${{ github.ref }}\`"
+            echo "- Publish requested: \`${{ inputs.publish_image }}\`"
+            echo "- Reason: ${{ steps.publish_decision.outputs.non_publish_reason }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Canonical branch pushes and explicit manual publishes on that branch are allowed to refresh the registry tag.
       - name: Build and push
+        if: steps.publish_decision.outputs.should_publish == 'true'
+        id: publish_image
         uses: docker/build-push-action@v7
         with:
           context: services/langgraph/agent_service
           file: services/langgraph/agent_service/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/kino-agent_service:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+      # Build a small release manifest so operators and later jobs can consume the exact deploy input.
+      - name: Write release manifest
+        if: steps.publish_decision.outputs.should_publish == 'true'
+        id: release_manifest
+        run: |
+          python3 .github/scripts/write_image_release_manifest.py \
+            --service agent-service \
+            --terraform-var TF_VAR_agent_service_image_ref \
+            --repository "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}" \
+            --tag latest \
+            --digest "${{ steps.publish_image.outputs.digest }}" \
+            --git-revision "${{ github.sha }}" \
+            --git-ref "${{ github.ref }}" \
+            --git-commit-subject "$(git log -1 --pretty=%s)" \
+            --workflow "${{ github.workflow }}" \
+            --output release-manifest.json
+
+      # Surface the exact copy-paste line directly on the run summary page.
+      - name: Publish workflow summary
+        if: steps.publish_decision.outputs.should_publish == 'true'
+        run: |
+          {
+            echo "## Published agent-service image"
+            echo
+            echo "- Commit: \`${{ steps.release_manifest.outputs.short_git_revision }}\` ${{ steps.release_manifest.outputs.git_commit_subject }}"
+            echo "- Ref: \`${{ github.ref }}\`"
+            echo "- Image ref: \`${{ steps.release_manifest.outputs.image_ref }}\`"
+            echo "- Terraform export:"
+            echo
+            echo '```bash'
+            echo "${{ steps.release_manifest.outputs.terraform_export }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Upload the release manifest so operators can retrieve it without opening the raw step logs.
+      - name: Upload release manifest
+        if: steps.publish_decision.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kino-agent-service-release-manifest
+          path: release-manifest.json
