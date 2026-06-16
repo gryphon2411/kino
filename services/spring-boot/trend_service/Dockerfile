@@ -1,5 +1,5 @@
 # Use the official Gradle image from the openjdk Docker Hub page
-FROM gradle:7.4-jdk17 as builder
+FROM gradle:7.4-jdk17 AS builder
 
 # Add Maintainer Info
 LABEL maintainer="eido.askayo@gmail.com"

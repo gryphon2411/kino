@@ -163,7 +163,7 @@ jobs:
       # Upload the runtime release manifest separately so it cannot be confused with the dataset verification manifest.
       - name: Upload runtime release manifest
         if: steps.publish_decision.outputs.should_publish == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: kino-jobs-runtime-release-manifest
           path: runtime-release-manifest.json
