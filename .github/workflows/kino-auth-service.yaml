@@ -35,9 +35,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      image_ref: ${{ steps.release_manifest.outputs.image_ref }}
-      terraform_export: ${{ steps.release_manifest.outputs.terraform_export }}
     steps:
       # Checks out the repository on the build machine.
       - name: Checkout
@@ -160,7 +157,7 @@ jobs:
       # Upload the release manifest so operators can retrieve it without opening the raw step logs.
       - name: Upload release manifest
         if: steps.publish_decision.outputs.should_publish == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: kino-auth-service-release-manifest
           path: release-manifest.json
