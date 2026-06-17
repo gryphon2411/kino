@@ -7,23 +7,40 @@ tasks:
     cmds:
       - task --list
 
-  deploy:
-    desc: Provision the infrastructure (Ansible -> Terraform)
+  bootstrap-local-env:
+    desc: Prepare local Minikube and host entries without provisioning app resources
     cmds:
       - ansible-playbook playbook.yaml -vv -K
-      - ./scripts/unseal_vault.sh
+
+  deploy:
+    desc: Provision the infrastructure with Terraform
+    cmds:
+      - terraform init
+      - terraform validate
+      - terraform plan -out=.terraform/kino.plan
+      - terraform apply -auto-approve .terraform/kino.plan
+
+  deploy-with-vault:
+    desc: Provision with Terraform, then bootstrap Vault-backed runtime secrets
+    cmds:
+      - task deploy
+      - task setup-vault
 
   setup-vault:
     desc: Initialize/Unseal Vault and populate secrets
     cmds:
       - ./scripts/unseal_vault.sh
 
-  destroy:
-    desc: Destroy the infrastructure (Terraform)
-    dir: .
+  cleanup-vault-bootstrap:
+    desc: Remove local Vault bootstrap artifacts created outside Terraform
     cmds:
       - kubectl delete secret vault-eso-token -n default --ignore-not-found=true
       - kubectl delete -f k8s/vault-secrets.yaml --ignore-not-found=true
+
+  destroy:
+    desc: Destroy Terraform-managed infrastructure
+    dir: .
+    cmds:
       - terraform destroy -auto-approve
 
   urls:
@@ -43,9 +60,8 @@ tasks:
   clean:
     desc: Full reset - delete Minikube cluster and Terraform state
     cmds:
-      - kubectl delete secret vault-eso-token -n default --ignore-not-found=true || true
-      - kubectl delete -f k8s/vault-secrets.yaml --ignore-not-found=true || true
-      - terraform destroy -auto-approve || true
+      - task cleanup-vault-bootstrap || true
+      - terraform destroy -auto-approve
       - minikube delete || true
       - rm -rf .terraform terraform.tfstate terraform.tfstate.backup
       - rm -f terraform.tfstate.*.backup cluster-keys.json terraform-debug.log deploy.log deploy_final_test.log deploy_lint_test.log

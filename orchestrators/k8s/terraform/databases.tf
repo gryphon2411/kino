@@ -70,6 +70,18 @@ resource "kubernetes_stateful_set" "mongodb" {
             value = var.mongodb_password
           }
 
+          readiness_probe {
+            exec {
+              command = [
+                "sh",
+                "-c",
+                "mongosh --quiet --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 }).ok'"
+              ]
+            }
+            initial_delay_seconds = 5
+            period_seconds        = 5
+          }
+
           volume_mount {
             name       = "mongodb-data"
             mount_path = "/data/db"
@@ -93,19 +105,33 @@ resource "kubernetes_job" "mongodb_init" {
   count = var.enable_mongodb ? 1 : 0
 
   metadata {
-    name      = "mongodb-init"
+    name      = "mongodb-init-${substr(sha256("${coalesce(var.mongodb_seed_image_ref, "unset")}:${var.mongodb_seed_generation}"), 0, 8)}"
     namespace = kubernetes_namespace.mongodb_system[0].metadata[0].name
+    labels = {
+      app = "mongodb-init"
+    }
   }
 
   spec {
+    backoff_limit           = 1
+    active_deadline_seconds = var.mongodb_seed_job_active_deadline_seconds
+
     template {
-      metadata {}
+      metadata {
+        labels = {
+          app = "mongodb-init"
+        }
+        annotations = {
+          "kino.dev/mongodb-seed-image-ref"  = var.mongodb_seed_image_ref
+          "kino.dev/mongodb-seed-generation" = tostring(var.mongodb_seed_generation)
+        }
+      }
 
       spec {
         container {
-          name  = "kino-jobs"
-          image = "gryphon2411/kino-jobs:latest"
-          args  = ["python", "run.py", "mongoinit.py"]
+          name              = "kino-mongo-seed"
+          image             = var.mongodb_seed_image_ref
+          image_pull_policy = "IfNotPresent"
 
           env {
             name  = "MONGO_URI_FORMAT"
@@ -136,6 +162,21 @@ resource "kubernetes_job" "mongodb_init" {
             name  = "MONGO_HOST"
             value = "mongodb.mongodb-system"
           }
+
+          env {
+            name  = "MONGO_RESTORE_WORKERS"
+            value = "4"
+          }
+
+          env {
+            name  = "MONGO_WAIT_TIMEOUT_SECONDS"
+            value = "300"
+          }
+
+          env {
+            name  = "MONGO_SEED_IMAGE_REF"
+            value = var.mongodb_seed_image_ref
+          }
         }
 
         restart_policy = "Never"
@@ -144,7 +185,7 @@ resource "kubernetes_job" "mongodb_init" {
   }
 
   timeouts {
-    create = "20m"
+    create = format("%ds", var.mongodb_seed_job_active_deadline_seconds + 300)
   }
 
   depends_on = [kubernetes_stateful_set.mongodb]
