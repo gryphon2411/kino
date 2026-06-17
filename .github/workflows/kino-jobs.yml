@@ -1,7 +1,10 @@
 # The name of this workflow.
 name: kino jobs ci
 
-# Run validation on pushes, PRs, and explicit manual invocations.
+# Run validation on pushes and PRs.
+# Local Linux release tasks are the authoritative path for publishing official
+# title dataset artifacts, so this workflow never promotes raw/curated/seed
+# images to a registry.
 on:
   # Specifies that this workflow should run on every push event for the
   # branches in the list, but only when the jobs code or this workflow changed.
@@ -28,20 +31,25 @@ on:
         default: false
         type: boolean
 
+# Prevent overlapping runs of this same workflow on the same ref, so two executions do not race to push the same runtime image tag or report competing digests.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 # Shared workflow variables keep repeated values in one place.
 env:
+  PYTHON_VERSION: "3.10"
   JOBS_DIR: jobs
   RUNTIME_IMAGE_NAME: kino-jobs
   RUNTIME_PUBLISH_REF: refs/heads/master
   RUNTIME_IMAGE_TAG: kino-jobs:ci
+  VERIFY_RAW_TAG: kino-title-raw:verify
+  VERIFY_CURATED_TAG: kino-title-curated:verify
+  VERIFY_SEED_TAG: kino-mongo-seed:verify
 
-# This workflow keeps one job that validates the jobs Docker image on PRs and
-# non-publishing manual runs, and only publishes from merged `master` or an
-# explicit manual publish on `master`.
+# This workflow is split into two layers:
+# 1. `build` verifies the jobs code and only pushes the runtime image from merged `master` or explicit manual publish on `master`.
+# 2. `verify_title_artifacts` proves the raw/curated/seed pipeline and OCI packaging still work, using a committed tiny fixture dataset.
 jobs:
   # Creates a job ID (`build`) and declares the type of machine that the job
   # should run on.
@@ -51,6 +59,20 @@ jobs:
       # Check out the repository on the runner.
       - name: Checkout
         uses: actions/checkout@v5
+
+      # Match the Python version used by the jobs image and local analysis environment.
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Install the pinned jobs dependencies before running tests.
+      - name: Install jobs dependencies
+        run: pip install -r jobs/requirements.txt
+
+      # Run the pipeline unit/integration tests on every workflow invocation.
+      - name: Run jobs tests
+        run: python -m unittest discover -s jobs/tests -p 'test_*.py'
 
       # Decide once whether this run is allowed to publish or should stay in validation mode.
       - name: Decide publish mode
@@ -167,3 +189,129 @@ jobs:
         with:
           name: kino-jobs-runtime-release-manifest
           path: runtime-release-manifest.json
+
+  # This job runs automatically on matching pushes/PRs, but only after `build` passes.
+  # It exists to validate the IMDb titles artifact pipeline shape and Docker packaging,
+  # not to publish official dataset artifacts.
+  verify_title_artifacts:
+    # Requires the `build` job to pass first.
+    needs: build
+    runs-on: ubuntu-latest
+    # Job-level `run` defaults apply to every shell command in this job unless a
+    # specific step overrides them. Here that means `run:` steps execute with
+    # `bash` and start from the `jobs/` directory, so we do not repeat those
+    # settings on each step.
+    defaults:
+      run:
+        shell: bash
+        working-directory: jobs
+    steps:
+      # Rebuild the title artifacts from a deterministic tiny raw fixture so the
+      # pipeline shape and packaging stay validated without depending on live IMDb.
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install jobs dependencies
+        run: pip install -r jobs/requirements.txt
+
+      # Copy the committed raw fixture into the local artifact workspace and run
+      # the same curated and seed build commands used by the real release flow.
+      - name: Build curated and seed artifacts from fixture raw input
+        run: |
+          rm -rf .artifacts
+          mkdir -p .artifacts
+          cp -R tests/fixtures/raw-imdb .artifacts/raw-imdb
+          python -m imdb_titles_pipeline build-curated-titles --raw-dir .artifacts/raw-imdb --output-dir .artifacts/curated-titles
+          python -m imdb_titles_pipeline build-mongo-seed --curated-dir .artifacts/curated-titles --output-dir .artifacts/mongo-seed
+
+      # Capture the immutable identifiers that are embedded into OCI labels and the CI verification manifest.
+      - name: Read artifact metadata
+        id: artifact_metadata
+        # A small Python helper keeps the YAML focused on orchestration instead
+        # of embedding metadata extraction logic inline.
+        run: python -m imdb_titles_pipeline.release.metadata >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Build the raw snapshot image without pushing it so Dockerfile packaging
+      # stays tested on PRs even though local release is authoritative.
+      - name: Verify raw snapshot image packaging
+        uses: docker/build-push-action@v7
+        with:
+          # The build context is the `jobs/` directory.
+          context: ${{ env.JOBS_DIR }}
+          # Filepath to the Dockerfile relative to the repository root.
+          file: jobs/images/raw-imdb/Dockerfile
+          # Verification builds stay local to the runner.
+          push: false
+          # Local tag used only inside CI to prove the image can be assembled.
+          tags: ${{ env.VERIFY_RAW_TAG }}
+          build-args: |
+            DATASET_VERSION=${{ steps.artifact_metadata.outputs.dataset_version }}
+            MANIFEST_SHA256=${{ steps.artifact_metadata.outputs.raw_manifest_sha256 }}
+            SOURCE_SHA256=${{ steps.artifact_metadata.outputs.raw_source_sha256 }}
+
+      # Build the curated artifact image locally to validate labels, copy paths, and manifest wiring.
+      - name: Verify curated titles image packaging
+        uses: docker/build-push-action@v7
+        with:
+          # The build context is the `jobs/` directory.
+          context: ${{ env.JOBS_DIR }}
+          # Filepath to the Dockerfile relative to the repository root.
+          file: jobs/images/curated-titles/Dockerfile
+          # Verification builds stay local to the runner.
+          push: false
+          # Local tag used only inside CI to prove the image can be assembled.
+          tags: ${{ env.VERIFY_CURATED_TAG }}
+          build-args: |
+            DATASET_VERSION=${{ steps.artifact_metadata.outputs.dataset_version }}
+            MANIFEST_SHA256=${{ steps.artifact_metadata.outputs.curated_manifest_sha256 }}
+            SOURCE_SHA256=${{ steps.artifact_metadata.outputs.raw_source_sha256 }}
+            TRANSFORM_VERSION=${{ steps.artifact_metadata.outputs.transform_version }}
+
+      # Build the Mongo seed image locally so release-only packaging issues are caught pre-merge.
+      - name: Verify Mongo seed image packaging
+        uses: docker/build-push-action@v7
+        with:
+          # The build context is the `jobs/` directory.
+          context: ${{ env.JOBS_DIR }}
+          # Filepath to the Dockerfile relative to the repository root.
+          file: jobs/images/mongo-seed/Dockerfile
+          # Verification builds stay local to the runner.
+          push: false
+          # Local tag used only inside CI to prove the image can be assembled.
+          tags: ${{ env.VERIFY_SEED_TAG }}
+          build-args: |
+            DATASET_VERSION=${{ steps.artifact_metadata.outputs.dataset_version }}
+            MANIFEST_SHA256=${{ steps.artifact_metadata.outputs.seed_manifest_sha256 }}
+            SOURCE_SHA256=${{ steps.artifact_metadata.outputs.raw_source_sha256 }}
+            TRANSFORM_VERSION=${{ steps.artifact_metadata.outputs.transform_version }}
+
+      # Persist a lightweight verification manifest for audit/debugging, without publishing any registry artifacts.
+      - name: Write verification manifest
+        run: |
+          cat > .artifacts/release-manifest.json <<EOF
+          {
+            "gitRevision": "${{ github.sha }}",
+            "datasetVersion": "${{ steps.artifact_metadata.outputs.dataset_version }}",
+            "transformVersion": "${{ steps.artifact_metadata.outputs.transform_version }}",
+            "rawSourceSha256": "${{ steps.artifact_metadata.outputs.raw_source_sha256 }}",
+            "rawManifestSha256": "${{ steps.artifact_metadata.outputs.raw_manifest_sha256 }}",
+            "curatedManifestSha256": "${{ steps.artifact_metadata.outputs.curated_manifest_sha256 }}",
+            "seedManifestSha256": "${{ steps.artifact_metadata.outputs.seed_manifest_sha256 }}",
+            "seedDocuments": "${{ steps.artifact_metadata.outputs.seed_documents }}"
+          }
+          EOF
+
+      # Upload the verification manifest so reviewers/operators can inspect the derived dataset identity from CI.
+      - name: Upload verification manifest
+        uses: actions/upload-artifact@v6
+        with:
+          name: title-artifact-verification-manifest
+          path: jobs/.artifacts/release-manifest.json

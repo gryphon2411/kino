@@ -35,6 +35,9 @@ task release-imdb-titles-mongo-seed
 # Copy jobs/.artifacts/release-manifest.json somewhere convenient and note mongoSeedImageRef
 ```
 
+For the release-side details of that local dataset build and publish flow, see
+[jobs/README.md](../../../jobs/README.md).
+
 ```bash
 cd orchestrators/k8s/terraform
 cp .env.example .env
