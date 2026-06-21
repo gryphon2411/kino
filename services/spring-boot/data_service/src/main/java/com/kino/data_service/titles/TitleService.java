@@ -2,6 +2,7 @@ package com.kino.data_service.titles;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kino.commons.events.TitleSearchEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -25,11 +26,11 @@ public class TitleService {
     }
 
     public Optional<TitleDto> getTitle(String id) {
-        Optional<TitleDto> optional = repository.findById(id).map(TitleDto::new);
+        Optional<Title> optionalTitle = repository.findById(id);
 
-        optional.ifPresent(this::sendToKafka);
+        optionalTitle.ifPresent(this::sendToKafka);
 
-        return optional;
+        return optionalTitle.map(TitleMapper::toDto);
     }
 
     public Page<TitleDto> getTitlesPage(Pageable pageable, String titleType, String primaryTitle, Boolean isAdult,
@@ -45,18 +46,20 @@ public class TitleService {
                 pageable, titleType, primaryTitle, isAdult, genres, freeText,
                 minYear, maxYear
         );
-        Page<TitleDto> titlesDtoPage = titlesPage.map(TitleDto::new);
+        Page<TitleDto> titlesDtoPage = titlesPage.map(TitleMapper::toDto);
 
-        for (Title title : titlesPage) {
-            sendToKafka(title);
-        }
+        titlesPage.forEach(this::sendToKafka);
 
         return titlesDtoPage;
     }
 
     private void sendToKafka(Title title) {
+        if (title == null) {
+            return;
+        }
         try {
-            kafkaTemplate.send("title-searches", title.id, objectMapper.writeValueAsString(title));
+            TitleSearchEvent event = TitleMapper.toSearchEvent(title);
+            kafkaTemplate.send("title-searches", event.id, objectMapper.writeValueAsString(event));
         } catch (JsonProcessingException exception) {
             logger.error("Couldn't send title (id: {}) to 'title-searches' topic", title.id, exception);
         }

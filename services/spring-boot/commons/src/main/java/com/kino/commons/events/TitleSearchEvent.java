@@ -1,10 +1,8 @@
-package com.kino.data_service.titles;
+package com.kino.commons.events;
 
 import java.util.List;
 
-// Keep the API DTO separate from the Mongo document so transport shape can
-// evolve independently of persistence annotations and internal helper fields.
-public class TitleDto {
+public class TitleSearchEvent {
     public String id;
     public String titleConst;
     public String titleType;
@@ -16,10 +14,10 @@ public class TitleDto {
     public Integer runtimeMinutes;
     public List<String> genres;
 
-    public TitleDto() {
+    public TitleSearchEvent() {
     }
 
-    public TitleDto(
+    public TitleSearchEvent(
             String id,
             String titleConst,
             String titleType,

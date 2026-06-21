@@ -90,18 +90,18 @@ class DataServiceSecurityTests {
     }
 
     private TitleDto sampleTitleDto() {
-        Title title = new Title();
-        title.id = "abc123";
-        title.titleConst = "tt0000001";
-        title.titleType = "movie";
-        title.primaryTitle = "Sample";
-        title.originalTitle = "Sample";
-        title.isAdult = false;
-        title.startYear = 1998;
-        title.endYear = 1998;
-        title.runtimeMinutes = 95;
-        title.genres = List.of("Thriller");
-        return new TitleDto(title);
+        return new TitleDto(
+                "tt0000001",
+                "tt0000001",
+                "movie",
+                "Sample",
+                "Sample",
+                false,
+                1998,
+                1998,
+                95,
+                List.of("Thriller")
+        );
     }
 
     private SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor
