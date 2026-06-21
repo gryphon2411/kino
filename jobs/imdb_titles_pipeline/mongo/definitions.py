@@ -16,7 +16,11 @@ MONGO_DATABASE_NAME = "kino"
 ACTIVE_TITLE_COLLECTION = "title_basics"
 STAGING_TITLE_COLLECTION = "title_basics_staging"
 BACKUP_TITLE_COLLECTION = "title_basics_backup"
-PRIMARY_TITLE_FOLDED_FIELD = "primaryTitleFolded"
+# Derived helper field stored in Mongo for indexed case-insensitive prefix search
+# on primary titles. We materialize a trimmed/lowercased search key so the data
+# service can query `^prefix` against this indexed field instead of running a
+# case-insensitive regex over the user-facing `primaryTitle` field.
+PRIMARY_TITLE_SEARCH_KEY_FIELD = "primaryTitleSearchKey"
 
 
 @dataclass(frozen=True)
@@ -68,15 +72,15 @@ MONGO_INDEX_DEFINITIONS = (
         },
     ),
     MongoIndexDefinition(
-        name="title_primary_title_folded_index",
+        name="title_primary_title_search_key_index",
         create_script=(
             r"db.title_basics.createIndex("
-            r"{primaryTitleFolded:1},"
-            r"{name:'title_primary_title_folded_index'})"
+            r"{primaryTitleSearchKey:1},"
+            r"{name:'title_primary_title_search_key_index'})"
         ),
         manifest={
-            "name": "title_primary_title_folded_index",
-            "keys": {PRIMARY_TITLE_FOLDED_FIELD: 1},
+            "name": "title_primary_title_search_key_index",
+            "keys": {PRIMARY_TITLE_SEARCH_KEY_FIELD: 1},
         },
     ),
 )

@@ -10,8 +10,9 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.TextCriteria;
 import org.springframework.data.mongodb.core.query.TextQuery;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 public class CustomTitleRepositoryImpl implements CustomTitleRepository {
     @Autowired
@@ -38,7 +39,8 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
         // Use text search if freeText is provided
         if (freeText != null && !freeText.trim().isEmpty()) {
             TextCriteria textCriteria = TextCriteria.forDefaultLanguage().matching(freeText);
-            query = TextQuery.queryText(textCriteria);
+            // For free-text search, prefer Mongo's text-score ranking over default document order.
+            query = TextQuery.queryText(textCriteria).sortByScore();
         } else {
             query = new Query();
         }
@@ -47,8 +49,13 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
             query.addCriteria(Criteria.where("titleType").is(titleType));
         }
         if (primaryTitle != null && (freeText == null || freeText.trim().isEmpty())) {
-            // Only apply primaryTitle regex if freeText is not being used
-            query.addCriteria(Criteria.where("primaryTitle").regex(primaryTitle, "i"));
+            String primaryTitleSearchKey = buildPrimaryTitleSearchKey(primaryTitle);
+            if (primaryTitleSearchKey != null) {
+                query.addCriteria(
+                        Criteria.where("primaryTitleSearchKey")
+                                .regex("^" + Pattern.quote(primaryTitleSearchKey))
+                );
+            }
         }
         if (isAdult != null) {
             query.addCriteria(Criteria.where("isAdult").is(isAdult));
@@ -64,24 +71,17 @@ public class CustomTitleRepositoryImpl implements CustomTitleRepository {
             query.addCriteria(yearCriteria);
         }
         if (genres != null && !genres.isEmpty()) {
-            // For genres, we'll use regex matching to search within the list
-            if (freeText != null && !freeText.trim().isEmpty()) {
-                // When freeText is used, we add genres as additional criteria
-                Criteria genresCriteria = new Criteria();
-                List<Criteria> genreCriterias = new ArrayList<>();
-                for (String genre : genres) {
-                    genreCriterias.add(Criteria.where("genres").regex(genre, "i"));
-                }
-                if (!genreCriterias.isEmpty()) {
-                    genresCriteria.orOperator(genreCriterias.toArray(new Criteria[0]));
-                    query.addCriteria(genresCriteria);
-                }
-            } else {
-                // When freeText is not used, use the existing in operator
-                query.addCriteria(Criteria.where("genres").in(genres));
-            }
+            query.addCriteria(Criteria.where("genres").in(genres));
         }
 
         return query;
+    }
+
+    private String buildPrimaryTitleSearchKey(String primaryTitle) {
+        String trimmedTitle = primaryTitle.trim();
+        if (trimmedTitle.isEmpty()) {
+            return null;
+        }
+        return trimmedTitle.toLowerCase(Locale.ROOT);
     }
 }

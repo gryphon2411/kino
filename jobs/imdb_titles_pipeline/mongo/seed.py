@@ -28,7 +28,7 @@ from .definitions import (
     MONGO_DATABASE_NAME,
     MONGO_INDEX_DEFINITIONS,
     MONGO_SEED_ARCHIVE_NAME,
-    PRIMARY_TITLE_FOLDED_FIELD,
+    PRIMARY_TITLE_SEARCH_KEY_FIELD,
 )
 from .runtime import TemporaryMongoContainer
 
@@ -133,19 +133,19 @@ class MongoSeedBuilder:
     def _build_projection_document(self, record: dict[str, Any]) -> dict[str, Any]:
         return {
             "_id": record["tconst"],
-            PRIMARY_TITLE_FOLDED_FIELD: self._fold_primary_title(record.get("primaryTitle")),
+            PRIMARY_TITLE_SEARCH_KEY_FIELD: self._build_primary_title_search_key(record.get("primaryTitle")),
             **record,
         }
 
     @staticmethod
-    def _fold_primary_title(primary_title: Any) -> str | None:
+    def _build_primary_title_search_key(primary_title: Any) -> str | None:
         if not isinstance(primary_title, str):
             return None
 
-        normalized_title = primary_title.strip()
-        if not normalized_title:
+        trimmed_title = primary_title.strip()
+        if not trimmed_title:
             return None
-        return normalized_title.lower()
+        return trimmed_title.lower()
 
     @staticmethod
     def _serialize_projection_document(document: dict[str, Any]) -> str:

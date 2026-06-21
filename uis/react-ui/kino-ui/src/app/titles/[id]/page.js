@@ -2,8 +2,26 @@
 import { usePathname } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import { useEffect } from 'react';
-import { CircularProgress, Container, Grid, Card, CardContent, Typography, Button } from '@mui/material';
+import { CircularProgress, Container, Grid, Card, CardContent, Typography } from '@mui/material';
 import { fetchTitle, setTitle, fetchFacts } from '@/app/titles/[id]/slice';
+
+function formatGenres(genres) {
+  if (!Array.isArray(genres) || genres.length === 0) {
+    return 'Unknown';
+  }
+  return genres.join(', ');
+}
+
+function formatNullable(value) {
+  return value ?? 'Unknown';
+}
+
+function formatAdultFlag(value) {
+  if (value == null) {
+    return 'Unknown';
+  }
+  return value ? 'Yes' : 'No';
+}
 
 export default function TitlePage() {
   const pathname = usePathname();
@@ -53,19 +71,19 @@ export default function TitlePage() {
                 Original Title: {title.originalTitle}
               </Typography>
               <Typography variant="body1" gutterBottom>
-                Is Adult: {title.isAdult? 'Yes' : 'No'}
+                Is Adult: {formatAdultFlag(title.isAdult)}
               </Typography>
               <Typography variant="body1" gutterBottom>
-                Start Year: {title.startYear}
+                Start Year: {formatNullable(title.startYear)}
               </Typography>
               <Typography variant="body1" gutterBottom>
-                End Year: {title.endYear}
+                End Year: {formatNullable(title.endYear)}
               </Typography>
               <Typography variant="body1" gutterBottom>
-                Runtime Minutes: {title.runtimeMinutes}
+                Runtime Minutes: {formatNullable(title.runtimeMinutes)}
               </Typography>
               <Typography variant="body1" gutterBottom>
-                Genres: {title.genres.join(', ')}
+                Genres: {formatGenres(title.genres)}
               </Typography>
               <Typography variant="body1" gutterBottom>
                 Facts:

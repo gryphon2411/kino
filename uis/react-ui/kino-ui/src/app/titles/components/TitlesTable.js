@@ -12,11 +12,21 @@ import TableHead from '@mui/material/TableHead'
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 
+function formatGenres(genres) {
+  if (!Array.isArray(genres) || genres.length === 0) {
+    return 'Unknown';
+  }
+  return genres.join(', ');
+}
+
+function formatNullable(value) {
+  return value ?? 'Unknown';
+}
+
 export default function TitlesTable() {
   const dispatch = useDispatch();
   const titles = useSelector((state) => state.titles.content);
   const titlesStatus = useSelector((state) => state.titles.status);
-  const titlesError = useSelector((state) => state.titles.error);
   const page = useSelector((state) => state.titles.page);
   const rowsPerPage = useSelector((state) => state.titles.rowsPerPage);
 
@@ -54,8 +64,8 @@ export default function TitlesTable() {
               <TableRow key={row.id}>
                 <TableCell component="th" scope="row">{row.primaryTitle}</TableCell>
                 <TableCell>{row.titleType}</TableCell>
-                <TableCell>{row.startYear}</TableCell>
-                <TableCell>{row.genres.join(', ')}</TableCell>
+                <TableCell>{formatNullable(row.startYear)}</TableCell>
+                <TableCell>{formatGenres(row.genres)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
