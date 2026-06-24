@@ -40,6 +40,6 @@ public class TitleDto {
         this.startYear = startYear;
         this.endYear = endYear;
         this.runtimeMinutes = runtimeMinutes;
-        this.genres = genres == null ? List.of() : List.copyOf(genres);
+        this.genres = genres == null ? null : List.copyOf(genres);
     }
 }

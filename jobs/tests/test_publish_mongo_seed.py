@@ -118,7 +118,7 @@ class PublishMongoSeedTests(unittest.TestCase):
             manifest_output_path = artifacts_dir / "release-manifest.json"
 
             with patch("imdb_titles_pipeline.release.publish.collect_release_metadata", return_value=metadata), \
-                 patch("imdb_titles_pipeline.release.publish.maybe_docker_login"), \
+                 patch("imdb_titles_pipeline.release.publish.login_to_docker_if_configured"), \
                  patch("imdb_titles_pipeline.release.publish.resolve_repo_digest", return_value="gryphon2411/kino-mongo-seed@sha256:" + "e" * 64), \
                  patch("imdb_titles_pipeline.release.publish.read_command_output", side_effect=["", "", "deadbeef"]):
                 manifest = publish_mongo_seed(
