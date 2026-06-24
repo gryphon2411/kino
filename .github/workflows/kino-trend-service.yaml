@@ -8,12 +8,14 @@ on:
       - master
     paths:
       - services/spring-boot/trend_service/**
+      - services/spring-boot/commons/**
       - .github/workflows/kino-trend-service.yaml
   pull_request:
     branches:
       - master
     paths:
       - services/spring-boot/trend_service/**
+      - services/spring-boot/commons/**
       - .github/workflows/kino-trend-service.yaml
   # Allows an operator to run the workflow manually from the Actions tab.
   workflow_dispatch:
@@ -86,8 +88,9 @@ jobs:
         if: steps.publish_decision.outputs.should_publish != 'true'
         uses: docker/build-push-action@v7
         with:
-          # The build context (https://docs.docker.com/build/building/context/), default is "."
-          context: services/spring-boot/trend_service/
+          # Use the Spring services parent directory as context so the Dockerfile
+          # can copy the shared `commons` module during the container build.
+          context: services/spring-boot/
           # Filepath to the Dockerfile, default is "./Dockerfile"
           file: services/spring-boot/trend_service/Dockerfile
           # CI-only validation builds stay local to the runner.
@@ -113,8 +116,9 @@ jobs:
         id: publish_image
         uses: docker/build-push-action@v7
         with:
-          # The build context (https://docs.docker.com/build/building/context/), default is "."
-          context: services/spring-boot/trend_service/
+          # Use the Spring services parent directory as context so the Dockerfile
+          # can copy the shared `commons` module during the container build.
+          context: services/spring-boot/
           # Filepath to the Dockerfile, default is "./Dockerfile"
           file: services/spring-boot/trend_service/Dockerfile
           # Tells the action to upload the image to a registry after building it.
