@@ -68,7 +68,7 @@ jobs:
 
       # Install the pinned jobs dependencies before running tests.
       - name: Install jobs dependencies
-        run: pip install -r jobs/requirements.txt
+        run: pip install -r requirements.txt
 
       # Run the pipeline unit/integration tests on every workflow invocation.
       - name: Run jobs tests
