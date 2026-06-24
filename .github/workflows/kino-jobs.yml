@@ -68,7 +68,7 @@ jobs:
 
       # Install the pinned jobs dependencies before running tests.
       - name: Install jobs dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r jobs/requirements.txt
 
       # Run the pipeline unit/integration tests on every workflow invocation.
       - name: Run jobs tests
@@ -217,7 +217,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install jobs dependencies
-        run: pip install -r jobs/requirements.txt
+        run: pip install -r requirements.txt
 
       # Copy the committed raw fixture into the local artifact workspace and run
       # the same curated and seed build commands used by the real release flow.
