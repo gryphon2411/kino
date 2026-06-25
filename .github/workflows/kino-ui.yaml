@@ -27,6 +27,7 @@ on:
         default: false
         type: boolean
 
+# Prevent overlapping runs of this same workflow on the same ref, so two executions do not race to push the same image tag or report competing digests.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

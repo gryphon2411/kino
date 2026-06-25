@@ -51,17 +51,17 @@ class DataServiceSecurityTests {
 
     @Test
     void unauthenticatedTitleLookupIsRejected() throws Exception {
-        this.mockMvc.perform(get("/api/v1/data/titles/abc123"))
+        this.mockMvc.perform(get("/api/v1/data/titles/tt0000001"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void userSessionCanAccessProtectedTitleRoutes() throws Exception {
-        when(this.titleService.getTitle("abc123"))
+        when(this.titleService.getTitle("tt0000001"))
                 .thenReturn(Optional.of(this.sampleTitleDto()));
 
         this.mockMvc.perform(
-                        get("/api/v1/data/titles/abc123")
+                        get("/api/v1/data/titles/tt0000001")
                                 .with(user("kino-user"))
                 )
                 .andExpect(status().isOk());
@@ -83,25 +83,25 @@ class DataServiceSecurityTests {
     @Test
     void machineTokenCannotAccessUserTitleRoute() throws Exception {
         this.mockMvc.perform(
-                        get("/api/v1/data/titles/abc123")
+                        get("/api/v1/data/titles/tt0000001")
                                 .header("Authorization", "Bearer test-token")
                 )
                 .andExpect(status().isForbidden());
     }
 
     private TitleDto sampleTitleDto() {
-        Title title = new Title();
-        title.id = "abc123";
-        title.titleConst = "tt0000001";
-        title.titleType = "movie";
-        title.primaryTitle = "Sample";
-        title.originalTitle = "Sample";
-        title.isAdult = false;
-        title.startYear = 1998;
-        title.endYear = 1998;
-        title.runtimeMinutes = 95;
-        title.genres = List.of("Thriller");
-        return new TitleDto(title);
+        return new TitleDto(
+                "tt0000001",
+                "tt0000001",
+                "movie",
+                "Sample",
+                "Sample",
+                false,
+                1998,
+                1998,
+                95,
+                List.of("Thriller")
+        );
     }
 
     private SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor

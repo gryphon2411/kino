@@ -1,7 +1,7 @@
 package com.kino.trend_service;
 
+import com.kino.commons.events.TitleSearchEvent;
 import com.kino.trend_service.common.Utils;
-import com.kino.trend_service.documents.Title;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.Grouped;
@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.annotation.EnableKafkaStreams;
 import org.springframework.kafka.support.serializer.JsonSerde;
 
+import java.util.Collections;
 import java.time.Duration;
 
 @EnableKafkaStreams
@@ -25,8 +26,11 @@ public class TrendServiceApplication {
 	private static final Logger logger = LoggerFactory.getLogger(TrendServiceApplication.class);
 
 	@Bean
-	public KStream<String, Title> kStream(StreamsBuilder builder) {
-		KStream<String, Title> stream = builder.stream("title-searches", Consumed.with(Serdes.String(), new JsonSerde<>(Title.class)));
+	public KStream<String, TitleSearchEvent> kStream(StreamsBuilder builder) {
+		KStream<String, TitleSearchEvent> stream = builder.stream(
+				"title-searches",
+				Consumed.with(Serdes.String(), new JsonSerde<>(TitleSearchEvent.class))
+		);
 
 		long minutes = Long.parseLong(Utils.MIN_WINDOW_TIME_MINUTES);
 
@@ -37,7 +41,7 @@ public class TrendServiceApplication {
 				.toStream();
 
 		// Group by genre and window for 3 minutes
-		stream.flatMapValues(value -> value.genres)
+		stream.flatMapValues(TrendServiceApplication::getGenresOrEmpty)
 				.groupBy((key, value) -> value, Grouped.with(Serdes.String(), Serdes.String()))
 				.windowedBy(TimeWindows.of(Duration.ofMinutes(minutes)))
 				.count(Materialized.as("genre-counts"))
@@ -49,6 +53,10 @@ public class TrendServiceApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(TrendServiceApplication.class, args);
+	}
+
+	private static Iterable<String> getGenresOrEmpty(TitleSearchEvent event) {
+		return event.genres != null ? event.genres : Collections.emptyList();
 	}
 
 }

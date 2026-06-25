@@ -1,0 +1,32 @@
+version: "3"
+dotenv: [".env"]
+
+vars:
+  JOBS_PYTHON:
+    sh: if [ -x .venv/bin/python ]; then printf '%s' .venv/bin/python; else printf '%s' python3; fi
+
+tasks:
+  default:
+    desc: List available jobs tasks
+    cmds:
+      - task --list
+
+  build-imdb-titles-artifacts:
+    desc: Build the IMDb titles raw, curated, and Mongo seed artifacts into jobs/.artifacts
+    cmds:
+      - rm -rf .artifacts
+      - mkdir -p .artifacts
+      - "{{.JOBS_PYTHON}} -m imdb_titles_pipeline capture-raw-imdb --output-dir .artifacts/raw-imdb"
+      - "{{.JOBS_PYTHON}} -m imdb_titles_pipeline build-curated-titles --raw-dir .artifacts/raw-imdb --output-dir .artifacts/curated-titles"
+      - "{{.JOBS_PYTHON}} -m imdb_titles_pipeline build-mongo-seed --curated-dir .artifacts/curated-titles --output-dir .artifacts/mongo-seed"
+
+  publish-imdb-titles-mongo-seed:
+    desc: Publish the IMDb titles Mongo seed image and write jobs/.artifacts/release-manifest.json
+    cmds:
+      - "{{.JOBS_PYTHON}} -m imdb_titles_pipeline.release.publish"
+
+  release-imdb-titles-mongo-seed:
+    desc: Build all local IMDb titles artifacts, then publish the Mongo seed image and release manifest
+    cmds:
+      - task build-imdb-titles-artifacts
+      - task publish-imdb-titles-mongo-seed

@@ -18,10 +18,12 @@ public class Title {
     public String primaryTitle;
     @TextIndexed(weight=1)
     public String originalTitle;
-    public boolean isAdult;
-    public int startYear;
-    public int endYear;
-    public int runtimeMinutes;
+    // Wrapper types preserve unknown source values as null instead of forcing
+    // Java primitive defaults such as false or 0 during Mongo deserialization.
+    public Boolean isAdult;
+    public Integer startYear;
+    public Integer endYear;
+    public Integer runtimeMinutes;
     public List<String> genres;
 
     public Title() { }

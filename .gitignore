@@ -1,1 +1,5 @@
 .codex
+.artifacts/
+jobs/.venv/
+jobs/.env
+data/

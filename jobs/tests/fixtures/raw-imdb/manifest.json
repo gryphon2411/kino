@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "bytes": 174,
+    "path": "title.basics.tsv.gz",
+    "sha256": "988edda0ee767c156a36a4e2ae7edffc362ae6d0bb515a8c3dbcc51dd3472f48"
+  },
+  "capturedAt": "2026-05-20T00:00:00Z",
+  "datasetVersion": "imdb-title-basics-988edda0ee76-t1",
+  "source": {
+    "contentLengthBytes": 174,
+    "headerColumns": [
+      "tconst",
+      "titleType",
+      "primaryTitle",
+      "originalTitle",
+      "isAdult",
+      "startYear",
+      "endYear",
+      "runtimeMinutes",
+      "genres"
+    ],
+    "headerFingerprint": "806a31f07848a02d584f8baff18c2db9129f1624b9c15e1ef7880c81e1c347ac",
+    "lastModified": "Wed, 20 May 2026 00:00:00 GMT",
+    "name": "title.basics.tsv.gz",
+    "schemaVersion": "1",
+    "url": "https://datasets.imdbws.com/title.basics.tsv.gz"
+  }
+}

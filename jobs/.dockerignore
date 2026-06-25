@@ -1,0 +1,10 @@
+.venv
+.artifacts/*
+!.artifacts/raw-imdb/
+!.artifacts/raw-imdb/**
+!.artifacts/curated-titles/
+!.artifacts/curated-titles/**
+!.artifacts/mongo-seed/
+!.artifacts/mongo-seed/**
+__pycache__
+*.pyc

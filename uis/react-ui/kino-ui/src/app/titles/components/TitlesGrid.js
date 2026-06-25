@@ -7,6 +7,16 @@ import Link from 'next/link';
 import LocalMoviesIcon from '@mui/icons-material/LocalMovies';
 import { fetchTitles, setPage } from '@/app/titles/slice';
 
+function formatGenres(genres) {
+  if (!Array.isArray(genres) || genres.length === 0) {
+    return 'Unknown';
+  }
+  return genres.join(', ');
+}
+
+function formatNullable(value) {
+  return value ?? 'Unknown';
+}
 
 export default function TitlesGrid() {
   const dispatch = useDispatch();
@@ -37,7 +47,7 @@ export default function TitlesGrid() {
   return (
     <div>
       <Grid container spacing={3}>
-        {titles.map((title, index) => (
+        {titles.map((title) => (
           <Grid item key={title.id} xs={12} sm={6} md={4} lg={4}>
             <Link style={{ textDecoration: 'none' }} href={`/titles/${title.id}`} passHref>
               <Card>
@@ -46,8 +56,8 @@ export default function TitlesGrid() {
                   <CardContent>
                     <Typography variant="h5">{title.primaryTitle}</Typography>
                     <Typography variant="subtitle1" color="text.secondary">{title.titleType}</Typography>
-                    <Typography variant="body2">{title.startYear}</Typography>
-                    <Typography variant="body2">{title.genres.join(', ')}</Typography>
+                    <Typography variant="body2">{formatNullable(title.startYear)}</Typography>
+                    <Typography variant="body2">{formatGenres(title.genres)}</Typography>
                   </CardContent>
                 </CardActionArea>
               </Card>

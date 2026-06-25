@@ -56,4 +56,48 @@ class CustomTitleRepositoryImplTests {
         assertThat(((Document) queryObject.get("startYear")).get("$lte"))
                 .isEqualTo(2000);
     }
+
+    @Test
+    void getTitlesPageUsesExactGenresFilterWhenFreeTextIsPresent() {
+        Pageable pageable = PageRequest.of(0, 8);
+        when(this.mongoTemplate.find(any(Query.class), eq(Title.class)))
+                .thenReturn(List.of());
+        when(this.mongoTemplate.count(any(Query.class), eq(Title.class)))
+                .thenReturn(0L);
+
+        this.repository.getTitlesPage(
+                pageable, null, null, null, List.of("Drama"), "matrix", null, null
+        );
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        verify(this.mongoTemplate).find(queryCaptor.capture(), eq(Title.class));
+
+        Document queryObject = queryCaptor.getValue().getQueryObject();
+        Document genresDocument = (Document) queryObject.get("genres");
+        assertThat(genresDocument.get("$in")).isEqualTo(List.of("Drama"));
+        assertThat(queryCaptor.getValue().getSortObject()).isEqualTo(
+                new Document("score", new Document("$meta", "textScore"))
+        );
+    }
+
+    @Test
+    void getTitlesPageUsesPrimaryTitleSearchKeyPrefixFilter() {
+        Pageable pageable = PageRequest.of(0, 8);
+        when(this.mongoTemplate.find(any(Query.class), eq(Title.class)))
+                .thenReturn(List.of());
+        when(this.mongoTemplate.count(any(Query.class), eq(Title.class)))
+                .thenReturn(0L);
+
+        this.repository.getTitlesPage(
+                pageable, null, "  Matrix  ", null, null, null, null, null
+        );
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        verify(this.mongoTemplate).find(queryCaptor.capture(), eq(Title.class));
+
+        Document queryObject = queryCaptor.getValue().getQueryObject();
+        Object primaryTitleFilter = queryObject.get("primaryTitleSearchKey");
+        assertThat(primaryTitleFilter).isNotNull();
+        assertThat(primaryTitleFilter.toString()).contains("^\\Qmatrix\\E");
+    }
 }

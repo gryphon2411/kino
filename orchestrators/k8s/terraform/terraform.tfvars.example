@@ -17,6 +17,26 @@ enable_prometheus         = true
 enable_grafana            = true
 enable_ingress            = true
 
+# Mongo seed bootstrap
+# Copy mongoSeedImageRef from jobs/.artifacts/release-manifest.json
+mongodb_seed_image_ref = "gryphon2411/kino-mongo-seed@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+# Increment only when rerunning the same digest-pinned seed image
+mongodb_seed_generation = 0
+# Increase this if your environment needs more time for image pull + restore.
+mongodb_seed_job_active_deadline_seconds = 1800
+
+# Service image deploy inputs
+# Copy these digest-pinned refs from the corresponding GitHub Actions publish runs.
+# For environment = "dev", use the develop publish digests where a dev workflow exists.
+auth_service_image_ref       = "gryphon2411/kino-auth_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+data_service_image_ref       = "gryphon2411/kino-data_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+trend_service_image_ref      = "gryphon2411/kino-trend_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+generative_service_image_ref = "gryphon2411/kino-generative_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+ui_image_ref                 = "gryphon2411/kino-ui@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+# Optional when enable_agent_service = true
+# agent_service_image_ref = "gryphon2411/kino-agent_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
 # Agent Service
 agent_service_provider = "google_genai"
 agent_service_model    = "gemini-3.1-flash-lite-preview"

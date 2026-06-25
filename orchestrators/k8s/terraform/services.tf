@@ -88,7 +88,7 @@ resource "kubernetes_deployment" "auth_service" {
 
         container {
           name  = local.auth_service_name
-          image = "gryphon2411/kino-auth_service:latest"
+          image = var.auth_service_image_ref
 
           port { container_port = 8081 }
 
@@ -244,7 +244,7 @@ resource "kubernetes_deployment" "data_service" {
       spec {
         container {
           name  = "data-service"
-          image = "gryphon2411/kino-data_service:latest"
+          image = var.data_service_image_ref
 
           port { container_port = 8080 }
 
@@ -364,7 +364,7 @@ resource "kubernetes_deployment" "trend_service" {
       spec {
         container {
           name  = "trend-service"
-          image = "gryphon2411/kino-trend_service:latest"
+          image = var.trend_service_image_ref
 
           port { container_port = 8080 }
 
@@ -442,7 +442,7 @@ resource "kubernetes_deployment" "generative_service" {
       spec {
         container {
           name  = "generative-service"
-          image = "gryphon2411/kino-generative_service:latest"
+          image = var.generative_service_image_ref
 
           port { container_port = 8000 }
 
@@ -525,7 +525,7 @@ resource "kubernetes_deployment" "agent_service" {
       spec {
         container {
           name  = "agent-service"
-          image = "gryphon2411/kino-agent_service:latest"
+          image = var.agent_service_image_ref
 
           port { container_port = 2024 }
 
@@ -647,8 +647,8 @@ resource "kubernetes_deployment" "ui" {
       spec {
         container {
           name              = var.environment == "dev" ? "dev-ui" : "ui"
-          image             = var.environment == "dev" ? "gryphon2411/kino-ui:dev" : "gryphon2411/kino-ui:latest"
-          image_pull_policy = var.environment == "dev" ? "Always" : "IfNotPresent"
+          image             = var.ui_image_ref
+          image_pull_policy = "IfNotPresent"
 
           port { container_port = 3000 }
 
