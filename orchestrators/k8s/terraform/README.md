@@ -74,6 +74,7 @@ task clean
 Canonical deployment uses immutable image refs:
 
 1. Publish the Mongo seed locally and copy `mongoSeedImageRef` from `jobs/.artifacts/release-manifest.json`.
+   Do not use the CI-only `jobs/.artifacts/verification-manifest.json`; Terraform consumes the local release handoff manifest.
 2. Publish each enabled service image through its GitHub Actions workflow and copy the digest-pinned image ref from the workflow summary or uploaded `release-manifest.json` artifact.
    Merged canonical-branch pushes remain the default path, but operators may also run the workflow manually on `master` or `develop` with `publish_image=true`.
 3. Manual dispatch on any other ref, or with `publish_image=false`, stays validation-only and does not publish an image.

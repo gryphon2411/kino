@@ -293,10 +293,12 @@ jobs:
             SOURCE_SHA256=${{ steps.artifact_metadata.outputs.raw_source_sha256 }}
             TRANSFORM_VERSION=${{ steps.artifact_metadata.outputs.transform_version }}
 
-      # Persist a lightweight verification manifest for audit/debugging, without publishing any registry artifacts.
+      # Persist a lightweight CI-only verification manifest for audit/debugging,
+      # without publishing any registry artifacts or reusing the local Terraform
+      # handoff filename.
       - name: Write verification manifest
         run: |
-          cat > .artifacts/release-manifest.json <<EOF
+          cat > .artifacts/verification-manifest.json <<EOF
           {
             "gitRevision": "${{ github.sha }}",
             "datasetVersion": "${{ steps.artifact_metadata.outputs.dataset_version }}",
@@ -314,4 +316,4 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: title-artifact-verification-manifest
-          path: jobs/.artifacts/release-manifest.json
+          path: jobs/.artifacts/verification-manifest.json

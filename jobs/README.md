@@ -53,6 +53,10 @@ The publish step pushes only the Mongo seed image and writes
 `jobs/.artifacts/release-manifest.json`.
 That manifest records the digest-pinned seed image ref in `repo@sha256:...`
 form, not just the pushed tag.
+Before it pushes anything, the publish step validates that the standalone raw,
+curated, and seed artifacts in `jobs/.artifacts/` all belong to one coherent
+release lineage. If that directory mixes outputs from different runs, publish
+fails fast instead of pushing a stale seed image.
 
 The package-native operator entrypoints now live under
 `jobs/imdb_titles_pipeline/`, with release helpers under
@@ -76,6 +80,10 @@ It contains:
 
 Use `mongoSeedImageRef` as `mongodb_seed_image_ref` in
 `orchestrators/k8s/terraform/terraform.tfvars`.
+
+GitHub Actions may also emit a CI-only `verification-manifest.json` while
+validating the pipeline shape. That file is not a deploy artifact and should
+not be used as the Terraform handoff.
 
 For the deploy-side handoff and `task deploy` flow, continue in
 [orchestrators/k8s/terraform/README.md](../orchestrators/k8s/terraform/README.md).
