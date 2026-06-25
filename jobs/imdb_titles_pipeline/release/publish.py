@@ -3,7 +3,8 @@ import json
 import os
 from pathlib import Path
 
-from ..commons import compute_sha256, read_json, run_command, write_json
+from ..commons import RAW_ARCHIVE_NAME, compute_sha256, read_json, run_command, write_json
+from ..validation import ArtifactValidator
 
 RAW_DIRNAME = "raw-imdb"
 CURATED_DIRNAME = "curated-titles"
@@ -22,7 +23,30 @@ def read_command_output(
     return result.stdout.strip()
 
 
-def collect_release_metadata(artifacts_dir: Path) -> dict[str, str]:
+def validate_release_lineage(
+    raw_manifest: dict[str, object],
+    curated_manifest: dict[str, object],
+    seed_manifest: dict[str, object],
+) -> None:
+    if curated_manifest.get("source") != raw_manifest:
+        raise ValueError(
+            "Curated manifest source does not match the standalone raw manifest. "
+            "Rebuild jobs/.artifacts so the release uses one coherent lineage."
+        )
+
+    if seed_manifest.get("source") != curated_manifest:
+        raise ValueError(
+            "Seed manifest source does not match the standalone curated manifest. "
+            "Rebuild jobs/.artifacts so the release uses one coherent lineage."
+        )
+
+
+def collect_release_metadata(
+    artifacts_dir: Path,
+    validator: ArtifactValidator | None = None,
+) -> dict[str, str]:
+    validator = validator or ArtifactValidator()
+
     raw_manifest_path = artifacts_dir / RAW_DIRNAME / MANIFEST_FILENAME
     curated_manifest_path = artifacts_dir / CURATED_DIRNAME / MANIFEST_FILENAME
     seed_manifest_path = artifacts_dir / SEED_DIRNAME / MANIFEST_FILENAME
@@ -31,9 +55,31 @@ def collect_release_metadata(artifacts_dir: Path) -> dict[str, str]:
     curated_manifest = read_json(curated_manifest_path)
     seed_manifest = read_json(seed_manifest_path)
 
-    dataset_version = curated_manifest["datasetVersion"]
+    raw_archive_path = artifacts_dir / RAW_DIRNAME / RAW_ARCHIVE_NAME
+    curated_dir = artifacts_dir / CURATED_DIRNAME
+    seed_dir = artifacts_dir / SEED_DIRNAME
+
+    raw_dataset_version, raw_source_sha256 = validator.validate_raw_manifest(
+        raw_manifest,
+        raw_archive_path,
+    )
+    curated_dataset_version, curated_source_sha256 = validator.validate_curated_manifest(
+        curated_manifest,
+        curated_dir,
+    )
+    seed_dataset_version = validator.validate_seed_manifest(seed_manifest, seed_dir)
+
+    validate_release_lineage(raw_manifest, curated_manifest, seed_manifest)
+
+    if curated_dataset_version != raw_dataset_version:
+        raise ValueError("Curated manifest datasetVersion does not match the raw artifact.")
+    if curated_source_sha256 != raw_source_sha256:
+        raise ValueError("Curated manifest source checksum does not match the raw artifact.")
+    if seed_dataset_version != raw_dataset_version:
+        raise ValueError("Seed manifest datasetVersion does not match the raw artifact.")
+
+    dataset_version = curated_dataset_version
     transform_version = curated_manifest["transformVersion"]
-    raw_source_sha256 = raw_manifest["artifact"]["sha256"]
 
     if seed_manifest["datasetVersion"] != dataset_version:
         raise ValueError("Seed manifest datasetVersion does not match the curated artifact.")
