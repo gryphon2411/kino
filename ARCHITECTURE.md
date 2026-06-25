@@ -322,6 +322,9 @@ explicitly starts using them.
 - Mongo seed restore is a staged promotion flow: restore into
   `title_basics_staging`, validate, then promote to `title_basics` while
   maintaining restore metadata and history.
+- In the active Mongo projection, `_id` is the stable IMDb `tconst`, so
+  public title IDs now follow the source identifier instead of older
+  Mongo-generated ObjectIds from pre-Plan-C seeds.
 - `data_service` is the authoritative read boundary for title search and title
   detail APIs.
 - `TitleSearchEvent` records titles returned by `data_service`, not raw user

@@ -11,14 +11,17 @@ class TitleMapperTests {
 
         TitleDto dto = TitleMapper.toDto(title);
 
+        assertThat(dto.id).isEqualTo(dto.titleConst);
         assertThat(dto.genres).isNull();
     }
 
     @Test
     void toSearchEventPreservesNullGenres() {
         Title title = sampleTitle();
+        var event = TitleMapper.toSearchEvent(title);
 
-        assertThat(TitleMapper.toSearchEvent(title).genres).isNull();
+        assertThat(event.id).isEqualTo(title.titleConst);
+        assertThat(event.genres).isNull();
     }
 
     private static Title sampleTitle() {

@@ -51,17 +51,17 @@ class DataServiceSecurityTests {
 
     @Test
     void unauthenticatedTitleLookupIsRejected() throws Exception {
-        this.mockMvc.perform(get("/api/v1/data/titles/abc123"))
+        this.mockMvc.perform(get("/api/v1/data/titles/tt0000001"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void userSessionCanAccessProtectedTitleRoutes() throws Exception {
-        when(this.titleService.getTitle("abc123"))
+        when(this.titleService.getTitle("tt0000001"))
                 .thenReturn(Optional.of(this.sampleTitleDto()));
 
         this.mockMvc.perform(
-                        get("/api/v1/data/titles/abc123")
+                        get("/api/v1/data/titles/tt0000001")
                                 .with(user("kino-user"))
                 )
                 .andExpect(status().isOk());
@@ -83,7 +83,7 @@ class DataServiceSecurityTests {
     @Test
     void machineTokenCannotAccessUserTitleRoute() throws Exception {
         this.mockMvc.perform(
-                        get("/api/v1/data/titles/abc123")
+                        get("/api/v1/data/titles/tt0000001")
                                 .header("Authorization", "Bearer test-token")
                 )
                 .andExpect(status().isForbidden());
