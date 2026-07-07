@@ -76,12 +76,19 @@ Canonical deployment uses immutable image refs:
 1. Publish the Mongo seed locally and copy `mongoSeedImageRef` from `jobs/.artifacts/release-manifest.json`.
    Do not use the CI-only `jobs/.artifacts/verification-manifest.json`; Terraform consumes the local release handoff manifest.
 2. Publish each enabled service image through its GitHub Actions workflow and copy the digest-pinned image ref from the workflow summary or uploaded `release-manifest.json` artifact.
-   Merged canonical-branch pushes remain the default path, but operators may also run the workflow manually on `master` or `develop` with `publish_image=true`.
-3. Manual dispatch on any other ref, or with `publish_image=false`, stays validation-only and does not publish an image.
-4. Set `mongodb_seed_image_ref` and the matching `*_image_ref` variables in `.env` or `terraform.tfvars`.
+   Merged canonical-branch pushes remain the default path:
+   `master` publishes `latest`, and `develop` publishes `dev`.
+   Operators may also run the workflow manually on those canonical branches with `publish_image=true`.
+3. Manual dispatch on a PR branch may publish a preview tag only when that branch has an open PR to the workflow's canonical target branch.
+   Draft PRs count.
+   Preview tags use the format `pr-<number>-<sha12>` and exist only to help operators discover the preview artifact.
+   This is a trusted-operator coordination path, not a security boundary for untrusted contributors.
+4. Manual dispatch with `publish_image=false`, or on a branch without a qualifying PR, stays validation-only and does not publish an image.
+5. Set `mongodb_seed_image_ref` and the matching `*_image_ref` variables in `.env` or `terraform.tfvars`.
    If your environment is slow to pull the seed image, also set `mongodb_seed_job_active_deadline_seconds`.
+   Terraform still deploys only digest-pinned refs such as `repo@sha256:...`; mutable tags and preview tags are not the deploy contract.
    Normal releases change the image ref itself; `mongodb_seed_generation` is only the explicit rerun token for reapplying the same seed digest.
-5. Run `task deploy`.
+6. Run `task deploy`.
 
 `kubectl rollout restart` is acceptable for ad hoc debugging, but it is not the authoritative release mechanism for this repo.
 
@@ -119,8 +126,10 @@ Canonical deployment uses immutable image refs:
 | `kafka_password` | `string` | — | Kafka password (sensitive) |
 | `rabbitmq_password` | `string` | — | RabbitMQ password (sensitive) |
 | `rabbitmq_admin_password` | `string` | `null` | Optional RabbitMQ admin password. Falls back to `rabbitmq_password` when unset |
+| `generative_service_provider` | `string` | `"google_genai"` | Kino Generative Service model provider |
+| `generative_service_model` | `string` | `"gemini-3.1-flash-lite"` | Kino Generative Service model |
 | `agent_service_provider` | `string` | `"google_genai"` | Kino Agent Service model provider |
-| `agent_service_model` | `string` | `"gemini-3.1-flash-lite-preview"` | Kino Agent Service model |
+| `agent_service_model` | `string` | `"gemini-3.1-flash-lite"` | Kino Agent Service model |
 | `nvidia_api_key` | `string` | `null` | NVIDIA API key for Kino Agent Service |
 | `agent_service_client_secret` | `string` | `"replace-me-agent-secret"` | Auth-service client secret for agent-service machine tokens |
 
@@ -136,15 +145,27 @@ Canonical deployment uses immutable image refs:
 ## Agent Service
 
 The LangGraph agent service runs the in-memory `langgraph dev` runtime in
-Kubernetes. It is disabled by default and uses DeepSeek V3.2 on `nvidia_nim`
-by default, so it requires `nvidia_api_key` when enabled. Set `gemini_api_key`
-only if you switch the provider to `google_genai`.
+Kubernetes. It is disabled by default and uses `google_genai` with
+`gemini-3.1-flash-lite`. Switch the provider to `nvidia_nim` only if you want
+to run one of the NVIDIA-hosted models such as DeepSeek V3.2, and then set
+`nvidia_api_key` accordingly.
 
 Agent-to-data access now uses short-lived JWT machine tokens issued by
 auth-service. Set `agent_service_client_secret` before relying on the discovery
 flow. Terraform also generates a persistent RSA signing key for auth-service
 and mounts it as a Kubernetes secret so the JWT signing key survives pod
 restarts within the same Terraform state.
+
+## Generative Service
+
+The Django generative service now follows the same provider-plus-model contract
+shape as the agent service. By default it uses `google_genai` with
+`gemini-3.1-flash-lite`. Switch the provider to `huggingface_hub` only if you
+want to use one of the Hugging Face-hosted text models such as Phi-3 or
+Mixtral, and then set `huggingface_hub_access_token` accordingly. The old
+selector sentinels such as `gemini2flash`, `phi3`, and `mixtral8x7b` remain as
+one-transition compatibility aliases inside the Django selector, but they are
+deprecated and should not be used in new Terraform inputs.
 
 ## Security
 

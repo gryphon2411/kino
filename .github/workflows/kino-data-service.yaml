@@ -9,6 +9,7 @@ on:
     paths:
       - services/spring-boot/data_service/**
       - .github/workflows/kino-data-service.yaml
+      - .github/scripts/**
   # Specifies that this workflow should run on every pull request event targeting the branches in the list.
   pull_request:
     branches:
@@ -16,11 +17,12 @@ on:
     paths:
       - services/spring-boot/data_service/**
       - .github/workflows/kino-data-service.yaml
+      - .github/scripts/**
   # Allows an operator to run the workflow manually from the Actions tab.
   workflow_dispatch:
     inputs:
       publish_image:
-        description: Publish the image from the selected ref. Publishing still requires refs/heads/master.
+        description: Publish the image from the selected ref. Manual preview publish requires an open PR to master; canonical publish still requires refs/heads/master.
         required: true
         default: false
         type: boolean
@@ -29,6 +31,11 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# Allow the shared publish helper to inspect pull-request metadata when deciding whether a manual run may publish a preview tag.
+permissions:
+  contents: read
+  pull-requests: read
 
 env:
   IMAGE_NAME: kino-data_service
@@ -43,32 +50,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      # Decide once whether this run is allowed to publish or should stay in validation mode.
+      # Resolve the canonical-vs-preview publish decision once so later steps reuse the same tag and policy result.
       - name: Decide publish mode
         id: publish_decision
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          should_publish=false
-          non_publish_reason="This run will validate only."
-          publish_requested="$(python3 -c 'import json, sys; event = json.load(open(sys.argv[1])); print(str(event.get("inputs", {}).get("publish_image", "false")).lower())' "$GITHUB_EVENT_PATH")"
-
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "${{ env.PUBLISH_REF }}" ]]; then
-            should_publish=true
-            non_publish_reason=""
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "$publish_requested" == "true" && "${{ github.ref }}" == "${{ env.PUBLISH_REF }}" ]]; then
-            should_publish=true
-            non_publish_reason=""
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "$publish_requested" != "true" ]]; then
-            non_publish_reason="publish_image=false"
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.ref }}" != "${{ env.PUBLISH_REF }}" ]]; then
-            non_publish_reason="selected ref does not match ${{ env.PUBLISH_REF }}"
-          fi
-
-          {
-            echo "should_publish=$should_publish"
-            echo "non_publish_reason<<EOF"
-            echo "$non_publish_reason"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          python3 .github/scripts/resolve_image_publish.py \
+            --canonical-ref "${{ env.PUBLISH_REF }}" \
+            --canonical-tag latest
       
       # Docker Hub credentials are only needed when this run is actually allowed to publish the image.
       - name: Login to Docker Hub
@@ -96,7 +86,7 @@ jobs:
           # Local tag used only inside the CI runner.
           tags: ${{ env.IMAGE_NAME }}:ci
 
-      # Manual runs that stay in validation mode still explain why no publish happened.
+      # Manual runs that stay in validation mode still explain why no canonical or preview publish happened.
       - name: Publish validation summary
         if: github.event_name == 'workflow_dispatch' && steps.publish_decision.outputs.should_publish != 'true'
         run: |
@@ -108,7 +98,7 @@ jobs:
             echo "- Reason: ${{ steps.publish_decision.outputs.non_publish_reason }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Canonical branch pushes and explicit manual publishes on that branch are allowed to refresh the registry tag.
+      # Canonical branch pushes refresh `latest`, while qualifying PR branches may publish `pr-<number>-<sha12>` preview tags.
       - name: Build and push
         if: steps.publish_decision.outputs.should_publish == 'true'
         id: publish_image
@@ -121,7 +111,7 @@ jobs:
           # Tells the action to upload the image to a registry after building it.
           push: true
           # Tags that specify where to push the image.
-          tags: ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.publish_decision.outputs.resolved_tag }}
 
       # Build a small release manifest so operators and later jobs can consume the exact deploy input.
       - name: Write release manifest
@@ -132,7 +122,7 @@ jobs:
             --service data-service \
             --terraform-var TF_VAR_data_service_image_ref \
             --repository "${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}" \
-            --tag latest \
+            --tag "${{ steps.publish_decision.outputs.resolved_tag }}" \
             --digest "${{ steps.publish_image.outputs.digest }}" \
             --git-revision "${{ github.sha }}" \
             --git-ref "${{ github.ref }}" \
@@ -144,11 +134,21 @@ jobs:
       - name: Publish workflow summary
         if: steps.publish_decision.outputs.should_publish == 'true'
         run: |
+          if [[ "${{ steps.publish_decision.outputs.publish_kind }}" == "pr_preview" ]]; then
+            summary_heading="## Published preview data-service image"
+          else
+            summary_heading="## Published data-service image"
+          fi
+
           {
-            echo "## Published data-service image"
+            echo "$summary_heading"
             echo
             echo "- Commit: \`${{ steps.release_manifest.outputs.short_git_revision }}\` ${{ steps.release_manifest.outputs.git_commit_subject }}"
             echo "- Ref: \`${{ github.ref }}\`"
+            if [[ -n "${{ steps.publish_decision.outputs.pull_request_number }}" ]]; then
+              echo "- PR: #${{ steps.publish_decision.outputs.pull_request_number }}"
+            fi
+            echo "- Tag: \`${{ steps.publish_decision.outputs.resolved_tag }}\`"
             echo "- Image ref: \`${{ steps.release_manifest.outputs.image_ref }}\`"
             echo "- Terraform export:"
             echo
