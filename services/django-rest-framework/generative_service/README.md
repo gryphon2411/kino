@@ -43,3 +43,38 @@ You must not use any of the Gemma Services:
 2. in violation of applicable laws and regulations.
 
 To the maximum extent permitted by law, Google reserves the right to restrict (remotely or otherwise) usage of any of the Gemma Services that Google reasonably believes are in violation of this Agreement.
+
+## Runtime Model Selection
+
+The current generative runtime contract is explicit provider plus model:
+
+- `GENERATIVE_MODEL_PROVIDER`
+- `GENERATIVE_MODEL_NAME`
+
+The default provider is `google_genai` and the default model is
+`gemini-3.1-flash-lite`.
+
+Provider and model must be compatible:
+
+- `google_genai` expects an upstream Google model id such as `gemini-3.1-flash-lite`
+- `huggingface_hub` expects a Hugging Face model id such as `microsoft/Phi-3-mini-4k-instruct`
+
+Example local shell for Django commands:
+
+```bash
+export GENERATIVE_MODEL_PROVIDER=google_genai
+export GENERATIVE_MODEL_NAME=gemini-3.1-flash-lite
+export GEMINI_API_KEY=dummy-local-key
+```
+
+Provider-specific secrets:
+
+- `google_genai` requires `GEMINI_API_KEY`
+- `huggingface_hub` requires `HUGGINGFACE_HUB_ACCESS_TOKEN`
+
+Invalid provider or blank model configuration now fails at Django startup
+instead of surfacing later on the first request.
+
+The old selector aliases `gemini2flash`, `phi3`, and `mixtral8x7b` remain as
+one-transition compatibility shims inside the selector layer, but they are
+deprecated and should not be used for new deploy inputs.
