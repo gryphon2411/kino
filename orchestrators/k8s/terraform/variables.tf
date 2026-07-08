@@ -287,10 +287,25 @@ variable "generative_service_model" {
 
   validation {
     condition = !var.enable_generative_service || (
-      (var.generative_service_provider == "google_genai" && !strcontains(var.generative_service_model, "/"))
-      || (var.generative_service_provider == "huggingface_hub" && strcontains(var.generative_service_model, "/"))
+      (
+        var.generative_service_provider == "google_genai"
+        && contains(
+          ["gemini-3.1-flash-lite", "gemini-2.0-flash"],
+          trimspace(var.generative_service_model)
+        )
+      )
+      || (
+        var.generative_service_provider == "huggingface_hub"
+        && contains(
+          [
+            "microsoft/Phi-3-mini-4k-instruct",
+            "mistralai/Mixtral-8x7B-Instruct-v0.1",
+          ],
+          trimspace(var.generative_service_model)
+        )
+      )
     )
-    error_message = "generative_service_model must match the selected provider: google_genai expects an upstream Google model id such as gemini-3.1-flash-lite, while huggingface_hub expects an owner/model id such as microsoft/Phi-3-mini-4k-instruct."
+    error_message = "generative_service_model must be one of the supported upstream model ids for the selected provider. google_genai supports gemini-3.1-flash-lite and gemini-2.0-flash. huggingface_hub supports microsoft/Phi-3-mini-4k-instruct and mistralai/Mixtral-8x7B-Instruct-v0.1."
   }
 }
 

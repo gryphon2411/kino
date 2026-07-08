@@ -54,10 +54,11 @@ The current generative runtime contract is explicit provider plus model:
 The default provider is `google_genai` and the default model is
 `gemini-3.1-flash-lite`.
 
-Provider and model must be compatible:
+Provider and model must be compatible, and the current supported upstream
+model ids are explicit:
 
-- `google_genai` expects an upstream Google model id such as `gemini-3.1-flash-lite`
-- `huggingface_hub` expects a Hugging Face model id such as `microsoft/Phi-3-mini-4k-instruct`
+- `google_genai` supports `gemini-3.1-flash-lite` and `gemini-2.0-flash`
+- `huggingface_hub` supports `microsoft/Phi-3-mini-4k-instruct` and `mistralai/Mixtral-8x7B-Instruct-v0.1`
 
 Example local shell for Django commands:
 
@@ -72,8 +73,8 @@ Provider-specific secrets:
 - `google_genai` requires `GEMINI_API_KEY`
 - `huggingface_hub` requires `HUGGINGFACE_HUB_ACCESS_TOKEN`
 
-Invalid provider or blank model configuration now fails at Django startup
-instead of surfacing later on the first request.
+Invalid provider, blank model, or unsupported model configuration now fails at
+Django startup instead of surfacing later on the first request.
 
 The old selector aliases `gemini2flash`, `phi3`, and `mixtral8x7b` remain as
 one-transition compatibility shims inside the selector layer, but they are

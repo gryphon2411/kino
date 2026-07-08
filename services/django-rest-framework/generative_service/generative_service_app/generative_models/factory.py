@@ -21,6 +21,17 @@ LEGACY_MODEL_ALIASES = {
     ),
 }
 
+SUPPORTED_MODEL_NAMES_BY_PROVIDER = {
+    GOOGLE_GENAI_PROVIDER: {
+        "gemini-3.1-flash-lite",
+        "gemini-2.0-flash",
+    },
+    HUGGINGFACE_HUB_PROVIDER: {
+        "microsoft/Phi-3-mini-4k-instruct",
+        "mistralai/Mixtral-8x7B-Instruct-v0.1",
+    },
+}
+
 
 def create_generative_model(
     model_provider,
@@ -78,6 +89,10 @@ def resolve_model_selection(model_provider, model_name):
         normalized_provider,
         normalized_model_name,
     )
+    validate_supported_model_name(
+        normalized_provider,
+        normalized_model_name,
+    )
 
     return normalized_provider, normalized_model_name
 
@@ -110,3 +125,15 @@ def validate_model_provider_compatibility(model_provider, model_name):
             f"{HUGGINGFACE_HUB_PROVIDER}. Use a Hugging Face model id such as "
             "microsoft/Phi-3-mini-4k-instruct."
         )
+
+
+def validate_supported_model_name(model_provider, model_name):
+    supported_model_names = SUPPORTED_MODEL_NAMES_BY_PROVIDER[model_provider]
+    if model_name in supported_model_names:
+        return
+
+    ordered_supported_models = ", ".join(sorted(supported_model_names))
+    raise ImproperlyConfigured(
+        f"{model_name} is not a supported {model_provider} model. "
+        f"Supported values: {ordered_supported_models}."
+    )

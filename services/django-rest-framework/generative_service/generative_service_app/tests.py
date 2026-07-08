@@ -2,6 +2,7 @@ import os
 from importlib import import_module
 from unittest.mock import patch
 
+import requests
 from django.apps import apps
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
@@ -203,6 +204,28 @@ class GenerativeModelFactoryTests(SimpleTestCase):
                 huggingface_hub_access_token="test-hf-token",
             )
 
+    def test_google_provider_rejects_unknown_google_model_id(self):
+        with self.assertRaisesMessage(
+            ImproperlyConfigured,
+            "gemini-3.1-flsh-lite is not a supported google_genai model.",
+        ):
+            create_generative_model(
+                model_provider="google_genai",
+                model_name="gemini-3.1-flsh-lite",
+                google_api_key="test-gemini-key",
+            )
+
+    def test_huggingface_provider_rejects_unknown_huggingface_model_id(self):
+        with self.assertRaisesMessage(
+            ImproperlyConfigured,
+            "microsoft/Does-Not-Exist is not a supported huggingface_hub model.",
+        ):
+            create_generative_model(
+                model_provider="huggingface_hub",
+                model_name="microsoft/Does-Not-Exist",
+                huggingface_hub_access_token="test-hf-token",
+            )
+
 
 class GenerativeServiceAppConfigTests(SimpleTestCase):
     def test_ready_initializes_active_generative_model(self):
@@ -247,3 +270,32 @@ class GenerativeServiceAppConfigTests(SimpleTestCase):
                 "GEMINI_API_KEY is required when GENERATIVE_MODEL_PROVIDER=google_genai.",
             ):
                 app_config.ready()
+
+
+class GoogleGenerativeModelTests(SimpleTestCase):
+    def test_http_error_log_does_not_include_google_api_key(self):
+        model = GoogleGenerativeModel(
+            model_name="gemini-3.1-flash-lite",
+            api_key="test-secret-api-key",
+        )
+        mock_response = requests.Response()
+        mock_response.status_code = 500
+        mock_response.reason = "Internal Server Error"
+        mock_response.url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            "gemini-3.1-flash-lite:generateContent?key=test-secret-api-key"
+        )
+        http_error = requests.HTTPError(response=mock_response)
+
+        with patch(
+            "generative_service_app.generative_models.google_genai.requests.post",
+        ) as post:
+            post.return_value.raise_for_status.side_effect = http_error
+
+            with self.assertLogs("GoogleGenerativeModel", level="ERROR") as captured:
+                response = model.prompt_title_facts("Carmencita", 1894, "short")
+
+        self.assertEqual(response, "Try again later...")
+        joined_logs = "\n".join(captured.output)
+        self.assertNotIn("test-secret-api-key", joined_logs)
+        self.assertIn("HTTP 500 Internal Server Error", joined_logs)
