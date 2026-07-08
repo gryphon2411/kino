@@ -33,19 +33,15 @@ spec:
         - name: http
           containerPort: 8000
         env:
-        - name: HUGGINGFACE_HUB_ACCESS_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: huggingface-hub-access-token
-              key: token
         - name: GEMINI_API_KEY
           valueFrom:
             secretKeyRef:
               name: gemini-api-key
               key: api-key
+        - name: GENERATIVE_MODEL_PROVIDER
+          value: google_genai
         - name: GENERATIVE_MODEL_NAME
-          # Possible values: gemma, phi3, mixtral8x7b, gemini2flash
-          value: gemini2flash
+          value: gemini-3.1-flash-lite
         - name: DATA_SERVICE_URL
           value: http://data-service:8082/api/v1/data
 

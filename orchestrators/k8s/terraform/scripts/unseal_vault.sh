@@ -42,6 +42,18 @@ is_placeholder() {
     esac
 }
 
+read_vault_kv_field() {
+    local secret_path="$1"
+    local field_name="$2"
+    local secret_json
+
+    if ! secret_json=$(kubectl exec -n "$NAMESPACE" "$VAULT_POD" -- sh -c 'VAULT_TOKEN="$1" vault kv get -format=json "$2" 2>/dev/null' sh "$ROOT_TOKEN" "$secret_path"); then
+        return 0
+    fi
+
+    printf '%s\n' "$secret_json" | jq -r --arg field_name "$field_name" '.data.data[$field_name] // empty'
+}
+
 echo "Waiting for $VAULT_POD to be ready..."
 # Wait for pod to be running and responding to commands
 # Note: vault status returns exit 0 when unsealed, exit 2 when sealed
@@ -116,10 +128,29 @@ fi
 
 # Populate Secrets
 echo "Populating Secrets..."
-if is_placeholder "${TF_VAR_huggingface_hub_access_token:-}" || is_placeholder "${TF_VAR_gemini_api_key:-}"; then
-    echo "WARNING: TF_VAR_huggingface_hub_access_token and/or TF_VAR_gemini_api_key are missing or still placeholder values. Existing Vault secrets were left unchanged."
+existing_huggingface_hub_access_token=$(read_vault_kv_field "secret/generative-service" "HUGGINGFACE_HUB_ACCESS_TOKEN")
+existing_gemini_api_key=$(read_vault_kv_field "secret/generative-service" "GEMINI_API_KEY")
+
+resolved_huggingface_hub_access_token="$existing_huggingface_hub_access_token"
+if ! is_placeholder "${TF_VAR_huggingface_hub_access_token:-}"; then
+    resolved_huggingface_hub_access_token="${TF_VAR_huggingface_hub_access_token}"
+fi
+
+resolved_gemini_api_key="$existing_gemini_api_key"
+if ! is_placeholder "${TF_VAR_gemini_api_key:-}"; then
+    resolved_gemini_api_key="${TF_VAR_gemini_api_key}"
+fi
+
+if [ -z "$resolved_huggingface_hub_access_token" ] && [ -z "$resolved_gemini_api_key" ]; then
+    echo "WARNING: TF_VAR_huggingface_hub_access_token and TF_VAR_gemini_api_key are missing or still placeholder values, and Vault has no existing generative-service secrets to reuse."
 else
-    kubectl exec -n "$NAMESPACE" "$VAULT_POD" -- sh -c 'VAULT_TOKEN="$1" vault kv put secret/generative-service HUGGINGFACE_HUB_ACCESS_TOKEN="$2" GEMINI_API_KEY="$3" >/dev/null' sh "$ROOT_TOKEN" "${TF_VAR_huggingface_hub_access_token}" "${TF_VAR_gemini_api_key}"
+    if [ -n "$resolved_huggingface_hub_access_token" ] && [ -n "$resolved_gemini_api_key" ]; then
+        kubectl exec -n "$NAMESPACE" "$VAULT_POD" -- sh -c 'VAULT_TOKEN="$1" vault kv put "$2" HUGGINGFACE_HUB_ACCESS_TOKEN="$3" GEMINI_API_KEY="$4" >/dev/null' sh "$ROOT_TOKEN" "secret/generative-service" "$resolved_huggingface_hub_access_token" "$resolved_gemini_api_key"
+    elif [ -n "$resolved_huggingface_hub_access_token" ]; then
+        kubectl exec -n "$NAMESPACE" "$VAULT_POD" -- sh -c 'VAULT_TOKEN="$1" vault kv put "$2" HUGGINGFACE_HUB_ACCESS_TOKEN="$3" >/dev/null' sh "$ROOT_TOKEN" "secret/generative-service" "$resolved_huggingface_hub_access_token"
+    else
+        kubectl exec -n "$NAMESPACE" "$VAULT_POD" -- sh -c 'VAULT_TOKEN="$1" vault kv put "$2" GEMINI_API_KEY="$3" >/dev/null' sh "$ROOT_TOKEN" "secret/generative-service" "$resolved_gemini_api_key"
+    fi
     echo "Generative service secrets written to Vault."
 fi
 

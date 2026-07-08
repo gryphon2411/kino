@@ -446,29 +446,40 @@ resource "kubernetes_deployment" "generative_service" {
 
           port { container_port = 8000 }
 
-          env {
-            name = "HUGGINGFACE_HUB_ACCESS_TOKEN"
-            value_from {
-              secret_key_ref {
-                name = "huggingface-hub-access-token"
-                key  = "token"
+          dynamic "env" {
+            for_each = var.generative_service_provider == "huggingface_hub" ? [1] : []
+            content {
+              name = "HUGGINGFACE_HUB_ACCESS_TOKEN"
+              value_from {
+                secret_key_ref {
+                  name = "huggingface-hub-access-token"
+                  key  = "token"
+                }
+              }
+            }
+          }
+
+          dynamic "env" {
+            for_each = var.generative_service_provider == "google_genai" ? [1] : []
+            content {
+              name = "GEMINI_API_KEY"
+              value_from {
+                secret_key_ref {
+                  name = "gemini-api-key"
+                  key  = "api-key"
+                }
               }
             }
           }
 
           env {
-            name = "GEMINI_API_KEY"
-            value_from {
-              secret_key_ref {
-                name = "gemini-api-key"
-                key  = "api-key"
-              }
-            }
+            name  = "GENERATIVE_MODEL_PROVIDER"
+            value = var.generative_service_provider
           }
 
           env {
             name  = "GENERATIVE_MODEL_NAME"
-            value = "gemini2flash"
+            value = var.generative_service_model
           }
 
           env {

@@ -261,6 +261,39 @@ variable "rabbitmq_admin_password" {
   nullable    = true
 }
 
+variable "generative_service_provider" {
+  type        = string
+  description = "Kino Generative Service model provider"
+  default     = "google_genai"
+
+  validation {
+    condition = contains(
+      ["google_genai", "huggingface_hub"],
+      var.generative_service_provider
+    )
+    error_message = "Generative service provider must be 'google_genai' or 'huggingface_hub'."
+  }
+}
+
+variable "generative_service_model" {
+  type        = string
+  description = "Kino Generative Service model name"
+  default     = "gemini-3.1-flash-lite"
+
+  validation {
+    condition = !var.enable_generative_service || trimspace(var.generative_service_model) != ""
+    error_message = "generative_service_model must be a non-empty model name when generative-service is enabled."
+  }
+
+  validation {
+    condition = !var.enable_generative_service || (
+      (var.generative_service_provider == "google_genai" && !strcontains(var.generative_service_model, "/"))
+      || (var.generative_service_provider == "huggingface_hub" && strcontains(var.generative_service_model, "/"))
+    )
+    error_message = "generative_service_model must match the selected provider: google_genai expects an upstream Google model id such as gemini-3.1-flash-lite, while huggingface_hub expects an owner/model id such as microsoft/Phi-3-mini-4k-instruct."
+  }
+}
+
 variable "agent_service_provider" {
   type        = string
   description = "Kino Agent Service model provider"
@@ -278,7 +311,12 @@ variable "agent_service_provider" {
 variable "agent_service_model" {
   type        = string
   description = "Kino Agent Service model name"
-  default     = "gemini-3.1-flash-lite-preview"
+  default     = "gemini-3.1-flash-lite"
+
+  validation {
+    condition     = !var.enable_agent_service || trimspace(var.agent_service_model) != ""
+    error_message = "agent_service_model must be a non-empty model name when agent-service is enabled."
+  }
 }
 
 variable "nvidia_api_key" {

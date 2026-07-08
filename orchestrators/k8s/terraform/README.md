@@ -167,6 +167,15 @@ selector sentinels such as `gemini2flash`, `phi3`, and `mixtral8x7b` remain as
 one-transition compatibility aliases inside the Django selector, but they are
 deprecated and should not be used in new Terraform inputs.
 
+Provider and model must also match semantically: `google_genai` expects a
+Google model id such as `gemini-3.1-flash-lite`, while `huggingface_hub`
+expects an owner/model id such as `microsoft/Phi-3-mini-4k-instruct`.
+
+`setup-vault` now writes whichever generative-service provider secret you
+actually supply. Under the default Google path, `gemini_api_key` is sufficient;
+`huggingface_hub_access_token` is only needed when you switch the provider to
+`huggingface_hub`.
+
 ## Security
 
 Secrets are managed via:
