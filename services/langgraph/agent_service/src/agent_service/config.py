@@ -13,7 +13,7 @@ from agent_service.model_catalog import CuratorModelCatalog
 class CuratorSettings:
     """Environment-driven configuration for Kino Discover."""
 
-    DEFAULT_MODEL: ClassVar[str] = "gemini-3.1-flash-lite-preview"
+    DEFAULT_MODEL: ClassVar[str] = "gemini-3.1-flash-lite"
     DEFAULT_THINKING_LEVEL: ClassVar[str] = "high"
     DEFAULT_DATA_SERVICE_URL: ClassVar[str] = ""
     DEFAULT_AUTH_SERVICE_URL: ClassVar[str] = ""

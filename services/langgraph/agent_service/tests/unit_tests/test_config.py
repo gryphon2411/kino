@@ -7,6 +7,18 @@ from agent_service.llm import CuratorModelFactory
 from agent_service.model_catalog import CuratorModelCatalog
 
 
+def test_settings_use_stable_google_default_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("KINO_CURATOR_PROVIDER", raising=False)
+    monkeypatch.delenv("KINO_CURATOR_MODEL", raising=False)
+
+    settings = CuratorSettings.from_env()
+
+    assert settings.model_provider == CuratorModelCatalog.GOOGLE_GENAI_PROVIDER
+    assert settings.model_name == "gemini-3.1-flash-lite"
+
+
 def test_settings_infers_nvidia_provider_for_kimi(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
