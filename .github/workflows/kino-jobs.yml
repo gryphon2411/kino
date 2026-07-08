@@ -14,6 +14,7 @@ on:
     paths:
       - jobs/**
       - .github/workflows/kino-jobs.yml
+      - .github/scripts/**
   # Specifies that this workflow should run on every pull request event
   # targeting the branches in the list, with the same path filter as `push`.
   pull_request:
@@ -22,11 +23,12 @@ on:
     paths:
       - jobs/**
       - .github/workflows/kino-jobs.yml
+      - .github/scripts/**
   # Allows an operator to run the workflow manually from the Actions tab.
   workflow_dispatch:
     inputs:
       publish_image:
-        description: Publish the runtime jobs image from the selected ref. Publishing still requires refs/heads/master.
+        description: Publish the runtime jobs image from the selected ref. Manual preview publish requires an open PR to master; canonical publish still requires refs/heads/master.
         required: true
         default: false
         type: boolean
@@ -35,6 +37,11 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# Allow the shared publish helper to inspect pull-request metadata when deciding whether a manual run may publish a preview tag.
+permissions:
+  contents: read
+  pull-requests: read
 
 # Shared workflow variables keep repeated values in one place.
 env:
@@ -48,7 +55,7 @@ env:
   VERIFY_SEED_TAG: kino-mongo-seed:verify
 
 # This workflow is split into two layers:
-# 1. `build` verifies the jobs code and only pushes the runtime image from merged `master` or explicit manual publish on `master`.
+# 1. `build` verifies the jobs code and only pushes the runtime image from merged `master`, explicit manual publish on `master`, or PR-preview manual publish from a qualifying branch.
 # 2. `verify_title_artifacts` proves the raw/curated/seed pipeline and OCI packaging still work, using a committed tiny fixture dataset.
 jobs:
   # Creates a job ID (`build`) and declares the type of machine that the job
@@ -74,34 +81,17 @@ jobs:
       - name: Run jobs tests
         run: python -m unittest discover -s jobs/tests -p 'test_*.py'
 
-      # Decide once whether this run is allowed to publish or should stay in validation mode.
+      # Resolve the canonical-vs-preview publish decision once so later steps reuse the same tag and policy result.
       - name: Decide publish mode
         id: publish_decision
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          should_publish=false
-          non_publish_reason="This run will validate only."
-          publish_requested="$(python3 -c 'import json, sys; event = json.load(open(sys.argv[1])); print(str(event.get("inputs", {}).get("publish_image", "false")).lower())' "$GITHUB_EVENT_PATH")"
+          python3 .github/scripts/resolve_image_publish.py \
+            --canonical-ref "${{ env.RUNTIME_PUBLISH_REF }}" \
+            --canonical-tag latest
 
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "${{ env.RUNTIME_PUBLISH_REF }}" ]]; then
-            should_publish=true
-            non_publish_reason=""
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "$publish_requested" == "true" && "${{ github.ref }}" == "${{ env.RUNTIME_PUBLISH_REF }}" ]]; then
-            should_publish=true
-            non_publish_reason=""
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "$publish_requested" != "true" ]]; then
-            non_publish_reason="publish_image=false"
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.ref }}" != "${{ env.RUNTIME_PUBLISH_REF }}" ]]; then
-            non_publish_reason="selected ref does not match ${{ env.RUNTIME_PUBLISH_REF }}"
-          fi
-
-          {
-            echo "should_publish=$should_publish"
-            echo "non_publish_reason<<EOF"
-            echo "$non_publish_reason"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      # Docker Hub credentials are only needed when this run is actually allowed to publish `kino-jobs:latest`.
+      # Docker Hub credentials are only needed when this run is actually allowed to publish the canonical `latest` tag or a PR preview tag.
       - name: Login to Docker Hub
         if: steps.publish_decision.outputs.should_publish == 'true'
         uses: docker/login-action@v4
@@ -127,7 +117,7 @@ jobs:
           # Local tag used only inside the CI runner.
           tags: ${{ env.RUNTIME_IMAGE_TAG }}
 
-      # Manual runs that stay in validation mode still explain why no runtime image publish happened.
+      # Manual runs that stay in validation mode still explain why no canonical or preview runtime image publish happened.
       - name: Publish validation summary
         if: github.event_name == 'workflow_dispatch' && steps.publish_decision.outputs.should_publish != 'true'
         run: |
@@ -139,7 +129,7 @@ jobs:
             echo "- Reason: ${{ steps.publish_decision.outputs.non_publish_reason }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Canonical branch pushes and explicit manual publishes on that branch are allowed to refresh the mutable runtime tag.
+      # Canonical branch pushes refresh `latest`, while qualifying PR branches may publish `pr-<number>-<sha12>` preview tags.
       - name: Build and push jobs image
         if: steps.publish_decision.outputs.should_publish == 'true'
         id: publish_image
@@ -152,7 +142,7 @@ jobs:
           # Tells the action to upload the image to Docker Hub after building it.
           push: true
           # Tags specify where the pushed image should live.
-          tags: ${{ vars.DOCKERHUB_USERNAME }}/${{ env.RUNTIME_IMAGE_NAME }}:latest
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/${{ env.RUNTIME_IMAGE_NAME }}:${{ steps.publish_decision.outputs.resolved_tag }}
 
       # Build a small runtime release manifest so operators can copy the exact image ref later.
       - name: Write runtime release manifest
@@ -162,7 +152,7 @@ jobs:
           python3 .github/scripts/write_image_release_manifest.py \
             --service jobs-runtime \
             --repository "${{ vars.DOCKERHUB_USERNAME }}/${{ env.RUNTIME_IMAGE_NAME }}" \
-            --tag latest \
+            --tag "${{ steps.publish_decision.outputs.resolved_tag }}" \
             --digest "${{ steps.publish_image.outputs.digest }}" \
             --git-revision "${{ github.sha }}" \
             --git-ref "${{ github.ref }}" \
@@ -174,11 +164,21 @@ jobs:
       - name: Publish runtime workflow summary
         if: steps.publish_decision.outputs.should_publish == 'true'
         run: |
+          if [[ "${{ steps.publish_decision.outputs.publish_kind }}" == "pr_preview" ]]; then
+            summary_heading="## Published preview jobs runtime image"
+          else
+            summary_heading="## Published jobs runtime image"
+          fi
+
           {
-            echo "## Published jobs runtime image"
+            echo "$summary_heading"
             echo
             echo "- Commit: \`${{ steps.runtime_release_manifest.outputs.short_git_revision }}\` ${{ steps.runtime_release_manifest.outputs.git_commit_subject }}"
             echo "- Ref: \`${{ github.ref }}\`"
+            if [[ -n "${{ steps.publish_decision.outputs.pull_request_number }}" ]]; then
+              echo "- PR: #${{ steps.publish_decision.outputs.pull_request_number }}"
+            fi
+            echo "- Tag: \`${{ steps.publish_decision.outputs.resolved_tag }}\`"
             echo "- Image ref: \`${{ steps.runtime_release_manifest.outputs.image_ref }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
