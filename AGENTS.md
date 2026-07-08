@@ -50,6 +50,9 @@ Application service images are published by GitHub Actions workflows. The
 canonical deploy contract is the pushed digest, not a mutable tag.
 
 - Use the workflow summary or uploaded release manifest to copy the digest
+- Manual workflow dispatch may publish a preview tag `pr-<number>-<sha12>`
+  when the selected branch has an open PR to the workflow's canonical branch
+- Preview tags are only operator discovery aids; deploys still use the digest
 - Set the matching `*_image_ref` Terraform variable
 - `kubectl rollout restart` is debugging-only, not the authoritative release
   mechanism
