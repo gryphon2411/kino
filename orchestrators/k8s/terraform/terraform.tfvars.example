@@ -37,6 +37,12 @@ ui_image_ref                 = "gryphon2411/kino-ui@sha256:0123456789abcdef01234
 # Optional when enable_agent_service = true
 # agent_service_image_ref = "gryphon2411/kino-agent_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
+# Generative Service
+generative_service_provider = "google_genai"
+# google_genai supports gemini-3.1-flash-lite and gemini-2.0-flash
+# huggingface_hub supports microsoft/Phi-3-mini-4k-instruct and mistralai/Mixtral-8x7B-Instruct-v0.1
+generative_service_model    = "gemini-3.1-flash-lite"
+
 # Agent Service
 agent_service_provider = "google_genai"
-agent_service_model    = "gemini-3.1-flash-lite-preview"
+agent_service_model    = "gemini-3.1-flash-lite"

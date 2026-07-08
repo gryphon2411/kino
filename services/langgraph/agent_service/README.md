@@ -59,7 +59,7 @@ Enable Gemini for real tool-calling runs:
 
 ```bash
 export KINO_CURATOR_PROVIDER=google_genai
-export KINO_CURATOR_MODEL=gemini-3.1-flash-lite-preview
+export KINO_CURATOR_MODEL=gemini-3.1-flash-lite
 export KINO_CURATOR_THINKING_LEVEL=high
 export GOOGLE_API_KEY=...
 export KINO_AUTH_SERVICE_URL=http://localhost:8081/api/v1/auth
