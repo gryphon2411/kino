@@ -26,8 +26,9 @@ The canonical deployment path is Terraform-based:
 3. Set digest-pinned image refs for enabled services
 4. Run `task deploy` from `orchestrators/k8s/terraform`
 
-Raw Kubernetes manifests under `orchestrators/k8s/` still exist, but they are
-not the authoritative deploy path for normal repo work.
+Terraform is the authoritative deploy path for normal repo work. The remaining
+files under `orchestrators/k8s/` are supporting artifacts such as Helm values,
+not an alternate raw-manifest deployment path.
 
 ### IMDb Titles Data
 
