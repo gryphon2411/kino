@@ -281,7 +281,7 @@ variable "generative_service_model" {
   default     = "gemini-3.1-flash-lite"
 
   validation {
-    condition = !var.enable_generative_service || trimspace(var.generative_service_model) != ""
+    condition     = !var.enable_generative_service || trimspace(var.generative_service_model) != ""
     error_message = "generative_service_model must be a non-empty model name when generative-service is enabled."
   }
 

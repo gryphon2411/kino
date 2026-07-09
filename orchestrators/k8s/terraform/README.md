@@ -88,6 +88,7 @@ Canonical deployment uses immutable image refs:
    If your environment is slow to pull the seed image, also set `mongodb_seed_job_active_deadline_seconds`.
    Terraform still deploys only digest-pinned refs such as `repo@sha256:...`; mutable tags and preview tags are not the deploy contract.
    Normal releases change the image ref itself; `mongodb_seed_generation` is only the explicit rerun token for reapplying the same seed digest.
+   When Kafka is enabled, the Kafka Helm release creates the shared `title-searches` topic if it is absent during Kafka install or upgrade.
 6. Run `task deploy`.
 
 `kubectl rollout restart` is acceptable for ad hoc debugging, but it is not the authoritative release mechanism for this repo.
@@ -142,6 +143,29 @@ Canonical deployment uses immutable image refs:
 | `ingress_url` | Ingress Gateway URL |
 | `get_grafana_password_cmd` | Command to retrieve Grafana password |
 
+## Kafka Topic Provisioning
+
+The Kafka Helm release owns shared user-topic creation for this repo's local
+cluster workflow.
+
+- `title-searches` is created if absent by the Kafka release's provisioning
+  hook during Kafka install or upgrade, before `trend_service` is applied.
+- Broker auto topic creation is disabled through an additive broker override, so
+  future shared topics must be declared intentionally in infra.
+- This flow does not reconcile an already-existing topic with the wrong shape or
+  configuration; legacy drift must be corrected separately.
+
+## Trend Service Auth
+
+- `trend_service` validates bearer tokens against `auth-service` issuer and JWK
+  endpoints, so enabling `trend_service` also requires `enable_auth_service=true`.
+- `trend_service` currently reuses the shared internal machine audience
+  `kino-data-internal`, matching the existing `agent-service` to `data_service`
+  token contract.
+- The canonical trend smoke path therefore assumes `auth-service`,
+  `data_service`, `trend_service`, and Kafka are all enabled and rolled out
+  before any machine-token check is attempted.
+
 ## Agent Service
 
 The LangGraph agent service runs the in-memory `langgraph dev` runtime in
@@ -189,6 +213,7 @@ Runtime defaults:
 - `playbook.yaml` starts Minikube with conservative defaults (`MINIKUBE_CPUS=4`, `MINIKUBE_MEMORY=7800mb`) unless you override them in the shell or `.env`
 - `mongodb_seed_image_ref` must be the digest-pinned `mongoSeedImageRef` from `jobs/.artifacts/release-manifest.json`
 - enabled service Deployments must receive digest-pinned `*_image_ref` values copied from the corresponding GitHub Actions publish run
+- when Kafka is enabled, the release creates the shared `title-searches` topic if absent during Kafka install or upgrade; this is not in-place reconciliation
 - `mongodb_seed_generation` is the declarative rerun token for the same seed digest; normal releases should not need it
 - `mongodb_seed_job_active_deadline_seconds` defaults to `1800` so the canonical Job budget covers image pull + restore on slower local environments; increase it if needed
 - `deploy` performs `terraform init`, `validate`, `plan`, and `apply`; it does not mutate Vault state

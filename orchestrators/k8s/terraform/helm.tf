@@ -61,6 +61,7 @@ resource "helm_release" "kafka" {
   version    = "32.4.3"
   namespace  = kubernetes_namespace.kafka_system[0].metadata[0].name
   values     = [file("${path.module}/../charts/kafka/values.yaml")]
+  timeout    = 900
 
   # Avoid timeout during chart installation
   wait = false

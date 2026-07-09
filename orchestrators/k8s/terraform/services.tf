@@ -392,6 +392,21 @@ resource "kubernetes_deployment" "trend_service" {
             value = "INFO"
           }
 
+          env {
+            name  = "AUTH_SERVER_ISSUER_URI"
+            value = local.auth_service_url
+          }
+
+          env {
+            name  = "AUTH_SERVER_JWK_SET_URI"
+            value = "${local.auth_service_url}/oauth2/jwks"
+          }
+
+          env {
+            name  = "TREND_SERVICE_INTERNAL_AUDIENCE"
+            value = "kino-data-internal"
+          }
+
           # DRY: Kafka connection
           dynamic "env" {
             for_each = local.kafka_env
@@ -404,6 +419,20 @@ resource "kubernetes_deployment" "trend_service" {
       }
     }
   }
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_auth_service
+      error_message = "enable_trend_service requires enable_auth_service to be true."
+    }
+
+    precondition {
+      condition     = var.enable_kafka
+      error_message = "enable_trend_service requires enable_kafka to be true."
+    }
+  }
+
+  depends_on = [helm_release.kafka]
 }
 
 resource "kubernetes_service" "trend_service" {

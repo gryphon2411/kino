@@ -49,13 +49,14 @@ tasks:
       - minikube service list
 
   warmup:
-    desc: Perform initial data search to warm up Kafka topics
+    desc: Optional smoke-check placeholder after deploy
     cmds:
+      - echo "Smoke prerequisites: auth-service, data-service, trend-service, and Kafka enabled and rolled out."
       - echo "Waiting for services to be ready..."
       - sleep 10
-      - echo "Performing warmup search..."
-      # TODO: Add actual curl command here once we know the exact endpoint/payload from the original script logic or user input
-      - echo "Warmup complete."
+      - echo "Running optional smoke-check placeholder..."
+      # TODO: Add actual curl-based smoke check once the exact workflow is scripted here.
+      - echo "Smoke-check placeholder complete."
 
   clean:
     desc: Full reset - delete Minikube cluster and Terraform state
