@@ -302,7 +302,7 @@ class TrendServiceSecurityTests {
     @Import({
             TitleTrendController.class,
             GenreTrendController.class,
-            TrendServiceSecurityConfig.class,
+            TrendServiceMachineSecurityConfig.class,
             TestBeans.class
     })
     static class TestApplication {
