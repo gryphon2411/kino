@@ -51,7 +51,7 @@ tasks:
   warmup:
     desc: Optional smoke-check placeholder after deploy
     cmds:
-      - echo "Smoke prerequisites: auth-service, data-service, trend-service, and Kafka enabled and rolled out."
+      - 'echo "Smoke prerequisites: auth-service, data-service, trend-service, and Kafka enabled and rolled out."'
       - echo "Waiting for services to be ready..."
       - sleep 10
       - echo "Running optional smoke-check placeholder..."
