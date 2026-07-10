@@ -6,6 +6,9 @@ service:
 
 clusterId: J1mmUOT9JBz1rNWKu2uZZi
 
+overrideConfiguration:
+  auto.create.topics.enable: false
+
 metrics:
   jmx:
     enabled: true
@@ -24,3 +27,12 @@ defaultInitContainers:
   autoDiscovery:
     image:
       repository: bitnamilegacy/kubectl
+
+provisioning:
+  enabled: true
+  waitForKafka: true
+  useHelmHooks: true
+  topics:
+    - name: title-searches
+      partitions: 1
+      replicationFactor: 1

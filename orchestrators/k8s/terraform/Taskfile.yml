@@ -48,15 +48,6 @@ tasks:
     cmds:
       - minikube service list
 
-  warmup:
-    desc: Perform initial data search to warm up Kafka topics
-    cmds:
-      - echo "Waiting for services to be ready..."
-      - sleep 10
-      - echo "Performing warmup search..."
-      # TODO: Add actual curl command here once we know the exact endpoint/payload from the original script logic or user input
-      - echo "Warmup complete."
-
   clean:
     desc: Full reset - delete Minikube cluster and Terraform state
     cmds:
