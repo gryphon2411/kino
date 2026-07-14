@@ -13,6 +13,14 @@ import {
 
 export const runtime = 'nodejs';
 
+function callbackErrorCode(error) {
+  if (error instanceof oidc.ResponseBodyError) {
+    return error.error;
+  }
+
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
 export async function GET(request) {
   const callbackUrl = new URL(request.url);
   const state = callbackUrl.searchParams.get('state');
@@ -48,7 +56,7 @@ export async function GET(request) {
   } catch (error) {
     console.error(
       'OIDC BFF callback failed:',
-      error instanceof Error ? error.message : 'Unknown error'
+      callbackErrorCode(error)
     );
     return loginErrorResponse('authentication_failed');
   }
