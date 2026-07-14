@@ -1,7 +1,8 @@
 .codex
+.playwright-cli/
 .artifacts/
 .venv/
 __pycache__/
 jobs/.venv/
 jobs/.env
-data/
+/data/
