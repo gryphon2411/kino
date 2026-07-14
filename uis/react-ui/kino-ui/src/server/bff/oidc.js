@@ -3,7 +3,7 @@ import { getBffConfig } from './config';
 
 let configurationPromise;
 
-function internalOidcFetch(url, options) {
+async function internalOidcFetch(url, options) {
   const config = getBffConfig();
   const requestedUrl = new URL(url instanceof Request ? url.url : url);
   if (requestedUrl.origin !== config.issuer.origin) {
@@ -14,7 +14,11 @@ function internalOidcFetch(url, options) {
     `${requestedUrl.pathname}${requestedUrl.search}`,
     config.internalOidcOrigin
   );
-  return fetch(internalUrl, options);
+  const response = await fetch(internalUrl, options);
+  if (requestedUrl.pathname.endsWith('/oauth2/token') && !response.ok) {
+    console.error('OIDC token endpoint failed:', response.status);
+  }
+  return response;
 }
 
 export async function getOidcConfiguration() {
