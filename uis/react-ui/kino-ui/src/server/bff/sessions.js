@@ -40,6 +40,14 @@ function isInvalidRefreshToken(error) {
     && error.error === 'invalid_grant';
 }
 
+function refreshErrorCode(error) {
+  if (error instanceof oidc.ResponseBodyError) {
+    return error.error;
+  }
+
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
 export async function createLoginTransaction(returnTo) {
   const redis = await redisClient();
   const transactionId = crypto.randomUUID();
@@ -197,6 +205,7 @@ export async function accessTokenFor(sessionId, session) {
         cause: error,
       });
     }
+    console.error('OIDC BFF refresh failed:', refreshErrorCode(error));
     throw error;
   } finally {
     await redis.eval(
