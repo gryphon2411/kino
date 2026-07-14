@@ -45,7 +45,11 @@ export async function GET(request) {
     });
     clearLoginTransactionCookie(response);
     return response;
-  } catch {
+  } catch (error) {
+    console.error(
+      'OIDC BFF callback failed:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
     return loginErrorResponse('authentication_failed');
   }
 }
