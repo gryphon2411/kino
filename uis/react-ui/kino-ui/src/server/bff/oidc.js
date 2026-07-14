@@ -21,7 +21,18 @@ async function internalOidcFetch(url, options) {
     : internalUrl;
   const response = await fetch(internalRequest, options);
   if (requestedUrl.pathname.endsWith('/oauth2/token') && !response.ok) {
-    console.error('OIDC token endpoint failed:', response.status);
+    const requestHeaders = internalRequest instanceof Request
+      ? internalRequest.headers
+      : new Headers(options?.headers);
+    const requestMethod = internalRequest instanceof Request
+      ? internalRequest.method
+      : options?.method || 'GET';
+    console.error(
+      'OIDC token endpoint failed:',
+      response.status,
+      requestMethod,
+      requestHeaders.has('authorization')
+    );
   }
 
   return response;
