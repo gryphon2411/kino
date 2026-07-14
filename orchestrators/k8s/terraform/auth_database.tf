@@ -197,6 +197,7 @@ resource "kubernetes_job" "auth_database_migration" {
         container {
           name  = "flyway"
           image = "flyway/flyway:10.21.0-alpine"
+          args  = ["migrate"]
 
           env {
             name  = "FLYWAY_URL"
