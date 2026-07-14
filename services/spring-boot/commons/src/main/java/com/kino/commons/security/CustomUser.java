@@ -8,6 +8,7 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /*
@@ -37,7 +38,7 @@ public class CustomUser implements UserDetails, CredentialsContainer {
         this.username = username;
         this.email = email;
         this.oidcSubject = java.util.UUID.randomUUID().toString();
-        this.authorities = authorities;
+        this.authorities = new LinkedHashSet<>(authorities);
         this.accountNonExpired = accountNonExpired;
         this.accountNonLocked = accountNonLocked;
         this.credentialsNonExpired = credentialsNonExpired;
@@ -45,7 +46,7 @@ public class CustomUser implements UserDetails, CredentialsContainer {
     }
 
     public CustomUser(String username, String email, String password) {
-        this(username, email, password, Set.of(), true, true,
+        this(username, email, password, new LinkedHashSet<>(), true, true,
                 true, true);
     }
 
@@ -57,7 +58,7 @@ public class CustomUser implements UserDetails, CredentialsContainer {
         this.username = "";
         this.email = "";
         this.oidcSubject = null;
-        this.authorities = Set.of();
+        this.authorities = new LinkedHashSet<>();
         this.accountNonExpired = true;
         this.accountNonLocked = true;
         this.credentialsNonExpired = true;

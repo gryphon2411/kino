@@ -21,7 +21,7 @@ export async function GET(request) {
     request.cookies.get(LOGIN_TRANSACTION_COOKIE)?.value
   );
   if (!transaction) {
-    return loginErrorResponse('invalid_request', request.url);
+    return loginErrorResponse('invalid_request');
   }
 
   try {
@@ -46,13 +46,13 @@ export async function GET(request) {
     clearLoginTransactionCookie(response);
     return response;
   } catch {
-    return loginErrorResponse('authentication_failed', request.url);
+    return loginErrorResponse('authentication_failed');
   }
 }
 
-function loginErrorResponse(error, requestUrl) {
+function loginErrorResponse(error) {
   const response = NextResponse.redirect(
-    new URL(`/login?error=${error}`, requestUrl)
+    new URL(`/login?error=${error}`, getBffConfig().publicOrigin)
   );
   clearLoginTransactionCookie(response);
   return response;

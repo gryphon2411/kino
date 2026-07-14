@@ -18,6 +18,7 @@ import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -91,13 +92,22 @@ class JdbcOidcPersistenceIntegrationTests {
     void persistsAuthorizationCodeAndRotatedRefreshToken() throws Exception {
         this.bootstrapClients();
         RegisteredClient client = this.registeredClients.findByClientId("kino-web-bff");
-        OAuth2AuthorizationService authorizations =
-                new JdbcOAuth2AuthorizationService(this.jdbcTemplate, this.registeredClients);
+        OAuth2AuthorizationService authorizations = this.configuration.authorizationService(
+                this.jdbcTemplate, this.registeredClients
+        );
         Instant issuedAt = Instant.now();
+        com.kino.commons.security.CustomUser principal =
+                new com.kino.commons.security.CustomUser("kino-user", "user@kino.test", "password");
         OAuth2Authorization authorization = OAuth2Authorization.withRegisteredClient(client)
                 .principalName("kino-user")
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizedScopes(client.getScopes())
+                .attribute(
+                        java.security.Principal.class.getName(),
+                        new UsernamePasswordAuthenticationToken(
+                                principal, principal.getPassword(), principal.getAuthorities()
+                        )
+                )
                 .token(new OAuth2AuthorizationCode(
                         "authorization-code", issuedAt, issuedAt.plus(5, ChronoUnit.MINUTES)
                 ))

@@ -2,6 +2,9 @@ package com.kino.auth_service.machineauth;
 
 import com.kino.auth_service.customuser.CustomUserRepository;
 import com.kino.commons.security.CustomUser;
+import com.kino.commons.security.CustomUserMixin;
+import com.kino.commons.security.LinkedHashSetMixin;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
@@ -33,6 +36,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
+import org.springframework.security.oauth2.server.authorization.jackson2.OAuth2AuthorizationServerJackson2Module;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
@@ -43,6 +47,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import org.springframework.jdbc.core.JdbcOperations;
+import org.springframework.security.jackson2.SecurityJackson2Modules;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -120,10 +125,24 @@ public class AuthServiceMachineAuthConfig {
             JdbcOperations jdbcOperations,
             RegisteredClientRepository registeredClientRepository
     ) {
-        return new JdbcOAuth2AuthorizationService(
+        JdbcOAuth2AuthorizationService authorizationService =
+                new JdbcOAuth2AuthorizationService(
                 jdbcOperations,
                 registeredClientRepository
         );
+        ObjectMapper objectMapper = this.authorizationObjectMapper();
+        JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper rowMapper =
+                new JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper(
+                        registeredClientRepository
+                );
+        rowMapper.setObjectMapper(objectMapper);
+        authorizationService.setAuthorizationRowMapper(rowMapper);
+
+        JdbcOAuth2AuthorizationService.OAuth2AuthorizationParametersMapper parametersMapper =
+                new JdbcOAuth2AuthorizationService.OAuth2AuthorizationParametersMapper();
+        parametersMapper.setObjectMapper(objectMapper);
+        authorizationService.setAuthorizationParametersMapper(parametersMapper);
+        return authorizationService;
     }
 
     @Bean
@@ -404,6 +423,17 @@ public class AuthServiceMachineAuthConfig {
                 .reuseRefreshTokens(false)
                 .accessTokenFormat(OAuth2TokenFormat.SELF_CONTAINED)
                 .build();
+    }
+
+    private ObjectMapper authorizationObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.addMixIn(CustomUser.class, CustomUserMixin.class);
+        mapper.addMixIn(LinkedHashSet.class, LinkedHashSetMixin.class);
+        mapper.registerModules(SecurityJackson2Modules.getModules(
+                AuthServiceMachineAuthConfig.class.getClassLoader()
+        ));
+        mapper.registerModule(new OAuth2AuthorizationServerJackson2Module());
+        return mapper;
     }
 
     private RSAKey resolveRsaKey() {
