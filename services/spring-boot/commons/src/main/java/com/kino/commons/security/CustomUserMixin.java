@@ -10,6 +10,7 @@ public abstract class CustomUserMixin {
     @JsonProperty("password") abstract String getPassword();
     @JsonProperty("username") abstract String getUsername();
     @JsonProperty("email") abstract String getEmail();
+    @JsonProperty("oidcSubject") abstract String getOidcSubject();
     @JsonProperty("authorities") abstract Set<GrantedAuthority> getAuthorities();
     @JsonProperty("accountNonExpired") abstract boolean isAccountNonExpired();
     @JsonProperty("accountNonLocked") abstract boolean isAccountNonLocked();

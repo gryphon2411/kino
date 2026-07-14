@@ -15,6 +15,7 @@ Taskfile.yml          # Orchestration (deploy, deploy-with-vault, destroy, clean
     ├── outputs.tf    # Output values
     ├── namespaces.tf # Namespace resources
     ├── databases.tf  # MongoDB, Postgres, Redis
+    ├── auth_database.tf # Auth PostgreSQL bootstrap roles and Flyway migration Job
     ├── helm.tf       # Kafka, RabbitMQ, Prometheus, Grafana, Vault, ESO
     └── services.tf   # Auth, Data, Trend, Generative, Agent, UI, Ingress
 ```
@@ -123,6 +124,9 @@ Canonical deployment uses immutable image refs:
 | `mongodb_seed_generation` | `number` | `0` | Declarative nonce for rerunning the MongoDB seed Job with the same image ref |
 | `mongodb_seed_job_active_deadline_seconds` | `number` | `1800` | Maximum wall-clock time for the MongoDB seed Job, including image pull and restore |
 | `postgres_password` | `string` | — | Postgres root password (sensitive) |
+| `auth_database_migrator_password` | `string` | — | Password for the short-lived PostgreSQL auth migration role (sensitive) |
+| `auth_database_runtime_password` | `string` | — | Password for the auth-service PostgreSQL DML role (sensitive) |
+| `web_bff_client_secret` | `string` | — | Confidential OIDC secret shared by auth-service and the Next.js BFF (sensitive) |
 | `redis_password` | `string` | — | Redis password (sensitive) |
 | `kafka_password` | `string` | — | Kafka password (sensitive) |
 | `rabbitmq_password` | `string` | — | RabbitMQ password (sensitive) |
@@ -164,7 +168,36 @@ cluster workflow.
   token contract.
 - The canonical trend smoke path therefore assumes `auth-service`,
   `data_service`, `trend_service`, and Kafka are all enabled and rolled out
-  before any machine-token check is attempted.
+before any machine-token check is attempted.
+
+## Browser authentication and OIDC persistence
+
+Kino keeps user profiles in MongoDB. The immutable, opaque `oidcSubject` on a
+user is the `sub` claim; it is deliberately separate from both the username and
+Mongo `_id`. PostgreSQL `kino_auth` stores only mutable Authorization Server
+protocol state: registered clients, authorization codes, consents, and refresh
+tokens.
+
+Terraform first runs a root-only Postgres bootstrap Job. It creates `kino_auth`
+and two narrow login roles: `kino_auth_migrator` owns the `kino_auth` schema and
+performs DDL through a Flyway Job; `kino_auth_runtime` receives only DML grants
+for the running auth service. The Deployments wait on that migration Job.
+
+The UI is an OIDC confidential BFF client. Its browser receives only a host-only
+HttpOnly, `SameSite=Lax` opaque session cookie. PKCE state, access tokens, and
+rotating refresh tokens remain server-side in Redis; user title requests are
+proxied to `data_service` with a five-minute JWT carrying `kino.data.read` and
+audience `kino-data-api`. The existing machine audience remains
+`kino-data-internal`. The canonical OIDC issuer is the public gateway origin;
+Terraform sends `/.well-known/openid-configuration` to `auth_service` while the
+protocol endpoints remain under `/api/v1/auth`.
+
+Changing `web_bff_client_secret` or `auth_database_runtime_password` updates the
+corresponding Kubernetes Secret and changes a Pod-template checksum. Terraform
+therefore performs a controlled auth/UI rollout: the auth service first picks up
+the rotated database and BFF credentials and reconciles its registered client,
+then the BFF starts with that same client secret. Existing BFF sessions may need
+to authenticate again after a BFF client-secret rotation.
 
 ## Agent Service
 

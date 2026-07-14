@@ -20,7 +20,7 @@ import org.springframework.session.data.redis.config.annotation.web.http.EnableR
 import java.util.LinkedHashSet;
 
 @Configuration
-@EnableRedisHttpSession
+@EnableRedisHttpSession(maxInactiveIntervalInSeconds = 1800)
 public class AuthServiceSessionCacheConfig implements BeanClassLoaderAware {
     private ClassLoader loader;
 

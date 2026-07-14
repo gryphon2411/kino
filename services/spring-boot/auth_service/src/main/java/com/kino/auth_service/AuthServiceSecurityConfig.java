@@ -15,12 +15,11 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.session.security.web.authentication.SpringSessionRememberMeServices;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -31,6 +30,9 @@ public class AuthServiceSecurityConfig {
     @Value("${kino.security.form-login.redirect-url}")
     private String formLoginRedirectUrl;
 
+    @Value("${kino.security.cors.allowed-origins}")
+    private String allowedCorsOrigins;
+
     @Bean
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -40,13 +42,13 @@ public class AuthServiceSecurityConfig {
                         csrf
                                 .ignoringRequestMatchers(
                                         this.serverPrefixPath + "/non-secured",
-                                        this.serverPrefixPath + "/secured",
-                                        this.serverPrefixPath + "/login",
-                                        this.serverPrefixPath + "/logout"))
+                                        this.serverPrefixPath + "/secured"))
 
                 .authorizeHttpRequests(authorize ->
                         authorize
                                 .requestMatchers(this.serverPrefixPath + "/non-secured").permitAll()
+                                .requestMatchers(this.serverPrefixPath + "/csrf").permitAll()
+                                .requestMatchers(this.serverPrefixPath + "/login").permitAll()
                                 .anyRequest().authenticated())
 
                 /* The form should:
@@ -61,7 +63,8 @@ public class AuthServiceSecurityConfig {
                         formLogin
                                 .loginPage("/login").permitAll()
                                 .loginProcessingUrl(this.serverPrefixPath + "/login")
-                                .defaultSuccessUrl(this.formLoginRedirectUrl, true)
+                                // Retain the authorization request saved by Spring Security.
+                                .defaultSuccessUrl(this.formLoginRedirectUrl, false)
                                 .failureUrl(this.formLoginRedirectUrl + "/login?error"))
 
                 /* The default implementation of SecurityContextRepository is
@@ -77,11 +80,7 @@ public class AuthServiceSecurityConfig {
                 .logout(logout ->
                         logout
                                 .logoutSuccessUrl(this.serverPrefixPath + "/login?logout")
-                                .logoutUrl(this.serverPrefixPath + "/logout"))
-
-                .rememberMe(rememberMe ->
-                        rememberMe
-                                .rememberMeServices(this.rememberMeServices()));
+                                .logoutUrl(this.serverPrefixPath + "/logout"));
 
         return http.build();
     }
@@ -109,22 +108,14 @@ public class AuthServiceSecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "HEAD"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowedOrigins(List.of(this.allowedCorsOrigins.split(",")));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "HEAD"));
+        configuration.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN"));
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
 
         return source;
-    }
-
-    @Bean
-    public SpringSessionRememberMeServices rememberMeServices() {
-        SpringSessionRememberMeServices rememberMeServices = new SpringSessionRememberMeServices();
-
-        rememberMeServices.setAlwaysRemember(false);
-
-        return rememberMeServices;
     }
 }

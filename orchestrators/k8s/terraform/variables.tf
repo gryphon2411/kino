@@ -235,6 +235,54 @@ variable "postgres_password" {
   sensitive   = true
 }
 
+variable "auth_database_migrator_password" {
+  type        = string
+  description = "Password for the short-lived auth database migration role."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_auth_service || (
+      var.auth_database_migrator_password != null
+      && trimspace(var.auth_database_migrator_password) != ""
+    )
+    error_message = "auth_database_migrator_password must be set when auth-service is enabled."
+  }
+}
+
+variable "auth_database_runtime_password" {
+  type        = string
+  description = "Password for the auth-service runtime DML role."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_auth_service || (
+      var.auth_database_runtime_password != null
+      && trimspace(var.auth_database_runtime_password) != ""
+    )
+    error_message = "auth_database_runtime_password must be set when auth-service is enabled."
+  }
+}
+
+variable "web_bff_client_secret" {
+  type        = string
+  description = "Confidential client secret for the Next.js OIDC BFF."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_auth_service || (
+      var.web_bff_client_secret != null
+      && trimspace(var.web_bff_client_secret) != ""
+    )
+    error_message = "web_bff_client_secret must be set when auth-service is enabled."
+  }
+}
+
 variable "redis_password" {
   type        = string
   description = "Redis password"

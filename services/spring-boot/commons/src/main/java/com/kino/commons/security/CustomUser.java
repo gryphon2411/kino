@@ -23,6 +23,7 @@ public class CustomUser implements UserDetails, CredentialsContainer {
     public String password;
     public String username;
     public String email;
+    public String oidcSubject;
     public Set<GrantedAuthority> authorities;
     public boolean accountNonExpired;
     public boolean accountNonLocked;
@@ -35,6 +36,7 @@ public class CustomUser implements UserDetails, CredentialsContainer {
         this.password = password;
         this.username = username;
         this.email = email;
+        this.oidcSubject = java.util.UUID.randomUUID().toString();
         this.authorities = authorities;
         this.accountNonExpired = accountNonExpired;
         this.accountNonLocked = accountNonLocked;
@@ -48,7 +50,18 @@ public class CustomUser implements UserDetails, CredentialsContainer {
     }
 
     public CustomUser() {
-        this("", "", "");
+        // Spring Data uses this persistence constructor for legacy Mongo
+        // documents. Leave a missing OIDC subject missing until the explicit
+        // migration persists one; never create a transient token subject.
+        this.password = "";
+        this.username = "";
+        this.email = "";
+        this.oidcSubject = null;
+        this.authorities = Set.of();
+        this.accountNonExpired = true;
+        this.accountNonLocked = true;
+        this.credentialsNonExpired = true;
+        this.enabled = true;
     }
 
     @Override
@@ -64,6 +77,14 @@ public class CustomUser implements UserDetails, CredentialsContainer {
     @Override
     public String getUsername() {
         return this.username;
+    }
+
+    /**
+     * Stable, opaque OIDC subject. It deliberately does not reuse a mutable
+     * username or the Mongo persistence identifier.
+     */
+    public String getOidcSubject() {
+        return this.oidcSubject;
     }
 
     @Override

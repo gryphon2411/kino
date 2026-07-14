@@ -1,6 +1,7 @@
 package com.kino.data_service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -32,12 +33,15 @@ public class DataServiceMachineSecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
     private String jwkSetUri;
 
-    @Value("${spring.security.oauth2.resourceserver.jwt.audiences}")
+    @Value("${kino.security.machine-token.audiences}")
     private String audiencesProperty;
 
     @Bean
     @Order(1)
-    public SecurityFilterChain machineSecurityFilterChain(HttpSecurity http)
+    public SecurityFilterChain machineSecurityFilterChain(
+            HttpSecurity http,
+            @Qualifier("machineJwtDecoder") JwtDecoder machineJwtDecoder
+    )
             throws Exception {
         String internalPrefix = this.serverPrefixPath + "/internal/**";
         String searchPath = this.serverPrefixPath + "/internal/titles/search";
@@ -55,7 +59,7 @@ public class DataServiceMachineSecurityConfig {
                         .anyRequest().denyAll()
                 )
                 .oauth2ResourceServer(oauth2 ->
-                        oauth2.jwt(Customizer.withDefaults())
+                        oauth2.jwt(jwt -> jwt.decoder(machineJwtDecoder))
                 );
 
         return http.build();

@@ -13,7 +13,13 @@ export const fetchTitle = createAsyncThunk(
     }
 
     try {
-      const response = await fetch(`${API_HOST_URL}/data/title/${id}`);
+      const response = await fetch(`/api/data/titles/${encodeURIComponent(id)}`);
+      if (response.status === 401) {
+        window.location.assign(
+          `/api/auth/login?returnTo=${encodeURIComponent(`/titles/${id}`)}`
+        );
+        throw new Error('Redirecting to login.');
+      }
       const data = await response.json();
 
       if (!response.ok) {

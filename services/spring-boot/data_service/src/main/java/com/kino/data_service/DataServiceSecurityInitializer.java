@@ -4,6 +4,6 @@ import org.springframework.security.web.context.AbstractSecurityWebApplicationIn
 
 public class DataServiceSecurityInitializer extends AbstractSecurityWebApplicationInitializer {
     public DataServiceSecurityInitializer() {
-        super(DataServiceSecurityConfig.class, DataServiceSessionCacheConfig.class);
+        super(DataServiceSecurityConfig.class, DataServiceMachineSecurityConfig.class);
     }
 }

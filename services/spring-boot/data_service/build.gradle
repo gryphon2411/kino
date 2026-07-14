@@ -29,7 +29,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-cache:3.1.6'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server:3.1.6'
 	implementation 'org.springframework.boot:spring-boot-starter-security:3.1.6'
-	implementation 'org.springframework.session:spring-session-data-redis:3.1.3'
 	implementation 'org.springframework.boot:spring-boot-starter-web:3.1.6'
 	implementation 'org.springframework.security:spring-security-oauth2-jose'
 	runtimeOnly 'org.postgresql:postgresql:42.6.0'

@@ -1,7 +1,11 @@
 locals {
-  auth_service_name = var.environment == "dev" ? "dev-auth-service" : "auth-service"
-  auth_service_url  = "http://${local.auth_service_name}:8081/api/v1/auth"
-  data_service_url  = "http://data-service:8082/api/v1/data"
+  gateway_origin            = var.environment == "dev" ? "http://dev.kino.com" : "http://local.kino.com"
+  auth_service_name         = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+  auth_service_internal_url = "http://${local.auth_service_name}:8081/api/v1/auth"
+  # Spring Authorization Server 1.1 serves OIDC discovery at the origin-level
+  # /.well-known/openid-configuration endpoint.
+  auth_service_issuer = local.gateway_origin
+  data_service_url    = "http://data-service:8082/api/v1/data"
 
   kafka_env = [
     { name = "KAFKA_HOSTS", value = "kafka-controller-0.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka-system.svc.cluster.local:9092" },
@@ -75,6 +79,16 @@ resource "kubernetes_deployment" "auth_service" {
         labels = {
           app = local.auth_service_name
         }
+
+        annotations = {
+          # Environment variables sourced from a Secret are fixed at Pod
+          # creation. This checksum makes a credential rotation a deliberate
+          # rolling restart, so client reconciliation runs with the new secret.
+          "kino.io/runtime-credentials-checksum" = nonsensitive(sha256(jsonencode({
+            database = kubernetes_secret.auth_database_runtime_credentials[0].data
+            web_bff  = kubernetes_secret.auth_service_web_bff_client_credentials[0].data
+          })))
+        }
       }
 
       spec {
@@ -94,7 +108,7 @@ resource "kubernetes_deployment" "auth_service" {
 
           env {
             name  = "SERVICE_HOST_PREFIX"
-            value = var.environment == "dev" ? "http://dev.kino.com" : "http://local.kino.com"
+            value = local.gateway_origin
           }
 
           env {
@@ -114,7 +128,7 @@ resource "kubernetes_deployment" "auth_service" {
 
           env {
             name  = "AUTH_SERVER_ISSUER_URI"
-            value = local.auth_service_url
+            value = local.auth_service_issuer
           }
 
           env {
@@ -129,7 +143,7 @@ resource "kubernetes_deployment" "auth_service" {
 
           env {
             name  = "FORM_LOGIN_REDIRECT_URL"
-            value = var.environment == "dev" ? "http://dev.kino.com" : "http://local.kino.com"
+            value = local.gateway_origin
           }
 
           env {
@@ -155,6 +169,76 @@ resource "kubernetes_deployment" "auth_service" {
           env {
             name  = "MACHINE_ACCESS_TOKEN_TTL"
             value = "PT5M"
+          }
+
+          env {
+            name  = "WEB_BFF_CLIENT_ID"
+            value = "kino-web-bff"
+          }
+
+          env {
+            name = "WEB_BFF_CLIENT_SECRET"
+            value_from {
+              secret_key_ref {
+                name = "auth-service-web-bff-client-credentials"
+                key  = "client-secret"
+              }
+            }
+          }
+
+          env {
+            name  = "WEB_BFF_REDIRECT_URI"
+            value = "${local.gateway_origin}/api/auth/callback"
+          }
+
+          env {
+            name  = "WEB_BFF_CLIENT_SCOPES"
+            value = "openid,profile,kino.data.read"
+          }
+
+          env {
+            name  = "WEB_BFF_CLIENT_AUDIENCE"
+            value = "kino-data-api"
+          }
+
+          env {
+            name  = "WEB_BFF_ACCESS_TOKEN_TTL"
+            value = "PT5M"
+          }
+
+          env {
+            name  = "WEB_BFF_REFRESH_TOKEN_TTL"
+            value = "PT8H"
+          }
+
+          env {
+            name  = "AUTH_DATABASE_URL"
+            value = "jdbc:postgresql://postgres.postgres-system:5432/kino_auth?currentSchema=kino_auth"
+          }
+
+          env {
+            name = "AUTH_DATABASE_USERNAME"
+            value_from {
+              secret_key_ref {
+                name = "auth-database-runtime-credentials"
+                key  = "username"
+              }
+            }
+          }
+
+          env {
+            name = "AUTH_DATABASE_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = "auth-database-runtime-credentials"
+                key  = "password"
+              }
+            }
+          }
+
+          env {
+            name  = "CORS_ALLOWED_ORIGINS"
+            value = local.gateway_origin
           }
 
           # DRY: Kafka connection
@@ -204,6 +288,20 @@ resource "kubernetes_deployment" "auth_service" {
       }
     }
   }
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_postgres
+      error_message = "enable_auth_service requires enable_postgres for OIDC protocol persistence."
+    }
+
+    precondition {
+      condition     = var.enable_redis
+      error_message = "enable_auth_service requires enable_redis for interactive login sessions."
+    }
+  }
+
+  depends_on = [kubernetes_job.auth_database_migration]
 }
 
 resource "kubernetes_service" "auth_service" {
@@ -265,17 +363,27 @@ resource "kubernetes_deployment" "data_service" {
 
           env {
             name  = "AUTH_SERVER_ISSUER_URI"
-            value = local.auth_service_url
+            value = local.auth_service_issuer
           }
 
           env {
             name  = "AUTH_SERVER_JWK_SET_URI"
-            value = "${local.auth_service_url}/oauth2/jwks"
+            value = "${local.auth_service_internal_url}/oauth2/jwks"
           }
 
           env {
             name  = "DATA_SERVICE_INTERNAL_AUDIENCE"
             value = "kino-data-internal"
+          }
+
+          env {
+            name  = "DATA_SERVICE_USER_AUDIENCE"
+            value = "kino-data-api"
+          }
+
+          env {
+            name  = "CORS_ALLOWED_ORIGINS"
+            value = local.gateway_origin
           }
 
           # DRY: MongoDB connection
@@ -326,6 +434,13 @@ resource "kubernetes_deployment" "data_service" {
           }
         }
       }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_auth_service
+      error_message = "enable_data_service requires enable_auth_service to validate Kino user and machine JWTs."
     }
   }
 }
@@ -394,12 +509,12 @@ resource "kubernetes_deployment" "trend_service" {
 
           env {
             name  = "AUTH_SERVER_ISSUER_URI"
-            value = local.auth_service_url
+            value = local.auth_service_issuer
           }
 
           env {
             name  = "AUTH_SERVER_JWK_SET_URI"
-            value = "${local.auth_service_url}/oauth2/jwks"
+            value = "${local.auth_service_internal_url}/oauth2/jwks"
           }
 
           env {
@@ -581,7 +696,7 @@ resource "kubernetes_deployment" "agent_service" {
 
           env {
             name  = "KINO_AUTH_SERVICE_URL"
-            value = local.auth_service_url
+            value = local.auth_service_internal_url
           }
 
           env {
@@ -682,6 +797,13 @@ resource "kubernetes_deployment" "ui" {
         labels = {
           app = var.environment == "dev" ? "dev-ui" : "ui"
         }
+
+        annotations = {
+          # The BFF reads these values once at Node process start.
+          "kino.io/bff-runtime-credentials-checksum" = nonsensitive(sha256(
+            jsonencode(kubernetes_secret.ui_bff_runtime_credentials[0].data)
+          ))
+        }
       }
 
       spec {
@@ -696,10 +818,117 @@ resource "kubernetes_deployment" "ui" {
             name  = "NODE_ENV"
             value = var.environment == "dev" ? "development" : "production"
           }
+
+          env {
+            name  = "BFF_PUBLIC_ORIGIN"
+            value = local.gateway_origin
+          }
+
+          env {
+            name  = "OIDC_ISSUER"
+            value = local.auth_service_issuer
+          }
+
+          env {
+            name  = "OIDC_INTERNAL_ORIGIN"
+            value = "http://${local.auth_service_name}:8081"
+          }
+
+          env {
+            name  = "WEB_BFF_CLIENT_ID"
+            value = "kino-web-bff"
+          }
+
+          env {
+            name = "WEB_BFF_CLIENT_SECRET"
+            value_from {
+              secret_key_ref {
+                name = "ui-bff-runtime-credentials"
+                key  = "client-secret"
+              }
+            }
+          }
+
+          env {
+            name  = "WEB_BFF_REDIRECT_URI"
+            value = "${local.gateway_origin}/api/auth/callback"
+          }
+
+          env {
+            name  = "WEB_BFF_SCOPES"
+            value = "openid profile kino.data.read"
+          }
+
+          env {
+            name  = "DATA_SERVICE_INTERNAL_URL"
+            value = local.data_service_url
+          }
+
+          env {
+            name  = "BFF_REDIS_HOST"
+            value = "redis-stack.redis-stack-system"
+          }
+
+          env {
+            name  = "BFF_REDIS_PORT"
+            value = "6379"
+          }
+
+          env {
+            name  = "BFF_REDIS_USERNAME"
+            value = "default"
+          }
+
+          env {
+            name = "BFF_REDIS_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = "ui-bff-runtime-credentials"
+                key  = "redis-password"
+              }
+            }
+          }
+
+          env {
+            name  = "BFF_REDIS_DATABASE"
+            value = "3"
+          }
+
+          env {
+            name  = "BFF_SESSION_IDLE_SECONDS"
+            value = "1800"
+          }
+
+          env {
+            name  = "BFF_SESSION_ABSOLUTE_SECONDS"
+            value = "28800"
+          }
         }
       }
     }
   }
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_auth_service
+      error_message = "enable_ui requires enable_auth_service for the OIDC BFF credentials."
+    }
+
+    precondition {
+      condition     = var.enable_data_service
+      error_message = "enable_ui requires enable_data_service for the BFF title proxy."
+    }
+
+    precondition {
+      condition     = var.enable_redis
+      error_message = "enable_ui requires enable_redis for opaque BFF sessions."
+    }
+  }
+
+  depends_on = [
+    kubernetes_deployment.auth_service,
+    kubernetes_service.data_service,
+  ]
 }
 
 resource "kubernetes_service" "ui" {
@@ -737,6 +966,18 @@ resource "kubernetes_ingress_v1" "gateway" {
       host = var.environment == "dev" ? "dev.kino.com" : "local.kino.com"
 
       http {
+        path {
+          path      = "/.well-known"
+          path_type = "Prefix"
+
+          backend {
+            service {
+              name = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+              port { number = 8081 }
+            }
+          }
+        }
+
         path {
           path      = "/"
           path_type = "Prefix"

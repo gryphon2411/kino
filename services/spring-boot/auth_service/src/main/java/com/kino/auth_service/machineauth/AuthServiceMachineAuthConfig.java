@@ -1,30 +1,38 @@
 package com.kino.auth_service.machineauth;
 
+import com.kino.auth_service.customuser.CustomUserRepository;
+import com.kino.commons.security.CustomUser;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationConsentService;
-import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
-import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
+import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
@@ -34,6 +42,7 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
+import org.springframework.jdbc.core.JdbcOperations;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -69,6 +78,8 @@ public class AuthServiceMachineAuthConfig {
             HttpSecurity http
     ) throws Exception {
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
+        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
+                .oidc(Customizer.withDefaults());
         http
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
@@ -86,41 +97,84 @@ public class AuthServiceMachineAuthConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(
+            prefix = "kino.machine-auth.jdbc-persistence",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true
+    )
     public RegisteredClientRepository registeredClientRepository(
+            JdbcOperations jdbcOperations
+    ) {
+        return new JdbcRegisteredClientRepository(jdbcOperations);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "kino.machine-auth.jdbc-persistence",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true
+    )
+    public OAuth2AuthorizationService authorizationService(
+            JdbcOperations jdbcOperations,
+            RegisteredClientRepository registeredClientRepository
+    ) {
+        return new JdbcOAuth2AuthorizationService(
+                jdbcOperations,
+                registeredClientRepository
+        );
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "kino.machine-auth.jdbc-persistence",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true
+    )
+    public OAuth2AuthorizationConsentService authorizationConsentService(
+            JdbcOperations jdbcOperations,
+            RegisteredClientRepository registeredClientRepository
+    ) {
+        return new JdbcOAuth2AuthorizationConsentService(
+                jdbcOperations,
+                registeredClientRepository
+        );
+    }
+
+    /**
+     * Clients are configuration, not application memory. The deterministic IDs
+     * make this bootstrap idempotent while leaving protocol state in Postgres.
+     * A configuration change, including a Kubernetes Secret rotation, replaces
+     * the stored client settings on the next auth-service start.
+     */
+    @Bean
+    @Order(1)
+    @ConditionalOnProperty(
+            prefix = "kino.machine-auth.jdbc-persistence",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true
+    )
+    public ApplicationRunner registeredClientBootstrap(
+            RegisteredClientRepository registeredClientRepository,
             PasswordEncoder passwordEncoder
     ) {
-        MachineAuthProperties.ClientProperties clientProperties =
-                this.properties.getAgent();
-        RegisteredClient.Builder clientBuilder = RegisteredClient.withId(
-                UUID.randomUUID().toString()
-        ).clientId(clientProperties.getClientId())
-                .clientSecret(passwordEncoder.encode(
-                        clientProperties.getClientSecret()
-                ))
-                .clientAuthenticationMethod(
-                        ClientAuthenticationMethod.CLIENT_SECRET_BASIC
-                )
-                .authorizationGrantType(
-                        AuthorizationGrantType.CLIENT_CREDENTIALS
-                )
-                .tokenSettings(this.tokenSettings())
-                .clientSettings(this.clientSettings());
-
-        for (String scope : new LinkedHashSet<>(clientProperties.getScopes())) {
-            clientBuilder.scope(scope);
-        }
-
-        return new InMemoryRegisteredClientRepository(clientBuilder.build());
-    }
-
-    @Bean
-    public OAuth2AuthorizationService authorizationService() {
-        return new InMemoryOAuth2AuthorizationService();
-    }
-
-    @Bean
-    public OAuth2AuthorizationConsentService authorizationConsentService() {
-        return new InMemoryOAuth2AuthorizationConsentService();
+        return arguments -> {
+            this.reconcileClient(
+                    registeredClientRepository,
+                    this.agentClient(passwordEncoder),
+                    this.properties.getAgent().getClientSecret(),
+                    passwordEncoder
+            );
+            this.reconcileClient(
+                    registeredClientRepository,
+                    this.webBffClient(passwordEncoder),
+                    this.properties.getWebBff().getClientSecret(),
+                    passwordEncoder
+            );
+        };
     }
 
     @Bean
@@ -145,13 +199,27 @@ public class AuthServiceMachineAuthConfig {
                 .tokenIntrospectionEndpoint(oauth2Prefix + "/introspect")
                 .tokenRevocationEndpoint(oauth2Prefix + "/revoke")
                 .jwkSetEndpoint(oauth2Prefix + "/jwks")
+                .oidcUserInfoEndpoint(oauth2Prefix + "/userinfo")
                 .build();
     }
 
     @Bean
-    public OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer() {
-        String audience = this.properties.getAgent().getAudience();
+    public OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer(
+            CustomUserRepository customUserRepository
+    ) {
         return context -> {
+            boolean webBffToken = this.isWebBffToken(context);
+            if (webBffToken) {
+                this.applyUserSubject(context, customUserRepository);
+            }
+
+            if (!OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
+                return;
+            }
+
+            String audience = webBffToken
+                    ? this.properties.getWebBff().getAudience()
+                    : this.properties.getAgent().getAudience();
             context.getClaims().audience(List.of(audience));
 
             LinkedHashSet<String> authorizedScopes = new LinkedHashSet<>(
@@ -170,16 +238,170 @@ public class AuthServiceMachineAuthConfig {
         };
     }
 
-    private ClientSettings clientSettings() {
+    private void reconcileClient(
+            RegisteredClientRepository repository,
+            RegisteredClient desiredClient,
+            String configuredSecret,
+            PasswordEncoder passwordEncoder
+    ) {
+        RegisteredClient existingClient = repository.findByClientId(
+                desiredClient.getClientId()
+        );
+        if (existingClient == null
+                || !this.matchesConfiguredClient(
+                existingClient, desiredClient, configuredSecret, passwordEncoder
+        )) {
+            // JdbcRegisteredClientRepository.save updates by the deterministic
+            // registration ID, preserving the relationship of existing
+            // authorization rows to this client while applying the new secret
+            // and static client settings.
+            repository.save(desiredClient);
+        }
+    }
+
+    private boolean matchesConfiguredClient(
+            RegisteredClient existingClient,
+            RegisteredClient desiredClient,
+            String configuredSecret,
+            PasswordEncoder passwordEncoder
+    ) {
+        return passwordEncoder.matches(
+                configuredSecret, existingClient.getClientSecret()
+        )
+                && existingClient.getClientId().equals(desiredClient.getClientId())
+                && existingClient.getClientName().equals(desiredClient.getClientName())
+                && existingClient.getClientAuthenticationMethods().equals(
+                desiredClient.getClientAuthenticationMethods()
+        )
+                && existingClient.getAuthorizationGrantTypes().equals(
+                desiredClient.getAuthorizationGrantTypes()
+        )
+                && existingClient.getRedirectUris().equals(desiredClient.getRedirectUris())
+                && existingClient.getPostLogoutRedirectUris().equals(
+                desiredClient.getPostLogoutRedirectUris()
+        )
+                && existingClient.getScopes().equals(desiredClient.getScopes())
+                && existingClient.getClientSettings().getSettings().equals(
+                desiredClient.getClientSettings().getSettings()
+        )
+                && existingClient.getTokenSettings().getSettings().equals(
+                desiredClient.getTokenSettings().getSettings()
+        );
+    }
+
+    private RegisteredClient agentClient(PasswordEncoder passwordEncoder) {
+        MachineAuthProperties.ClientProperties clientProperties =
+                this.properties.getAgent();
+        RegisteredClient.Builder builder = RegisteredClient.withId(
+                        this.clientRegistrationId(clientProperties.getClientId())
+                )
+                .clientId(clientProperties.getClientId())
+                .clientName("Kino agent service")
+                .clientSecret(passwordEncoder.encode(
+                        clientProperties.getClientSecret()
+                ))
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                .clientSettings(this.machineClientSettings())
+                .tokenSettings(this.machineTokenSettings());
+
+        this.addScopes(builder, clientProperties.getScopes());
+        return builder.build();
+    }
+
+    private RegisteredClient webBffClient(PasswordEncoder passwordEncoder) {
+        MachineAuthProperties.WebBffProperties clientProperties =
+                this.properties.getWebBff();
+        RegisteredClient.Builder builder = RegisteredClient.withId(
+                        this.clientRegistrationId(clientProperties.getClientId())
+                )
+                .clientId(clientProperties.getClientId())
+                .clientName("Kino web BFF")
+                .clientSecret(passwordEncoder.encode(
+                        clientProperties.getClientSecret()
+                ))
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                .redirectUri(clientProperties.getRedirectUri())
+                .scope(OidcScopes.OPENID)
+                .scope(OidcScopes.PROFILE)
+                .clientSettings(this.webBffClientSettings())
+                .tokenSettings(this.webBffTokenSettings());
+
+        this.addScopes(builder, clientProperties.getScopes());
+        return builder.build();
+    }
+
+    private void addScopes(
+            RegisteredClient.Builder builder,
+            List<String> configuredScopes
+    ) {
+        for (String scope : new LinkedHashSet<>(configuredScopes)) {
+            if (!scope.isBlank()) {
+                builder.scope(scope);
+            }
+        }
+    }
+
+    private String clientRegistrationId(String clientId) {
+        return UUID.nameUUIDFromBytes(
+                ("kino:" + clientId).getBytes(StandardCharsets.UTF_8)
+        ).toString();
+    }
+
+    private boolean isWebBffToken(JwtEncodingContext context) {
+        return this.properties.getWebBff().getClientId().equals(
+                context.getRegisteredClient().getClientId()
+        );
+    }
+
+    private void applyUserSubject(
+            JwtEncodingContext context,
+            CustomUserRepository customUserRepository
+    ) {
+        if (context.getAuthorization() == null) {
+            throw new IllegalStateException("User token is missing its authorization.");
+        }
+
+        String username = context.getAuthorization().getPrincipalName();
+        CustomUser user = customUserRepository.findCustomUserByUsername(username);
+        if (user == null || user.getOidcSubject() == null
+                || user.getOidcSubject().isBlank()) {
+            throw new IllegalStateException(
+                    "Cannot issue an OIDC token without a stable user subject."
+            );
+        }
+        context.getClaims().subject(user.getOidcSubject());
+    }
+
+    private ClientSettings machineClientSettings() {
         return ClientSettings.builder()
                 .requireAuthorizationConsent(false)
                 .requireProofKey(false)
                 .build();
     }
 
-    private TokenSettings tokenSettings() {
+    private ClientSettings webBffClientSettings() {
+        return ClientSettings.builder()
+                .requireAuthorizationConsent(false)
+                .requireProofKey(true)
+                .build();
+    }
+
+    private TokenSettings machineTokenSettings() {
         return TokenSettings.builder()
                 .accessTokenTimeToLive(this.properties.getTokenTtl())
+                .accessTokenFormat(OAuth2TokenFormat.SELF_CONTAINED)
+                .build();
+    }
+
+    private TokenSettings webBffTokenSettings() {
+        MachineAuthProperties.WebBffProperties webBff = this.properties.getWebBff();
+        return TokenSettings.builder()
+                .accessTokenTimeToLive(webBff.getAccessTokenTtl())
+                .refreshTokenTimeToLive(webBff.getRefreshTokenTtl())
+                .reuseRefreshTokens(false)
                 .accessTokenFormat(OAuth2TokenFormat.SELF_CONTAINED)
                 .build();
     }

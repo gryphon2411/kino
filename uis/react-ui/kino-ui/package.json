@@ -18,9 +18,11 @@
     "lodash": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "next": "14.0.3",
+    "openid-client": "^6.8.4",
     "react": "^18",
     "react-dom": "^18",
-    "react-redux": "^9.0.4"
+    "react-redux": "^9.0.4",
+    "redis": "^4.7.1"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.20",

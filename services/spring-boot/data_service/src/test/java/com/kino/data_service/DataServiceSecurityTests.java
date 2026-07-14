@@ -20,10 +20,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,7 +38,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "kino.server.prefix-path=/api/v1/data",
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://auth-service:8081/api/v1/auth",
         "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://auth-service:8081/api/v1/auth/oauth2/jwks",
-        "spring.security.oauth2.resourceserver.jwt.audiences=kino-data-internal"
+        "kino.security.machine-token.audiences=kino-data-internal",
+        "kino.security.user-token.audiences=kino-data-api",
+        "kino.security.cors.allowed-origins=http://localhost:3000"
 })
 class DataServiceSecurityTests {
     @Autowired
@@ -52,17 +52,19 @@ class DataServiceSecurityTests {
     @Test
     void unauthenticatedTitleLookupIsRejected() throws Exception {
         this.mockMvc.perform(get("/api/v1/data/titles/tt0000001"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void userSessionCanAccessProtectedTitleRoutes() throws Exception {
+    void userAccessTokenCanAccessProtectedTitleRoutes() throws Exception {
         when(this.titleService.getTitle("tt0000001"))
                 .thenReturn(Optional.of(this.sampleTitleDto()));
 
         this.mockMvc.perform(
                         get("/api/v1/data/titles/tt0000001")
-                                .with(user("kino-user"))
+                                .with(jwt().authorities(
+                                        () -> "SCOPE_kino.data.read"
+                                ))
                 )
                 .andExpect(status().isOk());
     }
@@ -84,7 +86,7 @@ class DataServiceSecurityTests {
     void machineTokenCannotAccessUserTitleRoute() throws Exception {
         this.mockMvc.perform(
                         get("/api/v1/data/titles/tt0000001")
-                                .header("Authorization", "Bearer test-token")
+                                .with(this.machineToken())
                 )
                 .andExpect(status().isForbidden());
     }
