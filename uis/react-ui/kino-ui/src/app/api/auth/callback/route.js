@@ -22,7 +22,13 @@ function callbackErrorCode(error) {
 }
 
 export async function GET(request) {
-  const callbackUrl = new URL(request.url);
+  const requestUrl = new URL(request.url);
+  // The internal pod address is not necessarily the registered redirect URI.
+  // Redeem the authorization code with the configured public callback URL.
+  const callbackUrl = new URL(
+    `${requestUrl.pathname}${requestUrl.search}`,
+    getBffConfig().publicOrigin
+  );
   const state = callbackUrl.searchParams.get('state');
   const transaction = await consumeLoginTransaction(
     state,
