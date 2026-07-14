@@ -14,11 +14,12 @@ async function internalOidcFetch(url, options) {
     `${requestedUrl.pathname}${requestedUrl.search}`,
     config.internalOidcOrigin
   );
-  const response = await fetch(internalUrl, options);
-  if (requestedUrl.pathname.endsWith('/oauth2/token') && !response.ok) {
-    console.error('OIDC token endpoint failed:', response.status);
+  if (url instanceof Request) {
+    // Refresh grants are supplied as Requests. Keep their POST method, body,
+    // and client authentication while replacing only the public origin.
+    return fetch(new Request(internalUrl, url), options);
   }
-  return response;
+  return fetch(internalUrl, options);
 }
 
 export async function getOidcConfiguration() {
