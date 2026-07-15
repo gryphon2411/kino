@@ -60,6 +60,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -239,7 +240,7 @@ public class AuthServiceMachineAuthConfig {
             String audience = webBffToken
                     ? this.properties.getWebBff().getAudience()
                     : this.properties.getAgent().getAudience();
-            context.getClaims().audience(List.of(audience));
+            context.getClaims().audience(new ArrayList<>(List.of(audience)));
 
             LinkedHashSet<String> authorizedScopes = new LinkedHashSet<>(
                     context.getAuthorizedScopes()
@@ -429,6 +430,8 @@ public class AuthServiceMachineAuthConfig {
         ObjectMapper mapper = new ObjectMapper();
         mapper.addMixIn(CustomUser.class, CustomUserMixin.class);
         mapper.addMixIn(LinkedHashSet.class, LinkedHashSetMixin.class);
+        mapper.addMixIn(List.of().getClass(), ImmutableListMixin.class);
+        mapper.addMixIn(List.of("item").getClass(), ImmutableListMixin.class);
         mapper.registerModules(SecurityJackson2Modules.getModules(
                 AuthServiceMachineAuthConfig.class.getClassLoader()
         ));

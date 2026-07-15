@@ -142,6 +142,30 @@ class JdbcOidcPersistenceIntegrationTests {
         assertThat(new com.kino.commons.security.CustomUser().getOidcSubject()).isNull();
     }
 
+    @Test
+    void readsPersistedImmutableListMetadataNeededByRefreshTokens() throws Exception {
+        this.bootstrapClients();
+        RegisteredClient client = this.registeredClients.findByClientId("kino-web-bff");
+        OAuth2AuthorizationService authorizations = this.configuration.authorizationService(
+                this.jdbcTemplate, this.registeredClients
+        );
+        Instant issuedAt = Instant.now();
+        OAuth2Authorization authorization = OAuth2Authorization.withRegisteredClient(client)
+                .principalName("kino-user")
+                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                .authorizedScopes(client.getScopes())
+                .attribute("audience", List.of("kino-data-api"))
+                .token(new OAuth2RefreshToken(
+                        "refresh-token", issuedAt, issuedAt.plus(8, ChronoUnit.HOURS)
+                ))
+                .build();
+        authorizations.save(authorization);
+
+        assertThat(authorizations.findByToken(
+                "refresh-token", OAuth2TokenType.REFRESH_TOKEN
+        )).isNotNull();
+    }
+
     private void bootstrapClients() throws Exception {
         this.configuration.registeredClientBootstrap(
                 this.registeredClients, this.passwordEncoder
