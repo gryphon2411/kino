@@ -114,6 +114,9 @@ Canonical deployment uses immutable image refs:
 | `enable_grafana` | `bool` | `true` | Enable Grafana system |
 | `enable_ingress` | `bool` | `true` | Enable Gateway Ingress |
 | `auth_service_image_ref` | `string` | `null` | Digest-pinned auth-service image used by the Deployment when auth-service is enabled |
+| `auth_database_bootstrap_image_ref` | `string` | reviewed digest | Digest-pinned PostgreSQL client image for the auth bootstrap Job |
+| `postgres_image_ref` | `string` | reviewed digest | Digest-pinned PostgreSQL server image |
+| `auth_database_migration_image_ref` | `string` | reviewed digest | Digest-pinned Flyway image for the auth migration Job |
 | `data_service_image_ref` | `string` | `null` | Digest-pinned data-service image used by the Deployment when data-service is enabled |
 | `trend_service_image_ref` | `string` | `null` | Digest-pinned trend-service image used by the Deployment when trend-service is enabled |
 | `generative_service_image_ref` | `string` | `null` | Digest-pinned generative-service image used by the Deployment when generative-service is enabled |
@@ -128,6 +131,8 @@ Canonical deployment uses immutable image refs:
 | `auth_database_runtime_password` | `string` | — | Password for the auth-service PostgreSQL DML role (sensitive) |
 | `web_bff_client_secret` | `string` | — | Confidential OIDC secret shared by auth-service and the Next.js BFF (sensitive) |
 | `redis_password` | `string` | — | Redis password (sensitive) |
+| `web_bff_redis_password` | `string` | `null` | Optional operator-controlled Redis ACL password for BFF-only `kino:bff:*` records; Terraform generates a distinct sensitive value when unset |
+| `redis_image_ref` | `string` | reviewed digest | Digest-pinned Redis Stack image |
 | `kafka_password` | `string` | — | Kafka password (sensitive) |
 | `rabbitmq_password` | `string` | — | RabbitMQ password (sensitive) |
 | `rabbitmq_admin_password` | `string` | `null` | Optional RabbitMQ admin password. Falls back to `rabbitmq_password` when unset |
@@ -191,6 +196,17 @@ audience `kino-data-api`. The existing machine audience remains
 `kino-data-internal`. The canonical OIDC issuer is the public gateway origin;
 Terraform sends `/.well-known/openid-configuration` to `auth_service` while the
 protocol endpoints remain under `/api/v1/auth`.
+
+The BFF uses the dedicated `kino-bff` Redis ACL and can access only
+`kino:bff:*` keys. Auth/Data continue to use the Redis `default` account for
+their own caches and sessions, but cannot read BFF tokens. A Redis ingress
+NetworkPolicy accepts port 6379 only from the UI, Auth, and Data pods. Redis
+state is intentionally ephemeral in Kino's local/dev environments: a Redis
+restart clears BFF sessions and users authenticate again. If a successful
+refresh-token rotation cannot be saved to Redis, the BFF clears the cookie and
+returns a deterministic reauthentication response instead of retrying a stale
+refresh token. The ACL file stores SHA-256 password hashes; only the relevant
+Kubernetes runtime Secret contains the BFF's raw credential.
 
 Changing `web_bff_client_secret` or `auth_database_runtime_password` updates the
 corresponding Kubernetes Secret and changes a Pod-template checksum. Terraform

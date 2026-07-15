@@ -35,7 +35,7 @@ CREATE SCHEMA IF NOT EXISTS kino_auth AUTHORIZATION kino_auth_migrator;
 GRANT USAGE ON SCHEMA kino_auth TO kino_auth_runtime;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE kino_auth_migrator IN SCHEMA kino_auth
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO kino_auth_runtime;
+  REVOKE ALL ON TABLES FROM kino_auth_runtime;
 ALTER DEFAULT PRIVILEGES FOR ROLE kino_auth_migrator IN SCHEMA kino_auth
-  GRANT USAGE, SELECT ON SEQUENCES TO kino_auth_runtime;
+  REVOKE ALL ON SEQUENCES FROM kino_auth_runtime;
 SQL

@@ -49,12 +49,23 @@ CREATE TABLE oauth2_authorization (
     device_code_issued_at timestamp DEFAULT NULL,
     device_code_expires_at timestamp DEFAULT NULL,
     device_code_metadata text DEFAULT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    CONSTRAINT oauth2_authorization_registered_client_fk
+      FOREIGN KEY (registered_client_id) REFERENCES oauth2_registered_client (id)
+      ON DELETE RESTRICT
 );
 
 CREATE TABLE oauth2_authorization_consent (
     registered_client_id varchar(100) NOT NULL,
     principal_name varchar(200) NOT NULL,
     authorities varchar(1000) NOT NULL,
-    PRIMARY KEY (registered_client_id, principal_name)
+    PRIMARY KEY (registered_client_id, principal_name),
+    CONSTRAINT oauth2_authorization_consent_registered_client_fk
+      FOREIGN KEY (registered_client_id) REFERENCES oauth2_registered_client (id)
+      ON DELETE RESTRICT
+);
+
+-- Flyway owns this ledger; the runtime role must never receive DML on it.
+CREATE TABLE flyway_schema_history (
+    installed_rank integer PRIMARY KEY
 );

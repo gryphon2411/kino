@@ -7,11 +7,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -49,6 +52,9 @@ public class AuthServiceSecurityConfig {
                                 .requestMatchers(this.serverPrefixPath + "/non-secured").permitAll()
                                 .requestMatchers(this.serverPrefixPath + "/csrf").permitAll()
                                 .requestMatchers(this.serverPrefixPath + "/login").permitAll()
+                                // Kubernetes reaches these shallow probe endpoints
+                                // directly on the pod; ingress does not route them.
+                                .requestMatchers("/actuator/health/**").permitAll()
                                 .anyRequest().authenticated())
 
                 /* The form should:
@@ -94,10 +100,29 @@ public class AuthServiceSecurityConfig {
         authenticationProvider.setUserDetailsService(userDetailsService);
         authenticationProvider.setPasswordEncoder(passwordEncoder);
 
-        ProviderManager providerManager = new ProviderManager(authenticationProvider);
-        providerManager.setEraseCredentialsAfterAuthentication(false);
+        AuthenticationProvider identityOnlyProvider = new AuthenticationProvider() {
+            @Override
+            public Authentication authenticate(Authentication authentication) {
+                Authentication authenticated = authenticationProvider.authenticate(authentication);
+                if (authenticated == null) {
+                    return null;
+                }
 
-        return providerManager;
+                // The user store's CustomUser has a password verifier for
+                // authentication only. Do not carry it into the HTTP session
+                // or Authorization Server's durable protocol state.
+                return UsernamePasswordAuthenticationToken.authenticated(
+                        authenticated.getName(), null, authenticated.getAuthorities()
+                );
+            }
+
+            @Override
+            public boolean supports(Class<?> authentication) {
+                return authenticationProvider.supports(authentication);
+            }
+        };
+
+        return new ProviderManager(identityOnlyProvider);
     }
 
     @Bean

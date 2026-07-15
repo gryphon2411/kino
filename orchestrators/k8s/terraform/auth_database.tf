@@ -68,7 +68,15 @@ resource "kubernetes_secret" "ui_bff_runtime_credentials" {
 
   data = {
     client-secret  = var.web_bff_client_secret
-    redis-password = var.redis_password
+    redis-username = "kino-bff"
+    redis-password = local.web_bff_redis_password
+  }
+
+  lifecycle {
+    precondition {
+      condition     = nonsensitive(local.web_bff_redis_password != var.redis_password)
+      error_message = "The BFF Redis credential must be distinct from redis_password."
+    }
   }
 }
 
@@ -93,7 +101,7 @@ resource "kubernetes_job" "auth_database_bootstrap" {
       spec {
         container {
           name    = "bootstrap-auth-database"
-          image   = "postgres:17"
+          image   = var.auth_database_bootstrap_image_ref
           command = ["/bin/sh", "/scripts/bootstrap-auth-database.sh"]
 
           env {
@@ -174,7 +182,8 @@ resource "kubernetes_config_map" "auth_database_migrations" {
   metadata { name = "auth-database-migrations" }
 
   data = {
-    "V1__spring_authorization_server.sql" = file("${path.module}/auth-db-migrations/V1__spring_authorization_server.sql")
+    for migration in fileset("${path.module}/auth-db-migrations", "*.sql") :
+    migration => file("${path.module}/auth-db-migrations/${migration}")
   }
 }
 
@@ -196,7 +205,7 @@ resource "kubernetes_job" "auth_database_migration" {
       spec {
         container {
           name  = "flyway"
-          image = "flyway/flyway:10.21.0-alpine"
+          image = var.auth_database_migration_image_ref
           args  = ["migrate"]
 
           env {

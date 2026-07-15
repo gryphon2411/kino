@@ -1,6 +1,7 @@
 locals {
   gateway_origin            = var.environment == "dev" ? "http://dev.kino.com" : "http://local.kino.com"
   auth_service_name         = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+  ui_service_name           = var.environment == "dev" ? "dev-ui" : "ui"
   auth_service_internal_url = "http://${local.auth_service_name}:8081/api/v1/auth"
   # Spring Authorization Server 1.1 serves OIDC discovery at the origin-level
   # /.well-known/openid-configuration endpoint.
@@ -277,6 +278,26 @@ resource "kubernetes_deployment" "auth_service" {
           env {
             name  = "REDIS_NAMESPACE"
             value = "kino:auth"
+          }
+
+          liveness_probe {
+            http_get {
+              path = "/actuator/health/liveness"
+              port = 8081
+            }
+            initial_delay_seconds = 20
+            period_seconds        = 10
+            failure_threshold     = 3
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/actuator/health/readiness"
+              port = 8081
+            }
+            initial_delay_seconds = 10
+            period_seconds        = 5
+            failure_threshold     = 3
           }
 
           volume_mount {
@@ -780,7 +801,7 @@ resource "kubernetes_deployment" "ui" {
   count = var.enable_ui ? 1 : 0
 
   metadata {
-    name = var.environment == "dev" ? "dev-ui" : "ui"
+    name = local.ui_service_name
   }
 
   spec {
@@ -788,14 +809,14 @@ resource "kubernetes_deployment" "ui" {
 
     selector {
       match_labels = {
-        app = var.environment == "dev" ? "dev-ui" : "ui"
+        app = local.ui_service_name
       }
     }
 
     template {
       metadata {
         labels = {
-          app = var.environment == "dev" ? "dev-ui" : "ui"
+          app = local.ui_service_name
         }
 
         annotations = {
@@ -808,7 +829,7 @@ resource "kubernetes_deployment" "ui" {
 
       spec {
         container {
-          name              = var.environment == "dev" ? "dev-ui" : "ui"
+          name              = local.ui_service_name
           image             = var.ui_image_ref
           image_pull_policy = "IfNotPresent"
 
@@ -875,8 +896,13 @@ resource "kubernetes_deployment" "ui" {
           }
 
           env {
-            name  = "BFF_REDIS_USERNAME"
-            value = "default"
+            name = "BFF_REDIS_USERNAME"
+            value_from {
+              secret_key_ref {
+                name = "ui-bff-runtime-credentials"
+                key  = "redis-username"
+              }
+            }
           }
 
           env {
@@ -902,6 +928,26 @@ resource "kubernetes_deployment" "ui" {
           env {
             name  = "BFF_SESSION_ABSOLUTE_SECONDS"
             value = "28800"
+          }
+
+          liveness_probe {
+            http_get {
+              path = "/api/health/live"
+              port = 3000
+            }
+            initial_delay_seconds = 10
+            period_seconds        = 10
+            failure_threshold     = 3
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/api/health/ready"
+              port = 3000
+            }
+            initial_delay_seconds = 10
+            period_seconds        = 5
+            failure_threshold     = 3
           }
         }
       }
@@ -935,12 +981,12 @@ resource "kubernetes_service" "ui" {
   count = var.enable_ui ? 1 : 0
 
   metadata {
-    name = var.environment == "dev" ? "dev-ui" : "ui"
+    name = local.ui_service_name
   }
 
   spec {
     selector = {
-      app = var.environment == "dev" ? "dev-ui" : "ui"
+      app = local.ui_service_name
     }
 
     port {

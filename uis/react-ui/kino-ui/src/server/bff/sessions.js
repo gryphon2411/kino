@@ -60,17 +60,23 @@ export async function consumeLoginTransaction(state, transactionId) {
     return null;
   }
   const redis = await redisClient();
-  const key = loginKey(state);
-  const serialized = await redis.get(key);
+  // GETDEL alone is unsafe here: a callback carrying the wrong cookie must
+  // not consume the valid transaction. Validate the cookie-bound transaction
+  // id and delete the one-time record in the same Redis operation instead.
+  const serialized = await redis.eval(
+    "local value = redis.call('get', KEYS[1]); if not value then return false end; local ok, transaction = pcall(cjson.decode, value); if not ok or transaction.transactionId ~= ARGV[1] then return false end; redis.call('del', KEYS[1]); return value",
+    { keys: [loginKey(state)], arguments: [transactionId] }
+  );
   if (!serialized) {
     return null;
   }
-  const transaction = JSON.parse(serialized);
-  if (transaction.transactionId !== transactionId) {
+  try {
+    return JSON.parse(serialized);
+  } catch {
+    // A malformed record cannot be a valid login transaction. It retains its
+    // short TTL only when no matching transaction id was supplied.
     return null;
   }
-  await redis.del(key);
-  return transaction;
 }
 
 export async function createSession(tokens) {
@@ -165,15 +171,27 @@ export async function accessTokenFor(sessionId, session) {
       refreshVersion: crypto.randomUUID(),
       accessTokenExpiresAt: Date.now() + (tokens.expiresIn() || 300) * 1000,
     };
-    await redis.setEx(
-      sessionKey(sessionId),
-      getBffConfig().sessionIdleSeconds,
-      JSON.stringify(refreshedSession)
-    );
+    try {
+      await redis.setEx(
+        sessionKey(sessionId),
+        getBffConfig().sessionIdleSeconds,
+        JSON.stringify(refreshedSession)
+      );
+    } catch (error) {
+      // The authorization server has already rotated the old refresh token.
+      // Never leave the browser with a session that cannot be refreshed again:
+      // best-effort delete it and force a fresh authorization flow instead of
+      // returning a misleading transient 502.
+      await invalidateSessionBestEffort(sessionId);
+      throw new SessionRefreshError(
+        'The BFF session could not be saved after refresh and was invalidated.',
+        { cause: error }
+      );
+    }
     return refreshedSession.accessToken;
   } catch (error) {
     if (error instanceof SessionRefreshError) {
-      await redis.del(sessionKey(sessionId));
+      await invalidateSessionBestEffort(sessionId);
       throw new SessionRefreshError('Unable to refresh the BFF session.', {
         cause: error,
       });
@@ -183,15 +201,20 @@ export async function accessTokenFor(sessionId, session) {
       // is safe only when this request still owns that session version. A
       // slow request can outlive its lock lease after another request already
       // stored the rotated token; in that case use the new access token.
-      const invalidated = await deleteSessionIfRefreshVersion(
-        sessionId,
-        refreshVersion
-      );
-      if (!invalidated) {
-        const refreshedSession = await getSession(sessionId);
-        if (refreshedSession && hasUsableAccessToken(refreshedSession)) {
-          return refreshedSession.accessToken;
+      try {
+        const invalidated = await deleteSessionIfRefreshVersion(
+          sessionId,
+          refreshVersion
+        );
+        if (!invalidated) {
+          const refreshedSession = await getSession(sessionId);
+          if (refreshedSession && hasUsableAccessToken(refreshedSession)) {
+            return refreshedSession.accessToken;
+          }
         }
+      } catch {
+        // Redis is unavailable, so the local session cannot be trusted. The
+        // response below still clears the browser cookie deterministically.
       }
       throw new SessionRefreshError('Unable to refresh the BFF session.', {
         cause: error,
@@ -199,10 +222,25 @@ export async function accessTokenFor(sessionId, session) {
     }
     throw error;
   } finally {
-    await redis.eval(
-      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0",
-      { keys: [lockKey], arguments: [lockValue] }
-    );
+    try {
+      await redis.eval(
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0",
+        { keys: [lockKey], arguments: [lockValue] }
+      );
+    } catch {
+      // The lock has a short TTL. Do not let an unavailable Redis connection
+      // mask the deterministic re-authentication result above.
+    }
+  }
+}
+
+async function invalidateSessionBestEffort(sessionId) {
+  try {
+    const redis = await redisClient();
+    await redis.del(sessionKey(sessionId));
+  } catch {
+    // If Redis itself is unavailable, the caller still clears the browser
+    // cookie. A later retry cannot use the now-rotated refresh token.
   }
 }
 

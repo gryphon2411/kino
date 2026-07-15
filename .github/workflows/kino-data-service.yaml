@@ -8,6 +8,7 @@ on:
       - master
     paths:
       - services/spring-boot/data_service/**
+      - services/spring-boot/commons/**
       - .github/workflows/kino-data-service.yaml
       - .github/scripts/**
   # Specifies that this workflow should run on every pull request event targeting the branches in the list.
@@ -16,6 +17,7 @@ on:
       - master
     paths:
       - services/spring-boot/data_service/**
+      - services/spring-boot/commons/**
       - .github/workflows/kino-data-service.yaml
       - .github/scripts/**
   # Allows an operator to run the workflow manually from the Actions tab.
@@ -49,6 +51,19 @@ jobs:
       # Checks out the repository on the build machine.
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run data-service tests
+        working-directory: services/spring-boot/data_service
+        run: ./gradlew test --no-daemon
 
       # Resolve the canonical-vs-preview publish decision once so later steps reuse the same tag and policy result.
       - name: Decide publish mode

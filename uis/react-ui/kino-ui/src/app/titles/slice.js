@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { setError } from '@/app/slice';
+import { beginLogin } from '@/app/authentication';
 
 export const fetchTitles = createAsyncThunk(
   'titles/fetchTitles',
@@ -20,9 +21,7 @@ export const fetchTitles = createAsyncThunk(
       
       const response = await fetch(url);
       if (response.status === 401) {
-        window.location.assign(
-          `/api/auth/login?returnTo=${encodeURIComponent('/titles')}`
-        );
+        await beginLogin('/titles');
         throw new Error('Redirecting to login.');
       }
       const data = await response.json();

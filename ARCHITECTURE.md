@@ -346,6 +346,9 @@ explicitly starts using them.
 - Browser, user-token, and machine-token traffic are different security
   domains. The browser has only a BFF cookie; user JWTs protect title routes;
   machine JWTs with narrower scopes protect `/internal`.
+- The BFF treats a refresh as durable only after the rotated token session is
+  saved to Redis. If that write fails, it clears the local session and requires
+  a new login rather than leaving a stale refresh token in the browser flow.
 - `auth_service` owns both human authentication and machine token issuance.
 - The deployed system is image-ref driven. Runtime services should be deployed
   from digest-pinned images, and the Mongo seed should be promoted through the
@@ -388,7 +391,11 @@ that deployment target.
   codes, consents, and refresh tokens. A migrator role owns its schema; the
   running auth service has only DML permissions.
 - Redis default caches are segmented by service database number. Auth-service
-  login sessions and opaque Next.js BFF sessions are separate Redis state.
+  login sessions and opaque Next.js BFF sessions are separate Redis state. The
+  BFF has its own Redis ACL, limited to `kino:bff:*`; its access and refresh
+  tokens are therefore not readable with the Auth/Data default Redis account.
+  A Redis restart deliberately invalidates these ephemeral sessions and sends
+  users through normal reauthentication rather than attempting token recovery.
 - Kafka carries the title-return event stream; `trend_service` materializes its
   window state through Kafka Streams state stores.
 - RabbitMQ handles RPC-style messaging for the generative path.
