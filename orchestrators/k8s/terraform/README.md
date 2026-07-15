@@ -114,9 +114,9 @@ Canonical deployment uses immutable image refs:
 | `enable_grafana` | `bool` | `true` | Enable Grafana system |
 | `enable_ingress` | `bool` | `true` | Enable Gateway Ingress |
 | `auth_service_image_ref` | `string` | `null` | Digest-pinned auth-service image used by the Deployment when auth-service is enabled |
-| `auth_database_bootstrap_image_ref` | `string` | reviewed digest | Digest-pinned PostgreSQL client image for the auth bootstrap Job |
-| `postgres_image_ref` | `string` | reviewed digest | Digest-pinned PostgreSQL server image |
-| `auth_database_migration_image_ref` | `string` | reviewed digest | Digest-pinned Flyway image for the auth migration Job |
+| `auth_database_bootstrap_image_ref` | `string` | `null` | Optional digest-pinned PostgreSQL client-image override for the auth bootstrap Job; a reviewed built-in digest is used when unset |
+| `postgres_image_ref` | `string` | `null` | Optional digest-pinned PostgreSQL server-image override; a reviewed built-in digest is used when unset |
+| `auth_database_migration_image_ref` | `string` | `null` | Optional digest-pinned Flyway-image override for the auth migration Job; a reviewed built-in digest is used when unset |
 | `data_service_image_ref` | `string` | `null` | Digest-pinned data-service image used by the Deployment when data-service is enabled |
 | `trend_service_image_ref` | `string` | `null` | Digest-pinned trend-service image used by the Deployment when trend-service is enabled |
 | `generative_service_image_ref` | `string` | `null` | Digest-pinned generative-service image used by the Deployment when generative-service is enabled |
@@ -132,7 +132,7 @@ Canonical deployment uses immutable image refs:
 | `web_bff_client_secret` | `string` | — | Confidential OIDC secret shared by auth-service and the Next.js BFF (sensitive) |
 | `redis_password` | `string` | — | Redis password (sensitive) |
 | `web_bff_redis_password` | `string` | `null` | Optional operator-controlled Redis ACL password for BFF-only `kino:bff:*` records; Terraform generates a distinct sensitive value when unset |
-| `redis_image_ref` | `string` | reviewed digest | Digest-pinned Redis Stack image |
+| `redis_image_ref` | `string` | `null` | Optional digest-pinned Redis Stack image override; a reviewed built-in digest is used when unset |
 | `kafka_password` | `string` | — | Kafka password (sensitive) |
 | `rabbitmq_password` | `string` | — | RabbitMQ password (sensitive) |
 | `rabbitmq_admin_password` | `string` | `null` | Optional RabbitMQ admin password. Falls back to `rabbitmq_password` when unset |

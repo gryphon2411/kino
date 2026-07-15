@@ -238,7 +238,7 @@ resource "kubernetes_stateful_set" "postgres" {
       spec {
         container {
           name  = "postgres"
-          image = var.postgres_image_ref
+          image = local.postgres_image_ref
 
           port { container_port = 5432 }
 
@@ -372,7 +372,7 @@ resource "kubernetes_stateful_set" "redis" {
       spec {
         container {
           name  = "redis-stack"
-          image = var.redis_image_ref
+          image = local.redis_image_ref
 
           port { container_port = 6379 }
           port { container_port = 8001 }

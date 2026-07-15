@@ -116,12 +116,14 @@ variable "auth_service_image_ref" {
 
 variable "auth_database_bootstrap_image_ref" {
   type        = string
-  description = "Digest-pinned PostgreSQL client image used by the auth database bootstrap Job."
-  default     = "postgres@sha256:ebba4f4de37f08f138f97c1443c987a435e783177afedcc4aaf2da1930fbc37a"
+  description = "Optional digest-pinned PostgreSQL client image override for the auth database bootstrap Job."
+  default     = null
+  nullable    = true
 
   validation {
     condition = !var.enable_postgres || !var.enable_auth_service || (
-      can(regex(".+@sha256:[0-9a-f]{64}$", var.auth_database_bootstrap_image_ref))
+      var.auth_database_bootstrap_image_ref == null
+      || can(regex(".+@sha256:[0-9a-f]{64}$", var.auth_database_bootstrap_image_ref))
     )
     error_message = "auth_database_bootstrap_image_ref must be a digest-pinned OCI image reference when auth PostgreSQL is enabled."
   }
@@ -129,12 +131,14 @@ variable "auth_database_bootstrap_image_ref" {
 
 variable "postgres_image_ref" {
   type        = string
-  description = "Digest-pinned PostgreSQL server image used by the shared PostgreSQL StatefulSet."
-  default     = "postgres@sha256:ebba4f4de37f08f138f97c1443c987a435e783177afedcc4aaf2da1930fbc37a"
+  description = "Optional digest-pinned PostgreSQL server image override for the shared PostgreSQL StatefulSet."
+  default     = null
+  nullable    = true
 
   validation {
     condition = !var.enable_postgres || (
-      can(regex(".+@sha256:[0-9a-f]{64}$", var.postgres_image_ref))
+      var.postgres_image_ref == null
+      || can(regex(".+@sha256:[0-9a-f]{64}$", var.postgres_image_ref))
     )
     error_message = "postgres_image_ref must be a digest-pinned OCI image reference when PostgreSQL is enabled."
   }
@@ -142,12 +146,14 @@ variable "postgres_image_ref" {
 
 variable "auth_database_migration_image_ref" {
   type        = string
-  description = "Digest-pinned Flyway image used by the auth database migration Job."
-  default     = "flyway/flyway@sha256:2ec478cc00011c5e6fdaeb170486ca43c2cdedb2be86b740648fe0b63e362da9"
+  description = "Optional digest-pinned Flyway image override for the auth database migration Job."
+  default     = null
+  nullable    = true
 
   validation {
     condition = !var.enable_postgres || !var.enable_auth_service || (
-      can(regex(".+@sha256:[0-9a-f]{64}$", var.auth_database_migration_image_ref))
+      var.auth_database_migration_image_ref == null
+      || can(regex(".+@sha256:[0-9a-f]{64}$", var.auth_database_migration_image_ref))
     )
     error_message = "auth_database_migration_image_ref must be a digest-pinned OCI image reference when auth PostgreSQL is enabled."
   }
@@ -345,12 +351,14 @@ variable "web_bff_redis_password" {
 
 variable "redis_image_ref" {
   type        = string
-  description = "Digest-pinned Redis Stack image used by the shared Redis StatefulSet."
-  default     = "redis/redis-stack@sha256:c2019e98fd5abce4dd11feec004de44d1709d2366a6efa5ffb2bd0daf8f9c6a4"
+  description = "Optional digest-pinned Redis Stack image override for the shared Redis StatefulSet."
+  default     = null
+  nullable    = true
 
   validation {
     condition = !var.enable_redis || (
-      can(regex(".+@sha256:[0-9a-f]{64}$", var.redis_image_ref))
+      var.redis_image_ref == null
+      || can(regex(".+@sha256:[0-9a-f]{64}$", var.redis_image_ref))
     )
     error_message = "redis_image_ref must be a digest-pinned OCI image reference when Redis is enabled."
   }

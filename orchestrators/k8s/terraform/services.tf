@@ -8,6 +8,26 @@ locals {
   auth_service_issuer = local.gateway_origin
   data_service_url    = "http://data-service:8082/api/v1/data"
 
+  # These are immutable public OCI image identifiers, not credentials. Keep
+  # operator overrides at the variable boundary while preserving reviewed,
+  # digest-pinned defaults for local deployments.
+  auth_database_bootstrap_image_ref = coalesce(
+    var.auth_database_bootstrap_image_ref,
+    "postgres@sha256:ebba4f4de37f08f138f97c1443c987a435e783177afedcc4aaf2da1930fbc37a"
+  )
+  postgres_image_ref = coalesce(
+    var.postgres_image_ref,
+    "postgres@sha256:ebba4f4de37f08f138f97c1443c987a435e783177afedcc4aaf2da1930fbc37a"
+  )
+  auth_database_migration_image_ref = coalesce(
+    var.auth_database_migration_image_ref,
+    "flyway/flyway@sha256:2ec478cc00011c5e6fdaeb170486ca43c2cdedb2be86b740648fe0b63e362da9"
+  )
+  redis_image_ref = coalesce(
+    var.redis_image_ref,
+    "redis/redis-stack@sha256:c2019e98fd5abce4dd11feec004de44d1709d2366a6efa5ffb2bd0daf8f9c6a4"
+  )
+
   kafka_env = [
     { name = "KAFKA_HOSTS", value = "kafka-controller-0.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka-system.svc.cluster.local:9092" },
     { name = "KAFKA_USERNAME", value = "root" },

@@ -101,7 +101,7 @@ resource "kubernetes_job" "auth_database_bootstrap" {
       spec {
         container {
           name    = "bootstrap-auth-database"
-          image   = var.auth_database_bootstrap_image_ref
+          image   = local.auth_database_bootstrap_image_ref
           command = ["/bin/sh", "/scripts/bootstrap-auth-database.sh"]
 
           env {
@@ -205,7 +205,7 @@ resource "kubernetes_job" "auth_database_migration" {
       spec {
         container {
           name  = "flyway"
-          image = var.auth_database_migration_image_ref
+          image = local.auth_database_migration_image_ref
           args  = ["migrate"]
 
           env {
