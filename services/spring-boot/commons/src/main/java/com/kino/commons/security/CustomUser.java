@@ -1,6 +1,7 @@
 package com.kino.commons.security;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.core.CredentialsContainer;
 import org.springframework.security.core.GrantedAuthority;
@@ -24,6 +25,7 @@ public class CustomUser implements UserDetails, CredentialsContainer {
     public String password;
     public String username;
     public String email;
+    @Indexed(unique = true, sparse = true)
     public String oidcSubject;
     public Set<GrantedAuthority> authorities;
     public boolean accountNonExpired;

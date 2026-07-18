@@ -1,6 +1,5 @@
 package com.kino.data_service;
 
-import com.kino.data_service.nonsecured.NonSecuredController;
 import com.kino.data_service.titles.InternalTitleController;
 import com.kino.data_service.titles.Title;
 import com.kino.data_service.titles.TitleController;
@@ -48,7 +47,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest({
-        NonSecuredController.class,
         TitleController.class,
         InternalTitleController.class
 })

@@ -62,8 +62,6 @@ public class DataServiceSecurityConfig {
                         SessionCreationPolicy.STATELESS
                 ))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(this.serverPrefixPath + "/non-secured")
-                        .permitAll()
                         .requestMatchers("/login", "/logout").denyAll()
                         .requestMatchers(this.serverPrefixPath + "/titles")
                         .hasAuthority("SCOPE_kino.data.read")

@@ -2,8 +2,6 @@ package com.kino.auth_service;
 
 import com.kino.auth_service.customuser.CustomUserRepository;
 import com.kino.auth_service.machineauth.AuthServiceMachineAuthConfig;
-import com.kino.auth_service.nonsecured.NonSecuredController;
-import com.kino.auth_service.secured.SecuredController;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,10 +36,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest({
-        NonSecuredController.class,
-        SecuredController.class
-})
+@WebMvcTest
 @Import({
         AuthServiceMachineAuthConfig.class,
         AuthServiceSecurityConfig.class,

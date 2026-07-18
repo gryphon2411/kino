@@ -41,15 +41,10 @@ public class AuthServiceSecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults())
-                .csrf(csrf ->
-                        csrf
-                                .ignoringRequestMatchers(
-                                        this.serverPrefixPath + "/non-secured",
-                                        this.serverPrefixPath + "/secured"))
+                .csrf(Customizer.withDefaults())
 
                 .authorizeHttpRequests(authorize ->
                         authorize
-                                .requestMatchers(this.serverPrefixPath + "/non-secured").permitAll()
                                 .requestMatchers(this.serverPrefixPath + "/csrf").permitAll()
                                 .requestMatchers(this.serverPrefixPath + "/login").permitAll()
                                 // Kubernetes reaches these shallow probe endpoints

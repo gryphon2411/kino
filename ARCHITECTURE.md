@@ -276,8 +276,8 @@ Important areas:
   - catalog browsing UI
 - `src/app/titles/[id]/`
   - title detail and fact retrieval UI
-- `src/pages/login/` and `src/pages-slices/login/`
-  - login workflow
+- `src/pages/login/`
+  - Spring Authorization Server's browser login form
 - `src/http/api.js`
   - public API base URL configuration
 
