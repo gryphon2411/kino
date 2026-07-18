@@ -31,7 +31,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security:3.1.6'
 	implementation 'org.springframework.boot:spring-boot-starter-web:3.1.6'
 	implementation 'org.springframework.security:spring-security-oauth2-jose'
-	runtimeOnly 'org.postgresql:postgresql:42.6.0'
 	testImplementation 'org.springframework.kafka:spring-kafka-test:3.0.13'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test:3.1.6'
 	testImplementation 'org.springframework.amqp:spring-rabbit-test:3.0.10'
