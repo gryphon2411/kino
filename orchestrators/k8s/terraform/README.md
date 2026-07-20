@@ -70,6 +70,21 @@ task destroy
 task clean
 ```
 
+## Local PostgreSQL access
+
+After deploying PostgreSQL, start a localhost-only tunnel for `psql` or a
+desktop client such as pgAdmin:
+
+```bash
+cd orchestrators/k8s/terraform
+task port-forward-postgres
+```
+
+The task forwards `127.0.0.1:15432` to the `postgres` Service in
+`postgres-system`. It does not change the deployed topology or expose
+PostgreSQL beyond the local machine. Keep the terminal open while the client is
+connected; press `Ctrl+C` to stop the tunnel.
+
 ## Release Handoff
 
 Canonical deployment uses immutable image refs:
