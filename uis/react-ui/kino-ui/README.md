@@ -22,6 +22,26 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## OIDC BFF browser smoke
+
+The committed Playwright smoke covers login, a protected BFF title request,
+optional short-token refresh checks, and logout. It deliberately requires a
+deployed test environment and disposable credentials rather than storing any
+browser authentication state in the repository:
+
+```bash
+KINO_E2E_BASE_URL=http://local.kino.com \
+KINO_E2E_USERNAME=... \
+KINO_E2E_PASSWORD=... \
+npm run test:e2e:oidc
+```
+
+Set `KINO_E2E_REFRESH_WAIT_SECONDS` only for an environment configured with a
+short BFF access-token lifetime. GitHub Actions provides the same smoke as the
+manual **kino OIDC BFF E2E** workflow; configure its `kino-e2e` environment
+with a non-sensitive `KINO_E2E_USERNAME` variable and a
+`KINO_E2E_PASSWORD` secret.
+
 or:
 
 <!-- #default-branch-switch -->

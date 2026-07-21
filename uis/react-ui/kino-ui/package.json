@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e:oidc": "playwright test tests/e2e/oidc-bff.spec.js"
   },
   "dependencies": {
     "@emotion/cache": "^11.11.0",
@@ -18,11 +19,14 @@
     "lodash": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "next": "14.0.3",
+    "openid-client": "^6.8.4",
     "react": "^18",
     "react-dom": "^18",
-    "react-redux": "^9.0.4"
+    "react-redux": "^9.0.4",
+    "redis": "^4.7.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/lodash": "^4.17.20",
     "eslint": "^8",
     "eslint-config-next": "14.0.3"

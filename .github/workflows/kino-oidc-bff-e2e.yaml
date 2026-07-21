@@ -1,0 +1,59 @@
+name: kino OIDC BFF E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: HTTPS/HTTP URL of the deployed Kino environment to test
+        required: true
+        type: string
+      refresh_wait_seconds:
+        description: Seconds to wait before each refresh assertion (use a short-token test environment)
+        required: false
+        default: '0'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    environment: kino-e2e
+    defaults:
+      run:
+        working-directory: uis/react-ui/kino-ui
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: uis/react-ui/kino-ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run OIDC BFF browser smoke
+        env:
+          KINO_E2E_BASE_URL: ${{ inputs.base_url }}
+          KINO_E2E_REFRESH_WAIT_SECONDS: ${{ inputs.refresh_wait_seconds }}
+          KINO_E2E_USERNAME: ${{ vars.KINO_E2E_USERNAME }}
+          KINO_E2E_PASSWORD: ${{ secrets.KINO_E2E_PASSWORD }}
+        run: npm run test:e2e:oidc
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: kino-oidc-bff-playwright-artifacts
+          path: |
+            uis/react-ui/kino-ui/playwright-report
+            uis/react-ui/kino-ui/test-results
+          if-no-files-found: ignore

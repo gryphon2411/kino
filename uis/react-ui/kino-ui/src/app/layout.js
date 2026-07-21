@@ -10,9 +10,9 @@ import StarIcon from '@mui/icons-material/Star';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SupportIcon from '@mui/icons-material/Support';
-import LogoutIcon from '@mui/icons-material/Logout';
 import ThemeRegistry from '@/components/ThemeRegistry/ThemeRegistry';
 import MainFragment from '@/components/MainFragment';
+import LogoutButton from '@/components/LogoutButton';
 
 export const metadata = {
   title: 'Kino',
@@ -32,7 +32,6 @@ const LINKS = [
 const PLACEHOLDER_LINKS = [
   { text: 'Settings', icon: SettingsIcon },
   { text: 'Support', icon: SupportIcon },
-  { text: 'Logout', icon: LogoutIcon },
 ];
 
 export default function RootLayout({ children }) {
@@ -89,6 +88,7 @@ export default function RootLayout({ children }) {
                     </ListItemButton>
                   </ListItem>
                 ))}
+                <LogoutButton />
               </List>
             </Drawer>
             <MainFragment marginLeft={DRAWER_WIDTH}>{children}</MainFragment>

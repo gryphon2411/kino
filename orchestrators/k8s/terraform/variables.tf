@@ -114,6 +114,51 @@ variable "auth_service_image_ref" {
   }
 }
 
+variable "auth_database_bootstrap_image_ref" {
+  type        = string
+  description = "Optional digest-pinned PostgreSQL client image override for the auth database bootstrap Job."
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_postgres || !var.enable_auth_service || (
+      var.auth_database_bootstrap_image_ref == null
+      || can(regex(".+@sha256:[0-9a-f]{64}$", var.auth_database_bootstrap_image_ref))
+    )
+    error_message = "auth_database_bootstrap_image_ref must be a digest-pinned OCI image reference when auth PostgreSQL is enabled."
+  }
+}
+
+variable "postgres_image_ref" {
+  type        = string
+  description = "Optional digest-pinned PostgreSQL server image override for the shared PostgreSQL StatefulSet."
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_postgres || (
+      var.postgres_image_ref == null
+      || can(regex(".+@sha256:[0-9a-f]{64}$", var.postgres_image_ref))
+    )
+    error_message = "postgres_image_ref must be a digest-pinned OCI image reference when PostgreSQL is enabled."
+  }
+}
+
+variable "auth_database_migration_image_ref" {
+  type        = string
+  description = "Optional digest-pinned Flyway image override for the auth database migration Job."
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_postgres || !var.enable_auth_service || (
+      var.auth_database_migration_image_ref == null
+      || can(regex(".+@sha256:[0-9a-f]{64}$", var.auth_database_migration_image_ref))
+    )
+    error_message = "auth_database_migration_image_ref must be a digest-pinned OCI image reference when auth PostgreSQL is enabled."
+  }
+}
+
 variable "data_service_image_ref" {
   type        = string
   description = "Immutable data-service image reference deployed by Kubernetes"
@@ -235,10 +280,88 @@ variable "postgres_password" {
   sensitive   = true
 }
 
+variable "auth_database_migrator_password" {
+  type        = string
+  description = "Password for the short-lived auth database migration role."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_auth_service || (
+      var.auth_database_migrator_password != null
+      && trimspace(var.auth_database_migrator_password) != ""
+    )
+    error_message = "auth_database_migrator_password must be set when auth-service is enabled."
+  }
+}
+
+variable "auth_database_runtime_password" {
+  type        = string
+  description = "Password for the auth-service runtime DML role."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_auth_service || (
+      var.auth_database_runtime_password != null
+      && trimspace(var.auth_database_runtime_password) != ""
+    )
+    error_message = "auth_database_runtime_password must be set when auth-service is enabled."
+  }
+}
+
+variable "web_bff_client_secret" {
+  type        = string
+  description = "Confidential client secret for the Next.js OIDC BFF."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_auth_service || (
+      var.web_bff_client_secret != null
+      && trimspace(var.web_bff_client_secret) != ""
+    )
+    error_message = "web_bff_client_secret must be set when auth-service is enabled."
+  }
+}
+
 variable "redis_password" {
   type        = string
   description = "Redis password"
   sensitive   = true
+}
+
+variable "web_bff_redis_password" {
+  type        = string
+  description = "Optional operator-supplied Redis ACL password for the Next.js BFF session store. Terraform generates a distinct value when unset."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = var.web_bff_redis_password == null || (
+      trimspace(var.web_bff_redis_password) != ""
+    )
+    error_message = "web_bff_redis_password must be non-empty when supplied."
+  }
+}
+
+variable "redis_image_ref" {
+  type        = string
+  description = "Optional digest-pinned Redis Stack image override for the shared Redis StatefulSet."
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_redis || (
+      var.redis_image_ref == null
+      || can(regex(".+@sha256:[0-9a-f]{64}$", var.redis_image_ref))
+    )
+    error_message = "redis_image_ref must be a digest-pinned OCI image reference when Redis is enabled."
+  }
 }
 
 variable "kafka_password" {

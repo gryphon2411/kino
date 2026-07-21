@@ -12,6 +12,7 @@ public class MachineAuthProperties {
     private String issuer = "http://localhost:8081/api/v1/auth";
     private final SigningKeyProperties signingKey = new SigningKeyProperties();
     private final ClientProperties agent = new ClientProperties();
+    private final WebBffProperties webBff = new WebBffProperties();
 
     public Duration getTokenTtl() {
         return this.tokenTtl;
@@ -35,6 +36,10 @@ public class MachineAuthProperties {
 
     public ClientProperties getAgent() {
         return this.agent;
+    }
+
+    public WebBffProperties getWebBff() {
+        return this.webBff;
     }
 
     public static class SigningKeyProperties {
@@ -94,6 +99,40 @@ public class MachineAuthProperties {
 
         public void setAudience(String audience) {
             this.audience = audience;
+        }
+    }
+
+    /**
+     * Properties for the confidential Next.js BFF client. Browser code never
+     * receives this client secret or the resulting OAuth tokens.
+     */
+    public static class WebBffProperties extends ClientProperties {
+        private String redirectUri = "http://localhost:3000/api/auth/callback";
+        private Duration accessTokenTtl = Duration.ofMinutes(5);
+        private Duration refreshTokenTtl = Duration.ofHours(8);
+
+        public String getRedirectUri() {
+            return this.redirectUri;
+        }
+
+        public void setRedirectUri(String redirectUri) {
+            this.redirectUri = redirectUri;
+        }
+
+        public Duration getAccessTokenTtl() {
+            return this.accessTokenTtl;
+        }
+
+        public void setAccessTokenTtl(Duration accessTokenTtl) {
+            this.accessTokenTtl = accessTokenTtl;
+        }
+
+        public Duration getRefreshTokenTtl() {
+            return this.refreshTokenTtl;
+        }
+
+        public void setRefreshTokenTtl(Duration refreshTokenTtl) {
+            this.refreshTokenTtl = refreshTokenTtl;
         }
     }
 }

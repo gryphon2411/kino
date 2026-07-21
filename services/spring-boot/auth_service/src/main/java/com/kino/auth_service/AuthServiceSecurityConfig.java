@@ -7,20 +7,22 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.session.security.web.authentication.SpringSessionRememberMeServices;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -31,22 +33,23 @@ public class AuthServiceSecurityConfig {
     @Value("${kino.security.form-login.redirect-url}")
     private String formLoginRedirectUrl;
 
+    @Value("${kino.security.cors.allowed-origins}")
+    private String allowedCorsOrigins;
+
     @Bean
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults())
-                .csrf(csrf ->
-                        csrf
-                                .ignoringRequestMatchers(
-                                        this.serverPrefixPath + "/non-secured",
-                                        this.serverPrefixPath + "/secured",
-                                        this.serverPrefixPath + "/login",
-                                        this.serverPrefixPath + "/logout"))
+                .csrf(Customizer.withDefaults())
 
                 .authorizeHttpRequests(authorize ->
                         authorize
-                                .requestMatchers(this.serverPrefixPath + "/non-secured").permitAll()
+                                .requestMatchers(this.serverPrefixPath + "/csrf").permitAll()
+                                .requestMatchers(this.serverPrefixPath + "/login").permitAll()
+                                // Kubernetes reaches these shallow probe endpoints
+                                // directly on the pod; ingress does not route them.
+                                .requestMatchers("/actuator/health/**").permitAll()
                                 .anyRequest().authenticated())
 
                 /* The form should:
@@ -61,7 +64,8 @@ public class AuthServiceSecurityConfig {
                         formLogin
                                 .loginPage("/login").permitAll()
                                 .loginProcessingUrl(this.serverPrefixPath + "/login")
-                                .defaultSuccessUrl(this.formLoginRedirectUrl, true)
+                                // Retain the authorization request saved by Spring Security.
+                                .defaultSuccessUrl(this.formLoginRedirectUrl, false)
                                 .failureUrl(this.formLoginRedirectUrl + "/login?error"))
 
                 /* The default implementation of SecurityContextRepository is
@@ -77,11 +81,7 @@ public class AuthServiceSecurityConfig {
                 .logout(logout ->
                         logout
                                 .logoutSuccessUrl(this.serverPrefixPath + "/login?logout")
-                                .logoutUrl(this.serverPrefixPath + "/logout"))
-
-                .rememberMe(rememberMe ->
-                        rememberMe
-                                .rememberMeServices(this.rememberMeServices()));
+                                .logoutUrl(this.serverPrefixPath + "/logout"));
 
         return http.build();
     }
@@ -95,10 +95,29 @@ public class AuthServiceSecurityConfig {
         authenticationProvider.setUserDetailsService(userDetailsService);
         authenticationProvider.setPasswordEncoder(passwordEncoder);
 
-        ProviderManager providerManager = new ProviderManager(authenticationProvider);
-        providerManager.setEraseCredentialsAfterAuthentication(false);
+        AuthenticationProvider identityOnlyProvider = new AuthenticationProvider() {
+            @Override
+            public Authentication authenticate(Authentication authentication) {
+                Authentication authenticated = authenticationProvider.authenticate(authentication);
+                if (authenticated == null) {
+                    return null;
+                }
 
-        return providerManager;
+                // The user store's CustomUser has a password verifier for
+                // authentication only. Do not carry it into the HTTP session
+                // or Authorization Server's durable protocol state.
+                return UsernamePasswordAuthenticationToken.authenticated(
+                        authenticated.getName(), null, authenticated.getAuthorities()
+                );
+            }
+
+            @Override
+            public boolean supports(Class<?> authentication) {
+                return authenticationProvider.supports(authentication);
+            }
+        };
+
+        return new ProviderManager(identityOnlyProvider);
     }
 
     @Bean
@@ -109,22 +128,14 @@ public class AuthServiceSecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "HEAD"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowedOrigins(List.of(this.allowedCorsOrigins.split(",")));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "HEAD"));
+        configuration.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN"));
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
 
         return source;
-    }
-
-    @Bean
-    public SpringSessionRememberMeServices rememberMeServices() {
-        SpringSessionRememberMeServices rememberMeServices = new SpringSessionRememberMeServices();
-
-        rememberMeServices.setAlwaysRemember(false);
-
-        return rememberMeServices;
     }
 }

@@ -238,7 +238,7 @@ resource "kubernetes_stateful_set" "postgres" {
       spec {
         container {
           name  = "postgres"
-          image = "postgres:17"
+          image = local.postgres_image_ref
 
           port { container_port = 5432 }
 
@@ -334,6 +334,25 @@ resource "kubernetes_secret" "redis_creds" {
   }
 }
 
+# The BFF holds browser access and refresh tokens. A dedicated ACL ensures
+# other Kino services cannot read or mutate those `kino:bff:*` records even
+# though they share the Redis endpoint for their own caches and sessions.
+resource "kubernetes_secret" "redis_acl" {
+  count = var.enable_redis ? 1 : 0
+
+  metadata {
+    name      = "redis-stack-acl"
+    namespace = kubernetes_namespace.redis_stack_system[0].metadata[0].name
+  }
+
+  data = {
+    "users.acl" = join("\n", compact([
+      "user default on #${sha256(var.redis_password)} ~* &* +@all",
+      var.enable_ui ? "user kino-bff on #${sha256(local.web_bff_redis_password)} ~kino:bff:* +get +set +setex +expire +del +getdel +eval +ping +hello +auth +select +client|setinfo" : null,
+    ]))
+  }
+}
+
 resource "kubernetes_stateful_set" "redis" {
   count = var.enable_redis ? 1 : 0
 
@@ -353,23 +372,38 @@ resource "kubernetes_stateful_set" "redis" {
       spec {
         container {
           name  = "redis-stack"
-          image = "redis/redis-stack:7.4.0-v3"
+          image = local.redis_image_ref
 
           port { container_port = 6379 }
           port { container_port = 8001 }
 
           env {
-            name = "REDIS_ARGS"
-            # Password retrieved from secret via interpolation
-            # Note: Ideally use a startup script with secretKeyRef for better security
-            value = "--requirepass ${kubernetes_secret.redis_creds[0].data.password}"
+            name  = "REDIS_ARGS"
+            value = "--aclfile /etc/redis/users.acl"
+          }
+
+          volume_mount {
+            name       = "redis-acl"
+            mount_path = "/etc/redis"
+            read_only  = true
+          }
+        }
+
+        volume {
+          name = "redis-acl"
+
+          secret {
+            secret_name = kubernetes_secret.redis_acl[0].metadata[0].name
           }
         }
       }
     }
   }
 
-  depends_on = [kubernetes_secret.redis_creds]
+  depends_on = [
+    kubernetes_secret.redis_creds,
+    kubernetes_secret.redis_acl,
+  ]
 }
 
 resource "kubernetes_service" "redis" {

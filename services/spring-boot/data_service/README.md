@@ -27,7 +27,6 @@ https://start.spring.io/
   - Spring Web
   - Spring Rest Docs
   - Spring Data MongoDB
-  - PostgreSQL Driver SQL
   - Spring Data Redis (Access+Driver)
   - Spring for RabbitMQ Messaging
   - Spring for Apache Kafka Streams

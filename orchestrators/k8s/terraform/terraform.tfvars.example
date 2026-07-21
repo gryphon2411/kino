@@ -25,6 +25,12 @@ mongodb_seed_generation = 0
 # Increase this if your environment needs more time for image pull + restore.
 mongodb_seed_job_active_deadline_seconds = 1800
 
+# Auth protocol persistence and the confidential Next.js BFF client.
+# Supply the real values through .env / TF_VAR_*; never commit them here.
+# auth_database_migrator_password = "replace-me"
+# auth_database_runtime_password  = "replace-me"
+# web_bff_client_secret           = "replace-me"
+
 # Service image deploy inputs
 # Copy these digest-pinned refs from the corresponding GitHub Actions publish runs.
 # For environment = "dev", use the develop publish digests where a dev workflow exists.

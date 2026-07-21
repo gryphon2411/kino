@@ -1,36 +1,49 @@
 'use client'
 import * as React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from "next/image";
 import { useSelector, useDispatch } from 'react-redux';
-import { useRouter } from 'next/navigation';
-import { Container, TextField, Button, Box, Card, Snackbar, Alert, Checkbox, FormControlLabel} from '@mui/material';
-import { loginUser } from '@/pages-slices/login/slice';
-import { clearError } from '@/app/slice';
+import { useRouter } from 'next/router';
+import { Container, TextField, Button, Box, Card, Snackbar, Alert } from '@mui/material';
+import { clearError, setError } from '@/app/slice';
 
 export default function LoginPage() {
   const dispatch = useDispatch();
   const error = useSelector((state) => state.app.error);
-
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
-  
   const router = useRouter();
-  const loginStatus = useSelector((state) => state.login.status);
+  const [csrf, setCsrf] = useState(null);
+
+  useEffect(() => {
+    if (router.query.error) {
+      dispatch(setError('Invalid username or password.'));
+    }
+  }, [dispatch, router.query.error]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/v1/auth/csrf', { credentials: 'same-origin' })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Unable to prepare secure login.');
+        }
+        return response.json();
+      })
+      .then((token) => {
+        if (active) {
+          setCsrf(token);
+        }
+      })
+      .catch((requestError) => {
+        dispatch(setError(requestError.message));
+      });
+    return () => {
+      active = false;
+    };
+  }, [dispatch]);
 
   const handleClose = (event, reason) => {
     dispatch(clearError());
   };
-
-  const handleLogin = (event) => {
-    event.preventDefault();
-    dispatch(loginUser({ username, password, rememberMe }));
-  };
-
-  if (loginStatus === 'succeeded') {
-    router.push('/');
-  }
 
   return (
     <Container>
@@ -59,7 +72,8 @@ export default function LoginPage() {
           />
           <Box
             component="form"
-            onSubmit={handleLogin}
+            action="/api/v1/auth/login"
+            method="post"
             sx={{ 
               mt: 2, 
               width: '100%', 
@@ -69,8 +83,7 @@ export default function LoginPage() {
           >
             <TextField
               label="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              name="username"
               margin="normal"
               required
               fullWidth
@@ -78,24 +91,19 @@ export default function LoginPage() {
             <TextField
               label="Password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              name="password"
               margin="normal"
               required
               fullWidth
             />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  name="rememberMe"
-                  color="primary"
-                />
-              }
-              label="Remember me"
-            />
-            <Button type="submit" variant="contained" 
+            {csrf && (
+              <input
+                type="hidden"
+                name={csrf.parameterName}
+                value={csrf.token}
+              />
+            )}
+            <Button type="submit" variant="contained" disabled={!csrf}
               sx={{ 
                 mt: 3, 
                 width: '100%' }}

@@ -7,6 +7,7 @@ on:
       - master
     paths:
       - services/spring-boot/auth_service/**
+      - services/spring-boot/commons/**
       - .github/workflows/kino-auth-service.yaml
       - .github/scripts/**
   pull_request:
@@ -14,6 +15,7 @@ on:
       - master
     paths:
       - services/spring-boot/auth_service/**
+      - services/spring-boot/commons/**
       - .github/workflows/kino-auth-service.yaml
       - .github/scripts/**
   # Allows an operator to run the workflow manually from the Actions tab.
@@ -47,6 +49,19 @@ jobs:
       # Checks out the repository on the build machine.
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run auth-service tests
+        working-directory: services/spring-boot/auth_service
+        run: ./gradlew test --no-daemon
 
       # Resolve the canonical-vs-preview publish decision once so later steps reuse the same tag and policy result.
       - name: Decide publish mode

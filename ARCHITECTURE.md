@@ -32,7 +32,8 @@ The canonical runtime shape is:
 - a Django service for title facts generation
 - an optional LangGraph agent for grounded title discovery
 - MongoDB as the main runtime datastore
-- Redis for HTTP session state and service caches
+- PostgreSQL for Authorization Server protocol state
+- Redis for BFF/session state and service caches
 - Kafka for title-search event streaming
 - RabbitMQ for request/reply style service integration
 
@@ -51,8 +52,10 @@ They only see the curated Mongo projection.
 
 ### 2. User catalog browsing
 
-The UI talks to public HTTP routes exposed through ingress. Catalog reads go to
-`data_service`, which queries MongoDB and returns title DTOs.
+The UI talks to same-origin BFF routes exposed by Next.js. The BFF holds the
+user's OAuth tokens in Redis and calls `data_service`, which queries MongoDB and
+returns title DTOs. The catalog ingress route remains available during this
+minimal rollout, but the UI no longer sends browser credentials to it directly.
 
 `data_service` is the public system boundary for title retrieval. Other runtime
 services should not bypass it by reading the `title_basics` collection directly.
@@ -146,30 +149,35 @@ Important types:
   - the Kafka payload schema for titles returned by `data_service`, consumed by
     `trend_service`
 - `CustomUser`
-  - shared user representation used with Spring Security and Redis session
-    serialization
+  - shared Mongo user representation with an immutable opaque OIDC subject
 
 Keep `commons` small. It is a shared contract layer, not a dumping ground for
 cross-service business logic.
 
 ### `services/spring-boot/auth_service`
 
-`auth_service` handles two different concerns:
+`auth_service` handles three related concerns:
 
-- browser-oriented user authentication with Spring Security sessions
+- browser-oriented Spring Security login sessions used at the authorization
+  endpoint
+- OIDC authorization-code-with-PKCE issuance for the confidential Next.js BFF
 - machine-oriented OAuth2 client-credentials token issuance
 
 Important areas:
 
 - `AuthServiceSecurityConfig`
-  - form login, logout, remember-me, and user-session security
+  - CSRF-protected form login and short-lived authorization-server sessions
 - `AuthServiceMachineAuthConfig`
-  - OAuth2 authorization server, JWT signing, JWKS endpoint, and machine client
-    registration
+  - OIDC authorization server, JDBC protocol repositories, JWT signing, JWKS,
+    and machine/BFF client registration
 - `CustomUserRepository` and `CustomUserDetailsService`
   - user lookup from MongoDB
 - `AuthServiceSessionCacheConfig` and `AuthServiceCacheConfig`
   - Redis-backed session and cache configuration
+
+Mongo remains the user store. PostgreSQL `kino_auth` stores only registered
+clients, authorization codes, consents, and refresh tokens. Terraform gives the
+runtime service DML-only access; a separate Flyway Job owns schema changes.
 
 This service owns the authentication contracts used by the UI and by
 `agent_service`.
@@ -190,6 +198,9 @@ Important areas:
   - Mongo query construction for filters, text search, and year bounds
 - `DataServiceMachineSecurityConfig`
   - JWT validation and scope checks for internal endpoints
+- `DataServiceSecurityConfig`
+  - stateless user JWT validation for title routes (`kino.data.read`,
+    `kino-data-api`)
 - `DataServiceMessagingConfig` and `TitleListener`
   - RabbitMQ RPC endpoint used by `generative_service`
 
@@ -265,8 +276,8 @@ Important areas:
   - catalog browsing UI
 - `src/app/titles/[id]/`
   - title detail and fact retrieval UI
-- `src/pages/login/` and `src/pages-slices/login/`
-  - login workflow
+- `src/pages/login/`
+  - Spring Authorization Server's browser login form
 - `src/http/api.js`
   - public API base URL configuration
 
@@ -332,9 +343,12 @@ explicitly starts using them.
   direct DB inspection.
 - RabbitMQ is used for synchronous service integration with
   `generative_service`; Kafka is used for event streaming and analytics.
-- Public user traffic and internal machine traffic are different security
-  domains. Session-backed UI flows belong to public routes; JWT-protected,
-  scope-checked flows belong to `/internal`.
+- Browser, user-token, and machine-token traffic are different security
+  domains. The browser has only a BFF cookie; user JWTs protect title routes;
+  machine JWTs with narrower scopes protect `/internal`.
+- The BFF treats a refresh as durable only after the rotated token session is
+  saved to Redis. If that write fails, it clears the local session and requires
+  a new login rather than leaving a stale refresh token in the browser flow.
 - `auth_service` owns both human authentication and machine token issuance.
 - The deployed system is image-ref driven. Runtime services should be deployed
   from digest-pinned images, and the Mongo seed should be promoted through the
@@ -372,10 +386,16 @@ that deployment target.
 ### State placement
 
 - MongoDB stores persistent application data, including the title catalog and
-  auth collections, plus dataset restore metadata and history.
-- Redis default caches are segmented by service database number; HTTP session
-  storage has separate Redis config and currently defaults to database `0`
-  unless explicitly overridden.
+  user profiles, plus dataset restore metadata and history.
+- PostgreSQL `kino_auth` stores Authorization Server clients, authorization
+  codes, consents, and refresh tokens. A migrator role owns its schema; the
+  running auth service has only DML permissions.
+- Redis default caches are segmented by service database number. Auth-service
+  login sessions and opaque Next.js BFF sessions are separate Redis state. The
+  BFF has its own Redis ACL, limited to `kino:bff:*`; its access and refresh
+  tokens are therefore not readable with the Auth/Data default Redis account.
+  A Redis restart deliberately invalidates these ephemeral sessions and sends
+  users through normal reauthentication rather than attempting token recovery.
 - Kafka carries the title-return event stream; `trend_service` materializes its
   window state through Kafka Streams state stores.
 - RabbitMQ handles RPC-style messaging for the generative path.

@@ -48,6 +48,27 @@ tasks:
     cmds:
       - minikube service list
 
+  port-forward-postgres:
+    desc: Forward local 127.0.0.1:15432 to the Minikube PostgreSQL service
+    silent: true
+    cmds:
+      - |
+        printf '%s\n' \
+          'Starting a localhost-only PostgreSQL tunnel for pgAdmin or psql.' \
+          '' \
+          'pgAdmin connection:' \
+          '  Host name/address: 127.0.0.1' \
+          '  Port:              15432' \
+          '  Maintenance DB:    kino_auth' \
+          '  Username:          kino_auth_runtime' \
+          '  Password:          TF_VAR_auth_database_runtime_password from .env' \
+          '  Schema:            kino_auth' \
+          '' \
+          'Keep this terminal open while connected; press Ctrl+C to stop the tunnel.' \
+          '' \
+          'kubectl --context minikube -n postgres-system port-forward --address 127.0.0.1 service/postgres 15432:5432'
+      - kubectl --context minikube -n postgres-system port-forward --address 127.0.0.1 service/postgres 15432:5432
+
   clean:
     desc: Full reset - delete Minikube cluster and Terraform state
     cmds:
