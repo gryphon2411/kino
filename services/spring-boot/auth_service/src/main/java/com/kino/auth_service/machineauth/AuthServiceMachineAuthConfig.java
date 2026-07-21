@@ -267,16 +267,24 @@ public class AuthServiceMachineAuthConfig {
         RegisteredClient existingClient = repository.findByClientId(
                 desiredClient.getClientId()
         );
-        if (existingClient == null
-                || !this.matchesConfiguredClient(
-                existingClient, desiredClient, configuredSecret, passwordEncoder
-        )) {
-            // JdbcRegisteredClientRepository.save updates by the deterministic
-            // registration ID, preserving the relationship of existing
-            // authorization rows to this client while applying the new secret
-            // and static client settings.
-            repository.save(desiredClient);
+        if (existingClient != null) {
+            boolean existingClientMatchesConfiguration =
+                    this.matchesConfiguredClient(
+                            existingClient,
+                            desiredClient,
+                            configuredSecret,
+                            passwordEncoder
+                    );
+            if (existingClientMatchesConfiguration) {
+                return;
+            }
         }
+
+        // JdbcRegisteredClientRepository.save updates by the deterministic
+        // registration ID, preserving the relationship of existing
+        // authorization rows to this client while applying the new secret
+        // and static client settings.
+        repository.save(desiredClient);
     }
 
     private boolean matchesConfiguredClient(
@@ -285,28 +293,46 @@ public class AuthServiceMachineAuthConfig {
             String configuredSecret,
             PasswordEncoder passwordEncoder
     ) {
-        return passwordEncoder.matches(
+        boolean secretMatches = passwordEncoder.matches(
                 configuredSecret, existingClient.getClientSecret()
+        );
+        boolean identityMatches = existingClient.getClientId().equals(
+                desiredClient.getClientId()
         )
-                && existingClient.getClientId().equals(desiredClient.getClientId())
-                && existingClient.getClientName().equals(desiredClient.getClientName())
-                && existingClient.getClientAuthenticationMethods().equals(
+                && existingClient.getClientName().equals(
+                desiredClient.getClientName()
+        );
+        boolean authenticationMatches = existingClient
+                .getClientAuthenticationMethods()
+                .equals(
                 desiredClient.getClientAuthenticationMethods()
         )
                 && existingClient.getAuthorizationGrantTypes().equals(
                 desiredClient.getAuthorizationGrantTypes()
+        );
+        boolean redirectUrisMatch = existingClient.getRedirectUris().equals(
+                desiredClient.getRedirectUris()
         )
-                && existingClient.getRedirectUris().equals(desiredClient.getRedirectUris())
                 && existingClient.getPostLogoutRedirectUris().equals(
                 desiredClient.getPostLogoutRedirectUris()
-        )
-                && existingClient.getScopes().equals(desiredClient.getScopes())
-                && existingClient.getClientSettings().getSettings().equals(
+        );
+        boolean scopesMatch = existingClient.getScopes().equals(
+                desiredClient.getScopes()
+        );
+        boolean settingsMatch = existingClient.getClientSettings()
+                .getSettings().equals(
                 desiredClient.getClientSettings().getSettings()
         )
                 && existingClient.getTokenSettings().getSettings().equals(
                 desiredClient.getTokenSettings().getSettings()
         );
+
+        return secretMatches
+                && identityMatches
+                && authenticationMatches
+                && redirectUrisMatch
+                && scopesMatch
+                && settingsMatch;
     }
 
     private RegisteredClient agentClient(PasswordEncoder passwordEncoder) {
