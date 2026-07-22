@@ -182,6 +182,7 @@ public class AuthServiceMachineAuthConfig {
             PasswordEncoder passwordEncoder
     ) {
         return arguments -> {
+            this.webBffAudiences();
             this.reconcileClient(
                     registeredClientRepository,
                     this.agentClient(passwordEncoder),
@@ -237,10 +238,10 @@ public class AuthServiceMachineAuthConfig {
                 return;
             }
 
-            String audience = webBffToken
-                    ? this.properties.getWebBff().getAudience()
-                    : this.properties.getAgent().getAudience();
-            context.getClaims().audience(new ArrayList<>(List.of(audience)));
+            List<String> audiences = webBffToken
+                    ? this.webBffAudiences()
+                    : List.of(this.properties.getAgent().getAudience());
+            context.getClaims().audience(new ArrayList<>(audiences));
 
             LinkedHashSet<String> authorizedScopes = new LinkedHashSet<>(
                     context.getAuthorizedScopes()
@@ -388,6 +389,30 @@ public class AuthServiceMachineAuthConfig {
                 builder.scope(scope);
             }
         }
+    }
+
+    private List<String> webBffAudiences() {
+        List<String> configuredAudiences = this.properties.getWebBff()
+                .getAudiences();
+        LinkedHashSet<String> distinctAudiences = new LinkedHashSet<>();
+        for (String audience : configuredAudiences) {
+            if (audience == null || audience.isBlank()) {
+                throw new IllegalStateException(
+                        "Web BFF audiences must be nonblank."
+                );
+            }
+            if (!distinctAudiences.add(audience)) {
+                throw new IllegalStateException(
+                        "Web BFF audiences must not contain duplicates."
+                );
+            }
+        }
+        if (distinctAudiences.isEmpty()) {
+            throw new IllegalStateException(
+                    "Web BFF must have at least one audience."
+            );
+        }
+        return new ArrayList<>(distinctAudiences);
     }
 
     private String clientRegistrationId(String clientId) {

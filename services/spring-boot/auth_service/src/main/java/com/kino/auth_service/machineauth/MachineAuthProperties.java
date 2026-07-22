@@ -107,6 +107,9 @@ public class MachineAuthProperties {
      * receives this client secret or the resulting OAuth tokens.
      */
     public static class WebBffProperties extends ClientProperties {
+        private List<String> audiences = new ArrayList<>(List.of(
+                "kino-data-api"
+        ));
         private String redirectUri = "http://localhost:3000/api/auth/callback";
         private Duration accessTokenTtl = Duration.ofMinutes(5);
         private Duration refreshTokenTtl = Duration.ofHours(8);
@@ -117,6 +120,16 @@ public class MachineAuthProperties {
 
         public void setRedirectUri(String redirectUri) {
             this.redirectUri = redirectUri;
+        }
+
+        public List<String> getAudiences() {
+            return this.audiences;
+        }
+
+        public void setAudiences(List<String> audiences) {
+            this.audiences = audiences == null
+                    ? new ArrayList<>()
+                    : new ArrayList<>(audiences);
         }
 
         public Duration getAccessTokenTtl() {

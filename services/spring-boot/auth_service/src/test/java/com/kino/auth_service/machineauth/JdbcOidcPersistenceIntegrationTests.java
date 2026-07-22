@@ -13,6 +13,7 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationCode;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
@@ -21,6 +22,7 @@ import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -30,9 +32,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Exercises the production JDBC repository against PostgreSQL. The schema is a
@@ -95,6 +100,58 @@ class JdbcOidcPersistenceIntegrationTests {
         assertThat(reconciled.getRedirectUris()).containsExactly(
                 "https://kino.example.test/api/auth/callback"
         );
+    }
+
+    @Test
+    void bffAccessTokenClaimsUseBothConfiguredAudiencesAndTicketScopes() throws Exception {
+        this.bootstrapClients();
+        RegisteredClient client = this.registeredClients.findByClientId("kino-web-bff");
+        CustomUser user = new CustomUser();
+        user.username = "kino-user";
+        user.oidcSubject = "opaque-kino-subject";
+        com.kino.auth_service.customuser.CustomUserRepository users = mock(
+                com.kino.auth_service.customuser.CustomUserRepository.class
+        );
+        when(users.findCustomUserByUsername("kino-user")).thenReturn(user);
+
+        JwtEncodingContext context = mock(JwtEncodingContext.class);
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder();
+        OAuth2Authorization authorization = OAuth2Authorization.withRegisteredClient(client)
+                .principalName("kino-user")
+                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                .authorizedScopes(Set.of(
+                        "kino.data.read", "kino.ticket.read", "kino.ticket.write"
+                ))
+                .build();
+        when(context.getRegisteredClient()).thenReturn(client);
+        when(context.getAuthorization()).thenReturn(authorization);
+        when(context.getTokenType()).thenReturn(OAuth2TokenType.ACCESS_TOKEN);
+        when(context.getAuthorizedScopes()).thenReturn(authorization.getAuthorizedScopes());
+        when(context.getClaims()).thenReturn(claims);
+
+        this.configuration.jwtCustomizer(users).customize(context);
+
+        JwtClaimsSet encodedClaims = claims.build();
+        assertThat(encodedClaims.getAudience()).containsExactly(
+                "kino-data-api", "kino-ticket-api"
+        );
+        assertThat(encodedClaims.getClaimAsString("scope")).contains(
+                "kino.data.read", "kino.ticket.read", "kino.ticket.write"
+        );
+        assertThat(encodedClaims.getSubject()).isEqualTo("opaque-kino-subject");
+    }
+
+    @Test
+    void bffWithoutTicketFeatureRegistersOnlyDataAuthority() throws Exception {
+        this.properties.getWebBff().setScopes(List.of("kino.data.read"));
+        this.properties.getWebBff().setAudiences(List.of("kino-data-api"));
+
+        this.bootstrapClients();
+
+        RegisteredClient client = this.registeredClients.findByClientId("kino-web-bff");
+        assertThat(client.getScopes()).contains("openid", "profile", "kino.data.read");
+        assertThat(client.getScopes()).doesNotContain("kino.ticket.read", "kino.ticket.write");
+        assertThat(this.properties.getWebBff().getAudiences()).containsExactly("kino-data-api");
     }
 
     @Test
@@ -257,8 +314,12 @@ class JdbcOidcPersistenceIntegrationTests {
         configured.getAgent().setAudience("kino-data-internal");
         configured.getWebBff().setClientId("kino-web-bff");
         configured.getWebBff().setClientSecret("first-bff-secret");
-        configured.getWebBff().setScopes(List.of("kino.data.read"));
-        configured.getWebBff().setAudience("kino-data-api");
+        configured.getWebBff().setScopes(List.of(
+                "kino.data.read", "kino.ticket.read", "kino.ticket.write"
+        ));
+        configured.getWebBff().setAudiences(List.of(
+                "kino-data-api", "kino-ticket-api"
+        ));
         configured.getWebBff().setRedirectUri("http://localhost:3000/api/auth/callback");
         return configured;
     }
