@@ -1,8 +1,9 @@
 "use client"
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { useSelector, useDispatch } from 'react-redux';
-import { useEffect } from 'react';
-import { CircularProgress, Container, Grid, Card, CardContent, Typography } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Button, CircularProgress, Container, Grid, Card, CardContent, Typography } from '@mui/material';
 import { fetchTitle, setTitle, fetchFacts } from '@/app/titles/[id]/slice';
 
 function formatGenres(genres) {
@@ -31,6 +32,7 @@ export default function TitlePage() {
   const title = useSelector((state) => state.title.title);
   const titles = useSelector((state) => state.titles.content);
   const facts = useSelector((state) => state.title.facts);
+  const [ticketServiceEnabled, setTicketServiceEnabled] = useState(false);
 
   useEffect(() => {
     if (title && title.id !== id) {
@@ -50,6 +52,25 @@ export default function TitlePage() {
       dispatch(fetchFacts({ id }));
     }
   }, [dispatch, id, title, titles, facts]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/tickets/status', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((status) => {
+        if (active) {
+          setTicketServiceEnabled(status.enabled === true);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setTicketServiceEnabled(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (!title) {
     return <CircularProgress />;
@@ -85,6 +106,11 @@ export default function TitlePage() {
               <Typography variant="body1" gutterBottom>
                 Genres: {formatGenres(title.genres)}
               </Typography>
+              {id === 'tt0000001' && ticketServiceEnabled && (
+                <Button component={Link} href={`/tickets/${id}`} variant="contained" sx={{ my: 2 }}>
+                  Book tickets
+                </Button>
+              )}
               <Typography variant="body1" gutterBottom>
                 Facts:
               </Typography>

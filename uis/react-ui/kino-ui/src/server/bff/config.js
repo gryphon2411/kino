@@ -33,6 +33,13 @@ export function getBffConfig() {
     dataServiceUrl.pathname += '/';
   }
 
+  const ticketServiceUrl = new URL(
+    process.env.TICKET_SERVICE_INTERNAL_URL || 'http://ticket-service:8085'
+  );
+  if (!ticketServiceUrl.pathname.endsWith('/')) {
+    ticketServiceUrl.pathname += '/';
+  }
+
   return {
     publicOrigin,
     issuer,
@@ -43,8 +50,12 @@ export function getBffConfig() {
       process.env.WEB_BFF_REDIRECT_URI ||
       `${publicOrigin.origin}/api/auth/callback`
     ).href,
-    scopes: process.env.WEB_BFF_SCOPES || 'openid profile kino.data.read',
+    scopes: process.env.WEB_BFF_SCOPES ||
+      'openid profile kino.data.read',
     dataServiceUrl,
+    ticketServiceUrl,
+    ticketServiceEnabled: process.env.TICKET_SERVICE_ENABLED === 'true',
+    ticketServiceTimeoutMs: integer('TICKET_SERVICE_TIMEOUT_MS', '5000'),
     redis: {
       host: process.env.BFF_REDIS_HOST || 'redis-stack.redis-stack-system',
       port: integer('BFF_REDIS_PORT', '6379'),

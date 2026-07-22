@@ -2,11 +2,14 @@ locals {
   gateway_origin            = var.environment == "dev" ? "http://dev.kino.com" : "http://local.kino.com"
   auth_service_name         = var.environment == "dev" ? "dev-auth-service" : "auth-service"
   ui_service_name           = var.environment == "dev" ? "dev-ui" : "ui"
+  ticket_service_name       = var.environment == "dev" ? "dev-ticket-service" : "ticket-service"
   auth_service_internal_url = "http://${local.auth_service_name}:8081/api/v1/auth"
   # Spring Authorization Server 1.1 serves OIDC discovery at the origin-level
   # /.well-known/openid-configuration endpoint.
-  auth_service_issuer = local.gateway_origin
-  data_service_url    = "http://data-service:8082/api/v1/data"
+  auth_service_issuer        = local.gateway_origin
+  data_service_url           = "http://data-service:8082/api/v1/data"
+  ticket_service_url         = "http://${local.ticket_service_name}:8085"
+  ticket_upstream_timeout_ms = 5000
 
   # These are immutable public OCI image identifiers, not credentials. Keep
   # operator overrides at the variable boundary while preserving reviewed,
@@ -22,6 +25,10 @@ locals {
   auth_database_migration_image_ref = coalesce(
     var.auth_database_migration_image_ref,
     "flyway/flyway@sha256:2ec478cc00011c5e6fdaeb170486ca43c2cdedb2be86b740648fe0b63e362da9"
+  )
+  ticket_database_migration_image_ref = coalesce(
+    var.ticket_database_migration_image_ref,
+    local.auth_database_migration_image_ref
   )
   redis_image_ref = coalesce(
     var.redis_image_ref,
@@ -214,12 +221,12 @@ resource "kubernetes_deployment" "auth_service" {
 
           env {
             name  = "WEB_BFF_CLIENT_SCOPES"
-            value = "openid,profile,kino.data.read"
+            value = var.enable_ticket_service ? "openid,profile,kino.data.read,kino.ticket.read,kino.ticket.write" : "openid,profile,kino.data.read"
           }
 
           env {
-            name  = "WEB_BFF_CLIENT_AUDIENCE"
-            value = "kino-data-api"
+            name  = "WEB_BFF_CLIENT_AUDIENCES"
+            value = var.enable_ticket_service ? "kino-data-api,kino-ticket-api" : "kino-data-api"
           }
 
           env {
@@ -501,6 +508,164 @@ resource "kubernetes_service" "data_service" {
     }
 
     type = "NodePort"
+  }
+}
+
+# Ticket Service
+resource "kubernetes_deployment" "ticket_service" {
+  count = var.enable_ticket_service ? 1 : 0
+
+  metadata { name = local.ticket_service_name }
+
+  spec {
+    replicas = 1
+    selector { match_labels = { app = local.ticket_service_name } }
+
+    template {
+      metadata {
+        labels = { app = local.ticket_service_name }
+        annotations = {
+          "kino.io/runtime-credentials-checksum" = nonsensitive(sha256(jsonencode(
+            kubernetes_secret.ticket_database_runtime_credentials[0].data
+          )))
+        }
+      }
+
+      spec {
+        termination_grace_period_seconds = 10
+        automount_service_account_token  = false
+
+        security_context {
+          run_as_non_root = true
+          run_as_user     = 1000
+          run_as_group    = 1000
+
+          seccomp_profile {
+            type = "RuntimeDefault"
+          }
+        }
+
+        container {
+          name  = local.ticket_service_name
+          image = var.ticket_service_image_ref
+
+          security_context {
+            allow_privilege_escalation = false
+
+            capabilities {
+              drop = ["ALL"]
+            }
+          }
+
+          port { container_port = 8080 }
+
+          env {
+            name  = "KINO_ENV"
+            value = var.environment
+          }
+          env {
+            name  = "PORT"
+            value = "8080"
+          }
+          env {
+            name = "TICKET_DATABASE_URL"
+            value_from {
+              secret_key_ref {
+                name = "ticket-database-runtime-credentials"
+                key  = "database-url"
+              }
+            }
+          }
+          env {
+            name  = "AUTH_SERVER_ISSUER_URI"
+            value = local.auth_service_issuer
+          }
+          env {
+            name  = "AUTH_SERVER_JWK_SET_URI"
+            value = "${local.auth_service_internal_url}/oauth2/jwks"
+          }
+          env {
+            name  = "TICKET_AUTH_AUDIENCE"
+            value = "kino-ticket-api"
+          }
+          env {
+            name  = "TICKET_HOLD_DURATION_SECONDS"
+            value = "120"
+          }
+          env {
+            name  = "TICKET_DB_LOCK_TIMEOUT_MS"
+            value = "1000"
+          }
+          env {
+            name  = "TICKET_DB_CONNECTION_TIMEOUT_MS"
+            value = "1000"
+          }
+          env {
+            name  = "TICKET_DB_STATEMENT_TIMEOUT_MS"
+            value = "3000"
+          }
+          env {
+            name  = "TICKET_BFF_UPSTREAM_TIMEOUT_MS"
+            value = tostring(local.ticket_upstream_timeout_ms)
+          }
+
+          liveness_probe {
+            http_get {
+              path = "/healthz"
+              port = 8080
+            }
+            initial_delay_seconds = 10
+            period_seconds        = 10
+            failure_threshold     = 3
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/readyz"
+              port = 8080
+            }
+            initial_delay_seconds = 10
+            period_seconds        = 5
+            failure_threshold     = 3
+            timeout_seconds       = 4
+          }
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_postgres
+      error_message = "enable_ticket_service requires enable_postgres for ticket allocation."
+    }
+    precondition {
+      condition     = var.enable_auth_service
+      error_message = "enable_ticket_service requires enable_auth_service to validate user JWTs."
+    }
+  }
+
+  depends_on = [
+    kubernetes_job.ticket_database_migration,
+    kubernetes_network_policy_v1.ticket_service_ingress,
+  ]
+}
+
+resource "kubernetes_service" "ticket_service" {
+  count = var.enable_ticket_service ? 1 : 0
+
+  metadata { name = local.ticket_service_name }
+
+  spec {
+    selector = { app = local.ticket_service_name }
+
+    port {
+      name        = "http"
+      port        = 8085
+      target_port = 8080
+    }
+
+    type = "ClusterIP"
   }
 }
 
@@ -897,12 +1062,27 @@ resource "kubernetes_deployment" "ui" {
 
           env {
             name  = "WEB_BFF_SCOPES"
-            value = "openid profile kino.data.read"
+            value = var.enable_ticket_service ? "openid profile kino.data.read kino.ticket.read kino.ticket.write" : "openid profile kino.data.read"
           }
 
           env {
             name  = "DATA_SERVICE_INTERNAL_URL"
             value = local.data_service_url
+          }
+
+          env {
+            name  = "TICKET_SERVICE_INTERNAL_URL"
+            value = local.ticket_service_url
+          }
+
+          env {
+            name  = "TICKET_SERVICE_ENABLED"
+            value = tostring(var.enable_ticket_service)
+          }
+
+          env {
+            name  = "TICKET_SERVICE_TIMEOUT_MS"
+            value = tostring(local.ticket_upstream_timeout_ms)
           }
 
           env {
@@ -994,6 +1174,7 @@ resource "kubernetes_deployment" "ui" {
   depends_on = [
     kubernetes_deployment.auth_service,
     kubernetes_service.data_service,
+    kubernetes_service.ticket_service,
   ]
 }
 

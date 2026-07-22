@@ -33,6 +33,7 @@ The canonical runtime shape is:
 - an optional LangGraph agent for grounded title discovery
 - MongoDB as the main runtime datastore
 - PostgreSQL for Authorization Server protocol state
+- PostgreSQL for ticket-seat allocation
 - Redis for BFF/session state and service caches
 - Kafka for title-search event streaming
 - RabbitMQ for request/reply style service integration
@@ -88,6 +89,19 @@ internal title search endpoint exposed by `data_service`.
 
 The important property is grounding: the agent is supposed to answer from
 catalog search results, not from open-ended model memory.
+
+### 6. Ticket allocation lab
+
+The `tt0000001` title detail links to a small Fastify-first ticket lab. The
+browser calls same-origin Next.js BFF routes; the BFF forwards its server-held
+user JWT to the private Fastify service. That service validates the ticket
+audience and scope, then uses PostgreSQL row locks and database time to hold or
+confirm fixed screening seats.
+
+`kino_ticket` is separate from both Mongo-backed user profiles and `kino_auth`
+OIDC protocol state. It deliberately demonstrates a small transactional
+PostgreSQL domain without adding payments, cancellation, a worker, or a generic
+scheduling system.
 
 ## Codemap
 

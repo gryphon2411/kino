@@ -1,0 +1,29 @@
+{
+  "name": "kino-ticket-service",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "test": "tsx --test test/**/*.test.ts",
+    "test:integration": "RUN_POSTGRES_INTEGRATION_TESTS=true tsx --test test/**/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "fastify": "^5.3.2",
+    "jose": "^6.0.10",
+    "pg": "^8.15.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2",
+    "@types/pg": "^8.11.13",
+    "testcontainers": "^11.6.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

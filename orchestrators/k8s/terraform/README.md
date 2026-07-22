@@ -70,6 +70,12 @@ task destroy
 task clean
 ```
 
+Kino's bootstrap creates new Minikube clusters with the Calico CNI. This is
+required because Redis and the ticket service use Kubernetes NetworkPolicies as
+enforced in-cluster boundaries. An existing Minikube cluster created without
+Calico is rejected rather than silently running without enforcement; recreate
+it with `minikube delete` and then rerun `task bootstrap-local-env`.
+
 ## Local PostgreSQL access
 
 After deploying PostgreSQL, start a localhost-only tunnel for `psql` or a
@@ -121,6 +127,7 @@ Canonical deployment uses immutable image refs:
 | `enable_rabbitmq` | `bool` | `true` | Enable RabbitMQ system |
 | `enable_auth_service` | `bool` | `true` | Enable Kino Auth Service |
 | `enable_data_service` | `bool` | `true` | Enable Kino Data Service |
+| `enable_ticket_service` | `bool` | `false` | Enable the private Fastify ticket-allocation service |
 | `enable_trend_service` | `bool` | `true` | Enable Kino Trend Service |
 | `enable_generative_service` | `bool` | `true` | Enable Kino Generative Service |
 | `enable_agent_service` | `bool` | `false` | Enable Kino Agent Service |
@@ -133,6 +140,8 @@ Canonical deployment uses immutable image refs:
 | `postgres_image_ref` | `string` | `null` | Optional digest-pinned PostgreSQL server-image override; a reviewed built-in digest is used when unset |
 | `auth_database_migration_image_ref` | `string` | `null` | Optional digest-pinned Flyway-image override for the auth migration Job; a reviewed built-in digest is used when unset |
 | `data_service_image_ref` | `string` | `null` | Digest-pinned data-service image used by the Deployment when data-service is enabled |
+| `ticket_service_image_ref` | `string` | `null` | Digest-pinned Fastify ticket-service image used by the Deployment when enabled |
+| `ticket_database_migration_image_ref` | `string` | `null` | Optional digest-pinned Flyway-image override for the ticket migration Job |
 | `trend_service_image_ref` | `string` | `null` | Digest-pinned trend-service image used by the Deployment when trend-service is enabled |
 | `generative_service_image_ref` | `string` | `null` | Digest-pinned generative-service image used by the Deployment when generative-service is enabled |
 | `agent_service_image_ref` | `string` | `null` | Digest-pinned agent-service image used by the Deployment when agent-service is enabled |
@@ -144,6 +153,8 @@ Canonical deployment uses immutable image refs:
 | `postgres_password` | `string` | — | Postgres root password (sensitive) |
 | `auth_database_migrator_password` | `string` | — | Password for the short-lived PostgreSQL auth migration role (sensitive) |
 | `auth_database_runtime_password` | `string` | — | Password for the auth-service PostgreSQL DML role (sensitive) |
+| `ticket_database_migrator_password` | `string` | — | Password for the short-lived ticket PostgreSQL migration role (sensitive) |
+| `ticket_database_runtime_password` | `string` | — | Password for the ticket-service PostgreSQL runtime role (sensitive) |
 | `web_bff_client_secret` | `string` | — | Confidential OIDC secret shared by auth-service and the Next.js BFF (sensitive) |
 | `redis_password` | `string` | — | Redis password (sensitive) |
 | `web_bff_redis_password` | `string` | `null` | Optional operator-controlled Redis ACL password for BFF-only `kino:bff:*` records; Terraform generates a distinct sensitive value when unset |
@@ -205,10 +216,12 @@ for the running auth service. The Deployments wait on that migration Job.
 
 The UI is an OIDC confidential BFF client. Its browser receives only a host-only
 HttpOnly, `SameSite=Lax` opaque session cookie. PKCE state, access tokens, and
-rotating refresh tokens remain server-side in Redis; user title requests are
-proxied to `data_service` with a five-minute JWT carrying `kino.data.read` and
-audience `kino-data-api`. The existing machine audience remains
-`kino-data-internal`. The canonical OIDC issuer is the public gateway origin;
+rotating refresh tokens remain server-side in Redis. By default, user title
+requests carry only `kino.data.read` and audience `kino-data-api`. Enabling the
+ticket lab adds `kino.ticket.read`, `kino.ticket.write`, and audience
+`kino-ticket-api` to the BFF client registration and its requested scopes. The
+existing machine audience remains `kino-data-internal`. The canonical OIDC
+issuer is the public gateway origin;
 Terraform sends `/.well-known/openid-configuration` to `auth_service` while the
 protocol endpoints remain under `/api/v1/auth`.
 
@@ -229,6 +242,32 @@ therefore performs a controlled auth/UI rollout: the auth service first picks up
 the rotated database and BFF credentials and reconciles its registered client,
 then the BFF starts with that same client secret. Existing BFF sessions may need
 to authenticate again after a BFF client-secret rotation.
+
+## Ticket allocation lab
+
+When `enable_ticket_service=true`, Terraform provisions an isolated
+`kino_ticket` PostgreSQL database. The root bootstrap Job creates the database
+and narrow migrator/runtime roles; the Flyway Job owns schema and seed DDL; the
+Fastify runtime receives only the column-level privileges needed to read seats,
+hold them, and confirm them. The service is ClusterIP-only on port `8085` and
+is reachable from browsers solely through same-origin Next.js BFF routes. Its
+ingress NetworkPolicy permits only the UI pod, where that BFF runs, to reach the
+Fastify container on port `8080`. After an enabled ticket deployment, verify
+that boundary with `task verify-ticket-network-policy`; it first proves that
+the UI/BFF pod can reach the health endpoint, then launches an ordinary pod and
+expects its request to be denied. The same policy limits Fastify egress to
+PostgreSQL, the in-cluster auth JWK endpoint, and CoreDNS.
+
+The allocation runtime requires PostgreSQL 17 or newer: it uses
+`transaction_timeout` so all work in a seat-allocation transaction completes
+before the BFF deadline. Any `postgres_image_ref` override must preserve that
+version requirement.
+
+The fixed educational screening references IMDb title `tt0000001`. It uses
+PostgreSQL row locking and database time for two-minute holds; it intentionally
+does not include payments, cancellation, schedule management, or a background
+expiry worker. The internal JWK URI remains Kino's explicit local/dev trust
+binding rather than OIDC Discovery.
 
 ## Agent Service
 

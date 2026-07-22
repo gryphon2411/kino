@@ -48,6 +48,30 @@ tasks:
     cmds:
       - minikube service list
 
+  verify-ticket-network-policy:
+    desc: Assert the UI/BFF can reach the private ticket service while an ordinary pod cannot
+    cmds:
+      - |
+        set -eu
+        ticket_service="ticket-service"
+        if [ "${TF_VAR_environment:-local}" = "dev" ]; then
+          ticket_service="dev-ticket-service"
+        fi
+        kubectl --context minikube -n default get service "$ticket_service" >/dev/null
+        kubectl --context minikube -n default rollout status "deployment/$ticket_service" --timeout=120s
+        ui_service="ui"
+        if [ "${TF_VAR_environment:-local}" = "dev" ]; then
+          ui_service="dev-ui"
+        fi
+        ui_pod=$(kubectl --context minikube -n default get pods -l "app=$ui_service" \
+          --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+        test -n "$ui_pod"
+        kubectl --context minikube -n default exec "$ui_pod" -- \
+          node -e "fetch('http://$ticket_service:8085/healthz').then((response) => { if (!response.ok) throw new Error('ticket service returned ' + response.status); }).catch((error) => { console.error(error); process.exit(1); })"
+        kubectl --context minikube -n default run kino-ticket-network-policy-probe \
+          --rm --restart=Never --pod-running-timeout=1m --image=busybox:1.36.1 --command -- \
+          sh -c "if wget -q -T 3 -O- http://$ticket_service:8085/healthz; then echo 'unexpected ticket-service access' >&2; exit 1; fi"
+
   port-forward-postgres:
     desc: Forward local 127.0.0.1:15432 to the Minikube PostgreSQL service
     silent: true

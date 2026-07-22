@@ -67,6 +67,10 @@ jobs:
         working-directory: uis/react-ui/kino-ui
         run: npm run lint
 
+      - name: Test BFF helpers
+        working-directory: uis/react-ui/kino-ui
+        run: npm run test:unit
+
       # Resolve the canonical-vs-preview publish decision once so later steps reuse the same tag and policy result.
       - name: Decide publish mode
         id: publish_decision

@@ -1,0 +1,162 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import test from 'node:test';
+import { Pool } from 'pg';
+import { GenericContainer, Wait } from 'testcontainers';
+import type { TicketConfig } from '../src/config.js';
+import { createTicketDatabase, withTransaction } from '../src/database.js';
+import { ConflictError } from '../src/errors.js';
+import { TicketService } from '../src/tickets.js';
+
+const integrationTest = process.env.RUN_POSTGRES_INTEGRATION_TESTS === 'true'
+  ? test
+  : test.skip;
+
+integrationTest('allocation serializes overlap, lazily reclaims expiry, and protects runtime privileges', async () => {
+  const container = await new GenericContainer('postgres:17-alpine')
+    .withEnvironment({
+      POSTGRES_DB: 'kino_ticket',
+      POSTGRES_PASSWORD: 'test-password',
+    })
+    .withExposedPorts(5432)
+    // The official image announces readiness once during initialization and
+    // once after its final post-init restart.
+    .withWaitStrategy(Wait.forLogMessage('database system is ready to accept connections', 2))
+    .start();
+  const connectionString = `postgresql://postgres:test-password@${container.getHost()}:${container.getMappedPort(5432)}/kino_ticket`;
+  const pool = new Pool({ connectionString });
+  let runtimePool: Pool | undefined;
+  try {
+    await pool.query('CREATE ROLE kino_ticket_runtime NOLOGIN');
+    await pool.query('CREATE SCHEMA kino_ticket');
+    await pool.query('GRANT USAGE ON SCHEMA kino_ticket TO kino_ticket_runtime');
+    await pool.query('REVOKE CREATE ON SCHEMA public FROM PUBLIC');
+    const migration = await readFile(resolve(
+      import.meta.dirname,
+      '../../../../orchestrators/k8s/terraform/ticket-db-migrations/V1__ticket_allocation_lab.sql'
+    ), 'utf8');
+    await pool.query(migration);
+    await pool.query('CREATE TABLE kino_ticket.flyway_schema_history (installed_rank integer)');
+    const config: TicketConfig = {
+      environment: 'local',
+      host: '127.0.0.1',
+      port: 8080,
+      databaseUrl: connectionString,
+      authIssuer: 'http://local.kino.com',
+      authJwkSetUri: 'http://auth-service:8081/api/v1/auth/oauth2/jwks',
+      audience: 'kino-ticket-api',
+      holdDurationSeconds: 120,
+      databaseConnectionTimeoutMs: 2000,
+      lockTimeoutMs: 1000,
+      statementTimeoutMs: 3000,
+      transactionTimeoutMs: 3500,
+      requestTimeoutMs: 5000,
+    };
+    const tickets = new TicketService(pool, config);
+    const boundedDatabase = createTicketDatabase({
+      ...config,
+      databaseConnectionTimeoutMs: 100,
+      lockTimeoutMs: 50,
+      statementTimeoutMs: 200,
+    });
+    try {
+      await assert.rejects(
+        boundedDatabase.query('SELECT pg_sleep(0.5)'),
+        (error: unknown) => (error as { code?: string }).code === '57014'
+      );
+      assert.equal((await boundedDatabase.query('SELECT 1 AS value')).rows[0].value, 1);
+    } finally {
+      await boundedDatabase.end();
+    }
+    const transactionBoundedDatabase = createTicketDatabase({
+      ...config,
+      databaseConnectionTimeoutMs: 100,
+      lockTimeoutMs: 50,
+      statementTimeoutMs: 500,
+      transactionTimeoutMs: 200,
+    });
+    try {
+      await assert.rejects(
+        withTransaction(
+          transactionBoundedDatabase,
+          50,
+          500,
+          200,
+          async (client) => {
+            await client.query('SELECT pg_sleep(0.15)');
+            return client.query('SELECT pg_sleep(0.15)');
+          }
+        ),
+        (error: unknown) => {
+          const databaseError = error as { code?: string; message?: string };
+          return databaseError.code === '57P01'
+            || /transaction timeout|connection terminated/i.test(databaseError.message || '');
+        }
+      );
+    } finally {
+      await transactionBoundedDatabase.end();
+    }
+    const screeningId = '00000000-0000-0000-0000-000000000001';
+    const allocations = await Promise.allSettled([
+      tickets.hold(screeningId, 'subject-one', ['A1', 'A2']),
+      tickets.hold(screeningId, 'subject-two', ['A2', 'A3']),
+    ]);
+
+    assert.equal(allocations.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(allocations.filter((result) => result.status === 'rejected').length, 1);
+
+    const expiring = await tickets.hold(screeningId, 'subject-one', ['B1']);
+    await pool.query(
+      `UPDATE kino_ticket.reservations
+          SET hold_expires_at = clock_timestamp() - interval '1 second'
+        WHERE id = $1`,
+      [expiring.id]
+    );
+    const reclaimed = await tickets.hold(screeningId, 'subject-two', ['B1']);
+    assert.equal(reclaimed.state, 'HELD');
+    await assert.rejects(
+      tickets.confirm(expiring.id, 'subject-one'),
+      (error: unknown) => error instanceof ConflictError && error.code === 'hold_expired'
+    );
+
+    const confirmed = await tickets.hold(screeningId, 'subject-three', ['C1']);
+    const firstConfirmation = await tickets.confirm(confirmed.id, 'subject-three');
+    const repeatedConfirmation = await tickets.confirm(confirmed.id, 'subject-three');
+    assert.equal(firstConfirmation.state, 'CONFIRMED');
+    assert.equal(repeatedConfirmation.state, 'CONFIRMED');
+
+    await pool.query("ALTER ROLE kino_ticket_runtime LOGIN PASSWORD 'runtime-password'");
+    runtimePool = new Pool({
+      connectionString: `postgresql://kino_ticket_runtime:runtime-password@${container.getHost()}:${container.getMappedPort(5432)}/kino_ticket`,
+    });
+    const runtimeTickets = new TicketService(runtimePool, config);
+    assert.equal((await runtimeTickets.screenings('tt0000001')).length, 1);
+    assert.equal((await runtimeTickets.seats(screeningId, 'subject-runtime')).seats.length, 15);
+    const runtimeHold = await runtimeTickets.hold(screeningId, 'subject-runtime', ['C2']);
+    const runtimeConfirmation = await runtimeTickets.confirm(runtimeHold.id, 'subject-runtime');
+    assert.equal(runtimeConfirmation.state, 'CONFIRMED');
+
+    const client = await runtimePool.connect();
+    try {
+      await assert.rejects(
+        client.query("UPDATE kino_ticket.screening_seats SET seat_code = 'Z9'"),
+        /permission denied/
+      );
+      await assert.rejects(
+        client.query('SELECT * FROM kino_ticket.flyway_schema_history'),
+        /permission denied/
+      );
+      await assert.rejects(
+        client.query('CREATE TABLE public.ticket_runtime_forbidden (id integer)'),
+        /permission denied/
+      );
+    } finally {
+      client.release();
+    }
+  } finally {
+    await runtimePool?.end();
+    await pool.end();
+    await container.stop();
+  }
+});

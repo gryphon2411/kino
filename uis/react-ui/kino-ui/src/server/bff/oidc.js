@@ -1,5 +1,5 @@
 import * as oidc from 'openid-client';
-import { getBffConfig } from './config';
+import { getBffConfig } from './config.js';
 
 let configurationPromise;
 

@@ -30,10 +30,33 @@
 
     - name: Start Minikube
       ansible.builtin.command: >-
-        minikube start --cpus={{ minikube_cpus }} --memory={{ minikube_memory }}
+        minikube start --cpus={{ minikube_cpus }} --memory={{ minikube_memory }} --cni=calico
       register: minikube_start
       when: "'host: Running' not in minikube_status.stdout"
       changed_when: "'Done!' in minikube_start.stdout"
+
+    - name: Detect the NetworkPolicy-capable CNI
+      ansible.builtin.command: >-
+        kubectl --context minikube -n kube-system get daemonset calico-node -o name
+      register: calico_status
+      changed_when: false
+      failed_when: false
+      retries: 15
+      delay: 2
+      until: calico_status.rc == 0
+
+    - name: Reject an existing Minikube cluster without NetworkPolicy enforcement
+      ansible.builtin.fail:
+        msg: >-
+          Kino requires the Calico CNI because its Redis and ticket-service
+          NetworkPolicies are security boundaries. Recreate the local cluster
+          with `minikube delete`, then rerun `task bootstrap-local-env`.
+      when: calico_status.rc != 0
+
+    - name: Wait for Calico NetworkPolicy enforcement
+      ansible.builtin.command: >-
+        kubectl --context minikube -n kube-system rollout status daemonset/calico-node --timeout=120s
+      changed_when: false
 
     - name: Enable Ingress Addon
       ansible.builtin.command: minikube addons enable ingress

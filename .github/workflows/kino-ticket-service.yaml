@@ -1,0 +1,142 @@
+name: kino ticket service ci
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - services/fastify/ticket_service/**
+      - orchestrators/k8s/terraform/ticket-db-migrations/**
+      - orchestrators/k8s/terraform/ticket_database.tf
+      - orchestrators/k8s/terraform/services.tf
+      - orchestrators/k8s/terraform/network_policies.tf
+      - orchestrators/k8s/terraform/playbook.yaml
+      - orchestrators/k8s/terraform/Taskfile.yml
+      - orchestrators/k8s/terraform/scripts/bootstrap-ticket-database.sh
+      - .github/workflows/kino-ticket-service.yaml
+      - .github/scripts/**
+  pull_request:
+    branches: [master]
+    paths:
+      - services/fastify/ticket_service/**
+      - orchestrators/k8s/terraform/ticket-db-migrations/**
+      - orchestrators/k8s/terraform/ticket_database.tf
+      - orchestrators/k8s/terraform/services.tf
+      - orchestrators/k8s/terraform/network_policies.tf
+      - orchestrators/k8s/terraform/playbook.yaml
+      - orchestrators/k8s/terraform/Taskfile.yml
+      - orchestrators/k8s/terraform/scripts/bootstrap-ticket-database.sh
+      - .github/workflows/kino-ticket-service.yaml
+      - .github/scripts/**
+  workflow_dispatch:
+    inputs:
+      publish_image:
+        description: Publish a canonical or qualifying preview image
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: kino-ticket_service
+  PUBLISH_REF: refs/heads/master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/fastify/ticket_service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/fastify/ticket_service/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and test
+        run: |
+          npm run typecheck
+          npm run test:integration
+
+      - name: Decide publish mode
+        id: publish_decision
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 ../../../.github/scripts/resolve_image_publish.py \
+            --canonical-ref "${{ env.PUBLISH_REF }}" \
+            --canonical-tag latest
+
+      - name: Log in to Docker Hub
+        if: steps.publish_decision.outputs.should_publish == 'true'
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image for CI validation
+        if: steps.publish_decision.outputs.should_publish != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: services/fastify/ticket_service
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:ci
+
+      - name: Build and push image
+        if: steps.publish_decision.outputs.should_publish == 'true'
+        id: publish_image
+        uses: docker/build-push-action@v7
+        with:
+          context: services/fastify/ticket_service
+          push: true
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.publish_decision.outputs.resolved_tag }}
+
+      - name: Write release manifest
+        if: steps.publish_decision.outputs.should_publish == 'true'
+        id: release_manifest
+        run: |
+          python3 ../../../.github/scripts/write_image_release_manifest.py \
+            --service ticket-service \
+            --terraform-var TF_VAR_ticket_service_image_ref \
+            --repository "${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}" \
+            --tag "${{ steps.publish_decision.outputs.resolved_tag }}" \
+            --digest "${{ steps.publish_image.outputs.digest }}" \
+            --git-revision "${{ github.sha }}" \
+            --git-ref "${{ github.ref }}" \
+            --git-commit-subject "$(git log -1 --pretty=%s)" \
+            --workflow "${{ github.workflow }}" \
+            --output release-manifest.json
+
+      - name: Publish workflow summary
+        if: steps.publish_decision.outputs.should_publish == 'true'
+        run: |
+          {
+            echo "## Published ticket-service image"
+            echo
+            echo "- Image ref: \`${{ steps.release_manifest.outputs.image_ref }}\`"
+            echo "- Terraform export: \`${{ steps.release_manifest.outputs.terraform_export }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release manifest
+        if: steps.publish_decision.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: kino-ticket-service-release-manifest
+          path: services/fastify/ticket_service/release-manifest.json
