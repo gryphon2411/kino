@@ -6,6 +6,7 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { buildApp } from '../src/app.js';
 import type { TicketConfig } from '../src/config.js';
 import type { TicketDatabase } from '../src/database.js';
+import { ticketTestConfig } from './support/config.js';
 
 const issuer = 'http://local.kino.com';
 const audience = 'kino-ticket-api';
@@ -14,6 +15,7 @@ type TokenOptions = {
   audience?: string | string[];
   issuer?: string;
   expiration?: string;
+  type?: string;
 };
 
 const database = {
@@ -26,17 +28,33 @@ const database = {
 
 async function withJwks(
   run: (config: TicketConfig, sign: (scope?: string, options?: TokenOptions) => Promise<string>) => Promise<void>,
-  options: { responseStatus?: number } = {}
+  options: { responseStatus?: number; responseDelayMs?: number } = {}
 ) {
   const { privateKey, publicKey } = await generateKeyPair('RS256');
   const jwk = await exportJWK(publicKey);
   jwk.kid = 'ticket-test-key';
   jwk.alg = 'RS256';
   jwk.use = 'sig';
+  const pendingResponseTimers = new Set<ReturnType<typeof setTimeout>>();
   const server = createServer((_request, response) => {
     response.statusCode = options.responseStatus || 200;
     response.setHeader('Content-Type', 'application/json');
-    response.end(JSON.stringify({ keys: [jwk] }));
+    const writeResponse = () => response.end(JSON.stringify({ keys: [jwk] }));
+    if (options.responseDelayMs) {
+      const timer = setTimeout(() => {
+        pendingResponseTimers.delete(timer);
+        if (!response.destroyed) {
+          writeResponse();
+        }
+      }, options.responseDelayMs);
+      pendingResponseTimers.add(timer);
+      response.once('close', () => {
+        clearTimeout(timer);
+        pendingResponseTimers.delete(timer);
+      });
+      return;
+    }
+    writeResponse();
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
@@ -44,25 +62,16 @@ async function withJwks(
     throw new Error('Test JWKS server did not bind a TCP port.');
   }
 
-  const config: TicketConfig = {
-    environment: 'local',
-    host: '127.0.0.1',
-    port: 8080,
+  const config = ticketTestConfig({
     databaseUrl: 'postgresql://unused',
     authIssuer: issuer,
     authJwkSetUri: `http://127.0.0.1:${address.port}/jwks`,
     audience,
-    holdDurationSeconds: 120,
-    databaseConnectionTimeoutMs: 2000,
-    lockTimeoutMs: 1000,
-    statementTimeoutMs: 3000,
-    transactionTimeoutMs: 3500,
-    requestTimeoutMs: 5000,
-  };
+  });
   const sign = async (scope?: string, tokenOptions: TokenOptions = {}) => new SignJWT(
     scope === undefined ? {} : { scope }
   )
-    .setProtectedHeader({ alg: 'RS256', kid: 'ticket-test-key' })
+    .setProtectedHeader({ alg: 'RS256', kid: 'ticket-test-key', typ: tokenOptions.type || 'at+jwt' })
     .setIssuer(tokenOptions.issuer || issuer)
     .setAudience(tokenOptions.audience || audience)
     .setSubject('opaque-ticket-user')
@@ -73,6 +82,9 @@ async function withJwks(
   try {
     await run(config, sign);
   } finally {
+    for (const timer of pendingResponseTimers) {
+      clearTimeout(timer);
+    }
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 }
@@ -88,13 +100,20 @@ test('Fastify validates issuer, audience, expiry, and scopes through its configu
       });
       assert.equal(valid.statusCode, 200);
 
+      const caseInsensitiveBearer = await app.inject({
+        method: 'GET',
+        url: '/v1/screenings?titleId=tt0000001',
+        headers: { authorization: `bearer ${await sign('kino.ticket.read')}` },
+      });
+      assert.equal(caseInsensitiveBearer.statusCode, 200);
+
       const insufficientScope = await app.inject({
         method: 'GET',
         url: '/v1/screenings?titleId=tt0000001',
         headers: { authorization: `Bearer ${await sign('kino.ticket.write')}` },
       });
       assert.equal(insufficientScope.statusCode, 403);
-      assert.match(insufficientScope.headers['www-authenticate'], /insufficient_scope/);
+      assert.match(String(insufficientScope.headers['www-authenticate'] ?? ''), /insufficient_scope/);
 
       const wrongAudience = await app.inject({
         method: 'GET',
@@ -102,7 +121,7 @@ test('Fastify validates issuer, audience, expiry, and scopes through its configu
         headers: { authorization: `Bearer ${await sign('kino.ticket.read', { audience: 'wrong-audience' })}` },
       });
       assert.equal(wrongAudience.statusCode, 401);
-      assert.match(wrongAudience.headers['www-authenticate'], /invalid_token/);
+      assert.match(String(wrongAudience.headers['www-authenticate'] ?? ''), /invalid_token/);
 
       const wrongIssuer = await app.inject({
         method: 'GET',
@@ -112,7 +131,7 @@ test('Fastify validates issuer, audience, expiry, and scopes through its configu
         },
       });
       assert.equal(wrongIssuer.statusCode, 401);
-      assert.match(wrongIssuer.headers['www-authenticate'], /invalid_token/);
+      assert.match(String(wrongIssuer.headers['www-authenticate'] ?? ''), /invalid_token/);
 
       const missingScope = await app.inject({
         method: 'GET',
@@ -120,7 +139,7 @@ test('Fastify validates issuer, audience, expiry, and scopes through its configu
         headers: { authorization: `Bearer ${await sign()}` },
       });
       assert.equal(missingScope.statusCode, 403);
-      assert.match(missingScope.headers['www-authenticate'], /insufficient_scope/);
+      assert.match(String(missingScope.headers['www-authenticate'] ?? ''), /insufficient_scope/);
 
       const bffAudienceSet = await app.inject({
         method: 'GET',
@@ -139,6 +158,57 @@ test('Fastify validates issuer, audience, expiry, and scopes through its configu
         headers: { authorization: `Bearer ${await sign('kino.ticket.read', { expiration: '-10s' })}` },
       });
       assert.equal(expired.statusCode, 401);
+
+      const wrongTokenType = await app.inject({
+        method: 'GET',
+        url: '/v1/screenings?titleId=tt0000001',
+        headers: { authorization: `Bearer ${await sign('kino.ticket.read', { type: 'JWT' })}` },
+      });
+      assert.equal(wrongTokenType.statusCode, 401);
+      assert.match(String(wrongTokenType.headers['www-authenticate'] ?? ''), /invalid_token/);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+test('Fastify bounds a slow JWKS lookup before the handler deadline', async () => {
+  await withJwks(async (config, sign) => {
+    const app = buildApp({ ...config, jwkTimeoutMs: 100, handlerTimeoutMs: 750 }, database);
+    try {
+      const startedAt = Date.now();
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/screenings?titleId=tt0000001',
+        headers: { authorization: `Bearer ${await sign('kino.ticket.read')}` },
+      });
+      assert.equal(response.statusCode, 503);
+      assert.deepEqual(response.json(), { error: 'temporarily_unavailable' });
+      assert.ok(Date.now() - startedAt < 500);
+    } finally {
+      await app.close();
+    }
+  }, { responseDelayMs: 1000 });
+});
+
+test('Fastify maps a handler deadline to a retryable response', async () => {
+  await withJwks(async (config, sign) => {
+    const slowDatabase = {
+      ...database,
+      query: async () => new Promise((resolve) => {
+        setTimeout(() => resolve({ rows: [], rowCount: 0 }), 150);
+      }),
+    } as unknown as TicketDatabase;
+    const app = buildApp({ ...config, handlerTimeoutMs: 50 }, slowDatabase);
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/screenings?titleId=tt0000001',
+        headers: { authorization: `Bearer ${await sign('kino.ticket.read')}` },
+      });
+      assert.equal(response.statusCode, 503);
+      assert.deepEqual(response.json(), { error: 'temporarily_unavailable' });
+      await new Promise((resolve) => setTimeout(resolve, 160));
     } finally {
       await app.close();
     }

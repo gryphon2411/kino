@@ -1,5 +1,7 @@
 package com.kino.data_service;
 
+import com.nimbusds.jose.JOSEObjectType;
+import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -80,7 +82,9 @@ public class DataServiceSecurityConfig {
     public JwtDecoder userJwtDecoder() {
         NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(
                 this.jwkSetUri
-        ).build();
+        ).jwtProcessorCustomizer(processor -> processor.setJWSTypeVerifier(
+                new DefaultJOSEObjectTypeVerifier<>(new JOSEObjectType("at+jwt"))
+        )).build();
         jwtDecoder.setJwtValidator(this.userJwtValidator());
         return jwtDecoder;
     }

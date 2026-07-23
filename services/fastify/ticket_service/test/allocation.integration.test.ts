@@ -4,10 +4,14 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 import { Pool } from 'pg';
 import { GenericContainer, Wait } from 'testcontainers';
-import type { TicketConfig } from '../src/config.js';
-import { createTicketDatabase, withTransaction } from '../src/database.js';
+import {
+  createTicketDatabase,
+  OperationAbortedError,
+  withTransaction,
+} from '../src/database.js';
 import { ConflictError } from '../src/errors.js';
 import { TicketService } from '../src/tickets.js';
+import { ticketTestConfig } from './support/config.js';
 
 const integrationTest = process.env.RUN_POSTGRES_INTEGRATION_TESTS === 'true'
   ? test
@@ -38,21 +42,9 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
     ), 'utf8');
     await pool.query(migration);
     await pool.query('CREATE TABLE kino_ticket.flyway_schema_history (installed_rank integer)');
-    const config: TicketConfig = {
-      environment: 'local',
-      host: '127.0.0.1',
-      port: 8080,
+    const config = ticketTestConfig({
       databaseUrl: connectionString,
-      authIssuer: 'http://local.kino.com',
-      authJwkSetUri: 'http://auth-service:8081/api/v1/auth/oauth2/jwks',
-      audience: 'kino-ticket-api',
-      holdDurationSeconds: 120,
-      databaseConnectionTimeoutMs: 2000,
-      lockTimeoutMs: 1000,
-      statementTimeoutMs: 3000,
-      transactionTimeoutMs: 3500,
-      requestTimeoutMs: 5000,
-    };
+    });
     const tickets = new TicketService(pool, config);
     const boundedDatabase = createTicketDatabase({
       ...config,
@@ -80,9 +72,11 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
       await assert.rejects(
         withTransaction(
           transactionBoundedDatabase,
-          50,
-          500,
-          200,
+          {
+            lockTimeoutMs: 50,
+            statementTimeoutMs: 500,
+            transactionTimeoutMs: 200,
+          },
           async (client) => {
             await client.query('SELECT pg_sleep(0.15)');
             return client.query('SELECT pg_sleep(0.15)');
@@ -97,6 +91,23 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
     } finally {
       await transactionBoundedDatabase.end();
     }
+    const cancellationController = new AbortController();
+    await assert.rejects(
+      withTransaction(
+        pool,
+        config,
+        async (client) => {
+          await client.query('CREATE TABLE kino_ticket.transaction_abort_probe (id integer)');
+          cancellationController.abort();
+        },
+        cancellationController.signal
+      ),
+      OperationAbortedError
+    );
+    const abortedTable = await pool.query<{ table_name: string | null }>(
+      "SELECT to_regclass('kino_ticket.transaction_abort_probe') AS table_name"
+    );
+    assert.equal(abortedTable.rows[0].table_name, null);
     const screeningId = '00000000-0000-0000-0000-000000000001';
     const allocations = await Promise.allSettled([
       tickets.hold(screeningId, 'subject-one', ['A1', 'A2']),

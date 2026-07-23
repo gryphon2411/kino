@@ -290,6 +290,11 @@ the rotated database and BFF credentials and reconciles its registered client,
 then the BFF starts with that same client secret. Existing BFF sessions may need
 to authenticate again after a BFF client-secret rotation.
 
+Auth-service labels JWT access tokens with `typ: at+jwt`. Resource services
+validate that token type in addition to their existing issuer, audience,
+signature, expiry, and scope checks, so another JWT type from the same issuer
+cannot be used as an access token.
+
 ## Ticket allocation lab
 
 When `enable_ticket_service=true`, Terraform provisions an isolated

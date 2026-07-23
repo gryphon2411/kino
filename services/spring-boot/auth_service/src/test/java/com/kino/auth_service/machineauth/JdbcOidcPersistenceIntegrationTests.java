@@ -13,7 +13,9 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationCode;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
@@ -116,6 +118,7 @@ class JdbcOidcPersistenceIntegrationTests {
 
         JwtEncodingContext context = mock(JwtEncodingContext.class);
         JwtClaimsSet.Builder claims = JwtClaimsSet.builder();
+        JwsHeader.Builder jwsHeader = JwsHeader.with(SignatureAlgorithm.RS256);
         OAuth2Authorization authorization = OAuth2Authorization.withRegisteredClient(client)
                 .principalName("kino-user")
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
@@ -128,10 +131,12 @@ class JdbcOidcPersistenceIntegrationTests {
         when(context.getTokenType()).thenReturn(OAuth2TokenType.ACCESS_TOKEN);
         when(context.getAuthorizedScopes()).thenReturn(authorization.getAuthorizedScopes());
         when(context.getClaims()).thenReturn(claims);
+        when(context.getJwsHeader()).thenReturn(jwsHeader);
 
         this.configuration.jwtCustomizer(users).customize(context);
 
         JwtClaimsSet encodedClaims = claims.build();
+        assertThat(jwsHeader.build().getType()).isEqualTo("at+jwt");
         assertThat(encodedClaims.getAudience()).containsExactly(
                 "kino-data-api", "kino-ticket-api"
         );

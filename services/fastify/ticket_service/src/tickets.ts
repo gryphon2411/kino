@@ -77,17 +77,6 @@ async function screeningForId(client: PoolClient, screeningId: string): Promise<
   return result.rows[0];
 }
 
-async function reservationSeatCodes(client: PoolClient, reservationId: string): Promise<string[]> {
-  const result = await client.query<{ seat_code: string }>(
-    `SELECT seat_code
-       FROM kino_ticket.screening_seats
-      WHERE reservation_id = $1
-      ORDER BY seat_code`,
-    [reservationId]
-  );
-  return result.rows.map((row) => row.seat_code);
-}
-
 export class TicketService {
   constructor(
     private readonly database: TicketDatabase,
@@ -153,12 +142,15 @@ export class TicketService {
     };
   }
 
-  async hold(screeningId: string, subject: string, seatCodes: string[]): Promise<Reservation> {
+  async hold(
+    screeningId: string,
+    subject: string,
+    seatCodes: string[],
+    signal?: AbortSignal
+  ): Promise<Reservation> {
     return withTransaction(
       this.database,
-      this.config.lockTimeoutMs,
-      this.config.statementTimeoutMs,
-      this.config.transactionTimeoutMs,
+      this.config,
       async (client) => {
         await screeningForId(client, screeningId);
         const lockedSeats = await client.query<LockedSeatRow>(
@@ -200,16 +192,15 @@ export class TicketService {
           [reservationId, screeningId, seatCodes]
         );
         return toReservation(reservation.rows[0], [...seatCodes].sort());
-      }
+      },
+      signal
     );
   }
 
-  async confirm(reservationId: string, subject: string): Promise<Reservation> {
+  async confirm(reservationId: string, subject: string, signal?: AbortSignal): Promise<Reservation> {
     return withTransaction(
       this.database,
-      this.config.lockTimeoutMs,
-      this.config.statementTimeoutMs,
-      this.config.transactionTimeoutMs,
+      this.config,
       async (client) => {
         const ownedReservation = await client.query<{ id: string }>(
           `SELECT id
@@ -257,7 +248,8 @@ export class TicketService {
           throw new ConflictError('hold_expired', 'The ticket hold has expired.');
         }
         return toReservation(confirmed.rows[0], lockedSeats.rows.map((seat) => seat.seat_code));
-      }
+      },
+      signal
     );
   }
 }

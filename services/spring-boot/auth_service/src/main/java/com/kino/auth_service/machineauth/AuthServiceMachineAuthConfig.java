@@ -5,11 +5,18 @@ import com.kino.commons.security.CustomUser;
 import com.kino.commons.security.CustomUserMixin;
 import com.kino.commons.security.LinkedHashSetMixin;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jose.JOSEObjectType;
+import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier;
+import com.nimbusds.jose.proc.JWSKeySelector;
+import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
+import com.nimbusds.jwt.proc.ConfigurableJWTProcessor;
+import com.nimbusds.jwt.proc.DefaultJWTProcessor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -26,6 +33,7 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
@@ -62,8 +70,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Configuration
@@ -206,7 +216,25 @@ public class AuthServiceMachineAuthConfig {
 
     @Bean
     public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
-        return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
+        Set<JWSAlgorithm> algorithms = new HashSet<>();
+        algorithms.addAll(JWSAlgorithm.Family.RSA);
+        algorithms.addAll(JWSAlgorithm.Family.EC);
+        algorithms.addAll(JWSAlgorithm.Family.HMAC_SHA);
+
+        ConfigurableJWTProcessor<SecurityContext> processor = new DefaultJWTProcessor<>();
+        JWSKeySelector<SecurityContext> keySelector = new JWSVerificationKeySelector<>(
+                algorithms, jwkSource
+        );
+        processor.setJWSKeySelector(keySelector);
+        // NimbusJwtDecoder performs claim validation after signature verification.
+        processor.setJWTClaimsSetVerifier((claims, context) -> {
+        });
+        // Auth-service also handles OIDC JWTs. Resource services, in contrast,
+        // accept only the access-token type below.
+        processor.setJWSTypeVerifier(new DefaultJOSEObjectTypeVerifier<>(
+                new JOSEObjectType("at+jwt"), JOSEObjectType.JWT
+        ));
+        return new NimbusJwtDecoder(processor);
     }
 
     @Bean
@@ -237,6 +265,10 @@ public class AuthServiceMachineAuthConfig {
             if (!OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
                 return;
             }
+
+            // Resource servers distinguish access tokens from other JWTs that
+            // this issuer may produce, as defined by RFC 9068.
+            context.getJwsHeader().type("at+jwt");
 
             List<String> audiences = webBffToken
                     ? this.webBffAudiences()

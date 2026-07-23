@@ -16,21 +16,15 @@ import {
 
 export type TicketUser = {
   subject: string;
-  scopes: Set<string>;
 };
-
-declare module 'fastify' {
-  interface FastifyRequest {
-    ticketUser?: TicketUser;
-  }
-}
 
 function bearerToken(request: FastifyRequest): string {
   const authorization = request.headers.authorization;
-  if (!authorization?.startsWith('Bearer ')) {
+  const match = authorization && /^Bearer\s+(.+)$/i.exec(authorization);
+  if (!match) {
     throw new InvalidTokenError();
   }
-  const token = authorization.slice('Bearer '.length).trim();
+  const token = match[1].trim();
   if (!token) {
     throw new InvalidTokenError();
   }
@@ -57,19 +51,25 @@ function isJwkServiceFailure(error: unknown): boolean {
 }
 
 export function createTicketAuthenticator(config: TicketConfig) {
-  const jwks = createRemoteJWKSet(new URL(config.authJwkSetUri));
+  const jwks = createRemoteJWKSet(new URL(config.authJwkSetUri), {
+    // Keep a cold cache or key rotation inside the BFF's end-to-end deadline.
+    timeoutDuration: config.jwkTimeoutMs,
+  });
 
   return async function authenticate(
     request: FastifyRequest,
     requiredScope: string
-  ): Promise<void> {
+  ): Promise<TicketUser> {
     try {
-      const { payload } = await jwtVerify(bearerToken(request), jwks, {
+      const { payload, protectedHeader } = await jwtVerify(bearerToken(request), jwks, {
         issuer: config.authIssuer,
         audience: config.audience,
         algorithms: ['RS256'],
         clockTolerance: 5,
       });
+      if (protectedHeader.typ !== 'at+jwt') {
+        throw new InvalidTokenError();
+      }
       if (!payload.exp || typeof payload.sub !== 'string' || !payload.sub.trim()) {
         throw new InvalidTokenError();
       }
@@ -77,7 +77,7 @@ export function createTicketAuthenticator(config: TicketConfig) {
       if (!grantedScopes.has(requiredScope)) {
         throw new InsufficientScopeError(requiredScope);
       }
-      request.ticketUser = { subject: payload.sub, scopes: grantedScopes };
+      return { subject: payload.sub };
     } catch (error) {
       if (error instanceof InsufficientScopeError || error instanceof InvalidTokenError) {
         throw error;

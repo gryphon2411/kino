@@ -621,6 +621,10 @@ resource "kubernetes_deployment" "ticket_service" {
             value = "${local.auth_service_internal_url}/oauth2/jwks"
           }
           env {
+            name  = "TICKET_JWK_TIMEOUT_MS"
+            value = "500"
+          }
+          env {
             name  = "TICKET_AUTH_AUDIENCE"
             value = "kino-ticket-api"
           }

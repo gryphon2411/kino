@@ -5,6 +5,7 @@ export type TicketConfig = {
   databaseUrl: string;
   authIssuer: string;
   authJwkSetUri: string;
+  jwkTimeoutMs: number;
   audience: string;
   holdDurationSeconds: number;
   databaseConnectionTimeoutMs: number;
@@ -12,6 +13,7 @@ export type TicketConfig = {
   statementTimeoutMs: number;
   transactionTimeoutMs: number;
   requestTimeoutMs: number;
+  handlerTimeoutMs: number;
 };
 
 function required(environment: NodeJS.ProcessEnv, name: string): string {
@@ -27,7 +29,11 @@ function positiveInteger(
   name: string,
   fallback: number
 ): number {
-  const value = Number.parseInt(environment[name] || String(fallback), 10);
+  const rawValue = environment[name] ?? String(fallback);
+  if (!/^[1-9]\d*$/.test(rawValue)) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  const value = Number(rawValue);
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`${name} must be a positive integer.`);
   }
@@ -48,6 +54,7 @@ export function getTicketConfig(
     throw new Error('AUTH_SERVER_JWK_SET_URI must use HTTP(S).');
   }
 
+  const jwkTimeoutMs = positiveInteger(environment, 'TICKET_JWK_TIMEOUT_MS', 500);
   const lockTimeoutMs = positiveInteger(environment, 'TICKET_DB_LOCK_TIMEOUT_MS', 1000);
   const databaseConnectionTimeoutMs = positiveInteger(
     environment,
@@ -74,11 +81,12 @@ export function getTicketConfig(
   );
   const deadlineSafetyMarginMs = 500;
   const transactionTimeoutMs = bffUpstreamTimeoutMs
+    - jwkTimeoutMs
     - databaseConnectionTimeoutMs
     - deadlineSafetyMarginMs;
   if (statementTimeoutMs > transactionTimeoutMs) {
     throw new Error(
-      'TICKET_DB_CONNECTION_TIMEOUT_MS plus TICKET_DB_STATEMENT_TIMEOUT_MS must fit within the BFF deadline.'
+      'TICKET_JWK_TIMEOUT_MS, TICKET_DB_CONNECTION_TIMEOUT_MS, and TICKET_DB_STATEMENT_TIMEOUT_MS must fit within the BFF deadline.'
     );
   }
 
@@ -89,6 +97,7 @@ export function getTicketConfig(
     databaseUrl: required(environment, 'TICKET_DATABASE_URL'),
     authIssuer: required(environment, 'AUTH_SERVER_ISSUER_URI'),
     authJwkSetUri,
+    jwkTimeoutMs,
     audience: environment.TICKET_AUTH_AUDIENCE || 'kino-ticket-api',
     holdDurationSeconds: positiveInteger(environment, 'TICKET_HOLD_DURATION_SECONDS', 120),
     databaseConnectionTimeoutMs,
@@ -96,5 +105,6 @@ export function getTicketConfig(
     statementTimeoutMs,
     transactionTimeoutMs,
     requestTimeoutMs: bffUpstreamTimeoutMs,
+    handlerTimeoutMs: bffUpstreamTimeoutMs,
   };
 }

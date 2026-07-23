@@ -1,7 +1,23 @@
-import { Pool, type PoolClient, type QueryResultRow } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import type { TicketConfig } from './config.js';
 
 export type TicketDatabase = Pick<Pool, 'connect' | 'query' | 'end'>;
+export type TransactionTimeouts = Pick<
+  TicketConfig,
+  'lockTimeoutMs' | 'statementTimeoutMs' | 'transactionTimeoutMs'
+>;
+
+export class OperationAbortedError extends Error {
+  constructor() {
+    super('Ticket allocation operation was aborted.');
+  }
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new OperationAbortedError();
+  }
+}
 
 export function createTicketDatabase(config: TicketConfig): TicketDatabase {
   const pool = new Pool({
@@ -17,10 +33,9 @@ export function createTicketDatabase(config: TicketConfig): TicketDatabase {
 
 export async function withTransaction<T>(
   database: TicketDatabase,
-  lockTimeoutMs: number,
-  statementTimeoutMs: number,
-  transactionTimeoutMs: number,
-  work: (client: PoolClient) => Promise<T>
+  timeouts: TransactionTimeouts,
+  work: (client: PoolClient) => Promise<T>,
+  signal?: AbortSignal
 ): Promise<T> {
   const client = await database.connect();
   let clientError: Error | undefined;
@@ -29,11 +44,16 @@ export async function withTransaction<T>(
   };
   client.on('error', rememberClientError);
   try {
+    throwIfAborted(signal);
     await client.query('BEGIN');
-    await client.query(`SET LOCAL lock_timeout = '${lockTimeoutMs}ms'`);
-    await client.query(`SET LOCAL statement_timeout = '${statementTimeoutMs}ms'`);
-    await client.query(`SET LOCAL transaction_timeout = '${transactionTimeoutMs}ms'`);
+    await client.query(`SET LOCAL lock_timeout = '${timeouts.lockTimeoutMs}ms'`);
+    await client.query(`SET LOCAL statement_timeout = '${timeouts.statementTimeoutMs}ms'`);
+    await client.query(`SET LOCAL transaction_timeout = '${timeouts.transactionTimeoutMs}ms'`);
     const result = await work(client);
+    // Fastify cancellation is cooperative. PostgreSQL queries already in
+    // flight remain bounded by the transaction timeouts above; never commit
+    // their result after the caller has gone away.
+    throwIfAborted(signal);
     await client.query('COMMIT');
     return result;
   } catch (error) {
@@ -47,8 +67,4 @@ export async function withTransaction<T>(
     client.off('error', rememberClientError);
     client.release(clientError);
   }
-}
-
-export function rows<T extends QueryResultRow>(result: { rows: T[] }): T[] {
-  return result.rows;
 }

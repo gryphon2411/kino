@@ -1,8 +1,8 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import type { DatabaseError } from 'pg';
 import { createTicketAuthenticator } from './auth.js';
 import type { TicketConfig } from './config.js';
-import type { TicketDatabase } from './database.js';
+import { OperationAbortedError, type TicketDatabase } from './database.js';
 import {
   InsufficientScopeError,
   InvalidTokenError,
@@ -13,6 +13,10 @@ import { TicketService } from './tickets.js';
 
 const seatCodeSchema = { type: 'string', pattern: '^[A-C][1-5]$' };
 const holdRequestBodyLimitBytes = 1024;
+type ScreeningQuerystring = { titleId: string };
+type ScreeningParams = { screeningId: string };
+type HoldBody = { seatCodes: string[] };
+type ReservationParams = { reservationId: string };
 const errorSchema = {
   type: 'object',
   additionalProperties: false,
@@ -73,10 +77,15 @@ function isRetryableDatabaseError(error: unknown): boolean {
     ));
 }
 
+function requestWasAborted(request: FastifyRequest): boolean {
+  return request.signal.aborted;
+}
+
 export function buildApp(config: TicketConfig, database: TicketDatabase): FastifyInstance {
   const app = Fastify({
     logger: true,
     requestTimeout: config.requestTimeoutMs,
+    handlerTimeout: config.handlerTimeoutMs,
     // Fastify applies requestTimeout after server creation. Passing the Node
     // options here makes the complete-request and header timers start with
     // the server, while the short check interval keeps them effective.
@@ -91,8 +100,13 @@ export function buildApp(config: TicketConfig, database: TicketDatabase): Fastif
 
   app.setErrorHandler((error, request, reply) => {
     const validationError = error as { validation?: unknown };
-    if ((error as { code?: string }).code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
+    const errorCode = (error as { code?: string }).code;
+    if (errorCode === 'FST_ERR_CTP_BODY_TOO_LARGE') {
       return reply.status(413).send({ error: 'request_too_large' });
+    }
+    if (errorCode === 'FST_ERR_HANDLER_TIMEOUT') {
+      const unavailable = new ServiceUnavailableError();
+      return reply.status(unavailable.statusCode).send({ error: unavailable.code });
     }
     if (validationError.validation) {
       return reply.status(400).send({ error: 'invalid_request' });
@@ -121,16 +135,22 @@ export function buildApp(config: TicketConfig, database: TicketDatabase): Fastif
   });
 
   app.get('/healthz', async () => ({ status: 'ok' }));
-  app.get('/readyz', async (_request, reply) => {
+  app.get('/readyz', async (request, reply) => {
     try {
       await database.query('SELECT 1');
+      if (requestWasAborted(request)) {
+        return;
+      }
       return { status: 'ok' };
     } catch {
+      if (requestWasAborted(request)) {
+        return;
+      }
       return reply.status(503).send({ status: 'unavailable' });
     }
   });
 
-  app.get('/v1/screenings', {
+  app.get<{ Querystring: ScreeningQuerystring }>('/v1/screenings', {
     schema: {
       querystring: {
         type: 'object',
@@ -152,11 +172,18 @@ export function buildApp(config: TicketConfig, database: TicketDatabase): Fastif
     },
   }, async (request) => {
     await authenticate(request, 'kino.ticket.read');
-    const { titleId } = request.query as { titleId: string };
-    return { screenings: await tickets.screenings(titleId) };
+    if (requestWasAborted(request)) {
+      return;
+    }
+    const { titleId } = request.query;
+    const screenings = await tickets.screenings(titleId);
+    if (requestWasAborted(request)) {
+      return;
+    }
+    return { screenings };
   });
 
-  app.get('/v1/screenings/:screeningId/seats', {
+  app.get<{ Params: ScreeningParams }>('/v1/screenings/:screeningId/seats', {
     schema: {
       params: {
         type: 'object',
@@ -194,13 +221,20 @@ export function buildApp(config: TicketConfig, database: TicketDatabase): Fastif
       },
     },
   }, async (request, reply) => {
-    await authenticate(request, 'kino.ticket.read');
-    const { screeningId } = request.params as { screeningId: string };
+    const ticketUser = await authenticate(request, 'kino.ticket.read');
+    if (requestWasAborted(request)) {
+      return;
+    }
+    const { screeningId } = request.params;
     reply.header('Cache-Control', 'private, no-store');
-    return tickets.seats(screeningId, request.ticketUser!.subject);
+    const seats = await tickets.seats(screeningId, ticketUser.subject);
+    if (requestWasAborted(request)) {
+      return;
+    }
+    return seats;
   });
 
-  app.post('/v1/screenings/:screeningId/holds', {
+  app.post<{ Params: ScreeningParams; Body: HoldBody }>('/v1/screenings/:screeningId/holds', {
     bodyLimit: holdRequestBodyLimitBytes,
     schema: {
       params: {
@@ -229,14 +263,33 @@ export function buildApp(config: TicketConfig, database: TicketDatabase): Fastif
       },
     },
   }, async (request, reply) => {
-    await authenticate(request, 'kino.ticket.write');
-    const { screeningId } = request.params as { screeningId: string };
-    const { seatCodes } = request.body as { seatCodes: string[] };
+    const ticketUser = await authenticate(request, 'kino.ticket.write');
+    if (requestWasAborted(request)) {
+      return;
+    }
+    const { screeningId } = request.params;
+    const { seatCodes } = request.body;
     reply.header('Cache-Control', 'private, no-store');
-    return tickets.hold(screeningId, request.ticketUser!.subject, seatCodes);
+    try {
+      const reservation = await tickets.hold(
+        screeningId,
+        ticketUser.subject,
+        seatCodes,
+        request.signal
+      );
+      if (requestWasAborted(request)) {
+        return;
+      }
+      return reservation;
+    } catch (error) {
+      if (error instanceof OperationAbortedError && requestWasAborted(request)) {
+        return;
+      }
+      throw error;
+    }
   });
 
-  app.post('/v1/reservations/:reservationId/confirm', {
+  app.post<{ Params: ReservationParams }>('/v1/reservations/:reservationId/confirm', {
     schema: {
       params: {
         type: 'object',
@@ -250,10 +303,24 @@ export function buildApp(config: TicketConfig, database: TicketDatabase): Fastif
       },
     },
   }, async (request, reply) => {
-    await authenticate(request, 'kino.ticket.write');
-    const { reservationId } = request.params as { reservationId: string };
+    const ticketUser = await authenticate(request, 'kino.ticket.write');
+    if (requestWasAborted(request)) {
+      return;
+    }
+    const { reservationId } = request.params;
     reply.header('Cache-Control', 'private, no-store');
-    return tickets.confirm(reservationId, request.ticketUser!.subject);
+    try {
+      const reservation = await tickets.confirm(reservationId, ticketUser.subject, request.signal);
+      if (requestWasAborted(request)) {
+        return;
+      }
+      return reservation;
+    } catch (error) {
+      if (error instanceof OperationAbortedError && requestWasAborted(request)) {
+        return;
+      }
+      throw error;
+    }
   });
 
   return app;

@@ -229,7 +229,7 @@ class TrendServiceSecurityTests {
 
         SignedJWT jwt = new SignedJWT(
                 new JWSHeader.Builder(JWSAlgorithm.RS256)
-                        .type(JOSEObjectType.JWT)
+                        .type(new JOSEObjectType("at+jwt"))
                         .keyID(rsaKey.getKeyID())
                         .build(),
                 claims.build()
