@@ -25,6 +25,10 @@ function formatCountdown(expiresAt, now) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
+function seatRowCode(seatCode) {
+  return seatCode.replace(/\d+$/, '');
+}
+
 async function responseBody(response) {
   try {
     return await response.json();
@@ -122,6 +126,15 @@ export default function TicketPage() {
       grouped.set(seat.reservationId, current);
     });
     return [...grouped.values()];
+  }, [seats]);
+
+  const seatRows = useMemo(() => {
+    const rows = new Map();
+    seats.forEach((seat) => {
+      const rowCode = seatRowCode(seat.code);
+      rows.set(rowCode, [...(rows.get(rowCode) || []), seat]);
+    });
+    return [...rows.entries()].map(([rowCode, rowSeats]) => ({ rowCode, rowSeats }));
   }, [seats]);
 
   const nextHoldExpiry = useMemo(() => holds
@@ -222,37 +235,67 @@ export default function TicketPage() {
   }
 
   return (
-    <Container sx={{ py: 4 }}>
-      <Stack spacing={3}>
+    <Container maxWidth="md" sx={{ py: { xs: 3, sm: 4 } }}>
+      <Stack spacing={2}>
         <Box>
-          <Typography variant="h3">Kino ticket lab</Typography>
+          <Typography component="h1" variant="h4">Tickets</Typography>
           <Typography color="text.secondary">
-            {screening?.label || 'Ticket allocation'}
+            Choose your seats and confirm your booking before the hold expires.
           </Typography>
         </Box>
         {error && <Alert severity="error">{error}</Alert>}
         {confirmation && (
           <Alert severity="success">
-            Tickets confirmed for {confirmation.seatCodes.join(', ')}
-            {confirmation.confirmedAt && ` at ${new Date(confirmation.confirmedAt).toLocaleTimeString()}`}.
+            Booking confirmed for {confirmation.seatCodes.join(', ')}.
           </Alert>
         )}
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>Choose available seats</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(52px, 1fr))', gap: 1 }}>
-            {seats.map((seat) => (
-              <Button
-                key={seat.code}
-                variant={selected.includes(seat.code) ? 'contained' : 'outlined'}
-                color={seat.status === 'SOLD' ? 'error' : seat.status === 'HELD' ? 'warning' : 'primary'}
-                disabled={seat.status !== 'AVAILABLE' || submitting || (
-                  !selected.includes(seat.code) && selected.length >= 8
-                )}
-                onClick={() => toggleSeat(seat)}
-              >
-                {seat.code}
-              </Button>
-            ))}
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+          <Typography component="h2" variant="h6" gutterBottom>Choose seats</Typography>
+          <Box sx={{ mx: 'auto', maxWidth: 480 }}>
+            <Typography
+              align="center"
+              color="text.secondary"
+              sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}
+            >
+              Screen
+            </Typography>
+            <Box sx={{ bgcolor: 'divider', borderRadius: 1, height: 4, mb: 3, mt: 1, mx: 'auto', width: '70%' }} />
+            <Stack spacing={1}>
+              {seatRows.map(({ rowCode, rowSeats }) => (
+                <Box
+                  key={rowCode}
+                  sx={{
+                    alignItems: 'center',
+                    display: 'grid',
+                    gap: 1,
+                    gridTemplateColumns: '24px repeat(2, minmax(40px, 1fr)) 16px repeat(3, minmax(40px, 1fr))',
+                  }}
+                >
+                  <Typography align="center" color="text.secondary" variant="body2">{rowCode}</Typography>
+                  {rowSeats.slice(0, 2).map((seat) => (
+                    <SeatButton
+                      key={seat.code}
+                      seat={seat}
+                      selected={selected.includes(seat.code)}
+                      selectionLimitReached={selected.length >= 8}
+                      submitting={submitting}
+                      onClick={toggleSeat}
+                    />
+                  ))}
+                  <Box aria-hidden="true" />
+                  {rowSeats.slice(2).map((seat) => (
+                    <SeatButton
+                      key={seat.code}
+                      seat={seat}
+                      selected={selected.includes(seat.code)}
+                      selectionLimitReached={selected.length >= 8}
+                      submitting={submitting}
+                      onClick={toggleSeat}
+                    />
+                  ))}
+                </Box>
+              ))}
+            </Stack>
           </Box>
           <Button
             sx={{ mt: 2 }}
@@ -260,31 +303,47 @@ export default function TicketPage() {
             disabled={selected.length === 0 || submitting}
             onClick={createHold}
           >
-            Hold selected seats
+            Hold seats
           </Button>
           <Button sx={{ mt: 2, ml: 1 }} disabled={submitting} onClick={() => void loadSeats()}>
             Refresh seats
           </Button>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Select up to eight seats per hold.
+            Select up to eight seats. Holds expire after two minutes.
           </Typography>
         </Paper>
         {holds.map((hold) => (
-          <Paper key={hold.id} sx={{ p: 3 }}>
-            <Typography variant="h6">Your hold: {hold.seatCodes.join(', ')}</Typography>
+          <Paper key={hold.id} variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography component="h2" variant="h6">Seats on hold</Typography>
+            <Typography>{hold.seatCodes.join(', ')}</Typography>
             <Typography color="text.secondary" sx={{ mb: 2 }}>
-              Expires in {formatCountdown(hold.expiresAt, now)}
+              Confirm within {formatCountdown(hold.expiresAt, now)}
             </Typography>
             <Button
               variant="contained"
               disabled={submitting || new Date(hold.expiresAt).getTime() <= now}
               onClick={() => confirmHold(hold.id)}
             >
-              Confirm tickets
+              Confirm booking
             </Button>
           </Paper>
         ))}
       </Stack>
     </Container>
+  );
+}
+
+function SeatButton({ seat, selected, selectionLimitReached, submitting, onClick }) {
+  return (
+    <Button
+      aria-label={`Seat ${seat.code}, ${seat.status.toLowerCase().replace(/_/g, ' ')}`}
+      disabled={seat.status !== 'AVAILABLE' || submitting || (!selected && selectionLimitReached)}
+      color={seat.status === 'SOLD' ? 'error' : seat.status === 'HELD' ? 'warning' : 'primary'}
+      onClick={() => onClick(seat)}
+      sx={{ aspectRatio: '1', borderRadius: 1.5, minWidth: 0, p: 0 }}
+      variant={selected ? 'contained' : 'outlined'}
+    >
+      {seat.code.replace(/^[A-Z]+/, '')}
+    </Button>
   );
 }
