@@ -104,6 +104,11 @@ resource "kubernetes_job" "auth_database_bootstrap" {
           image   = local.auth_database_bootstrap_image_ref
           command = ["/bin/sh", "/scripts/bootstrap-auth-database.sh"]
 
+          resources {
+            limits   = local.local_resource_profiles.database_job
+            requests = local.local_resource_profiles.database_job
+          }
+
           env {
             name  = "PGHOST"
             value = "postgres"
@@ -207,6 +212,11 @@ resource "kubernetes_job" "auth_database_migration" {
           name  = "flyway"
           image = local.auth_database_migration_image_ref
           args  = ["migrate"]
+
+          resources {
+            limits   = local.local_resource_profiles.database_job
+            requests = local.local_resource_profiles.database_job
+          }
 
           env {
             name  = "FLYWAY_URL"

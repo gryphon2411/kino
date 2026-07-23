@@ -36,7 +36,9 @@ locals {
   )
 
   kafka_env = [
-    { name = "KAFKA_HOSTS", value = "kafka-controller-0.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka-system.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka-system.svc.cluster.local:9092" },
+    # The local chart has one combined KRaft controller/broker. Clients use the
+    # chart's stable Service instead of a controller replica list.
+    { name = "KAFKA_HOSTS", value = "kafka.kafka-system.svc.cluster.local:9092" },
     { name = "KAFKA_USERNAME", value = "root" },
     { name = "KAFKA_PASSWORD", value = var.kafka_password }
   ]
@@ -131,6 +133,11 @@ resource "kubernetes_deployment" "auth_service" {
         container {
           name  = local.auth_service_name
           image = var.auth_service_image_ref
+
+          resources {
+            limits   = local.local_resource_profiles.auth
+            requests = local.local_resource_profiles.auth
+          }
 
           port { container_port = 8081 }
 
@@ -312,9 +319,20 @@ resource "kubernetes_deployment" "auth_service" {
               path = "/actuator/health/liveness"
               port = 8081
             }
-            initial_delay_seconds = 20
-            period_seconds        = 10
-            failure_threshold     = 3
+            period_seconds    = 10
+            failure_threshold = 3
+          }
+
+          # On the constrained local profile, Spring needs roughly a minute to
+          # initialize Mongo, PostgreSQL, Redis, and the authorization server.
+          # A startup probe keeps liveness from restarting a healthy startup.
+          startup_probe {
+            http_get {
+              path = "/actuator/health/liveness"
+              port = 8081
+            }
+            period_seconds    = 5
+            failure_threshold = 24
           }
 
           readiness_probe {
@@ -391,6 +409,11 @@ resource "kubernetes_deployment" "data_service" {
         container {
           name  = "data-service"
           image = var.data_service_image_ref
+
+          resources {
+            limits   = local.local_resource_profiles.data
+            requests = local.local_resource_profiles.data
+          }
 
           port { container_port = 8080 }
 
@@ -491,6 +514,14 @@ resource "kubernetes_deployment" "data_service" {
       error_message = "enable_data_service requires enable_auth_service to validate Kino user and machine JWTs."
     }
   }
+
+  depends_on = [
+    terraform_data.mongodb_seed_complete,
+    kubernetes_deployment.auth_service,
+    kubernetes_stateful_set.redis,
+    helm_release.kafka,
+    helm_release.rabbitmq,
+  ]
 }
 
 resource "kubernetes_service" "data_service" {
@@ -548,6 +579,11 @@ resource "kubernetes_deployment" "ticket_service" {
         container {
           name  = local.ticket_service_name
           image = var.ticket_service_image_ref
+
+          resources {
+            limits   = local.local_resource_profiles.ticket
+            requests = local.local_resource_profiles.ticket
+          }
 
           security_context {
             allow_privilege_escalation = false
@@ -648,6 +684,7 @@ resource "kubernetes_deployment" "ticket_service" {
   depends_on = [
     kubernetes_job.ticket_database_migration,
     kubernetes_network_policy_v1.ticket_service_ingress,
+    kubernetes_deployment.auth_service,
   ]
 }
 
@@ -686,6 +723,11 @@ resource "kubernetes_deployment" "trend_service" {
         container {
           name  = "trend-service"
           image = var.trend_service_image_ref
+
+          resources {
+            limits   = local.local_resource_profiles.trend
+            requests = local.local_resource_profiles.trend
+          }
 
           port { container_port = 8080 }
 
@@ -753,7 +795,10 @@ resource "kubernetes_deployment" "trend_service" {
     }
   }
 
-  depends_on = [helm_release.kafka]
+  depends_on = [
+    kubernetes_deployment.auth_service,
+    helm_release.kafka,
+  ]
 }
 
 resource "kubernetes_service" "trend_service" {
@@ -793,6 +838,11 @@ resource "kubernetes_deployment" "generative_service" {
         container {
           name  = "generative-service"
           image = var.generative_service_image_ref
+
+          resources {
+            limits   = local.local_resource_profiles.generative
+            requests = local.local_resource_profiles.generative
+          }
 
           port { container_port = 8000 }
 
@@ -848,6 +898,12 @@ resource "kubernetes_deployment" "generative_service" {
       }
     }
   }
+
+  depends_on = [
+    terraform_data.mongodb_seed_complete,
+    kubernetes_deployment.data_service,
+    helm_release.rabbitmq,
+  ]
 }
 
 resource "kubernetes_service" "generative_service" {
@@ -887,6 +943,11 @@ resource "kubernetes_deployment" "agent_service" {
         container {
           name  = "agent-service"
           image = var.agent_service_image_ref
+
+          resources {
+            limits   = local.local_resource_profiles.agent
+            requests = local.local_resource_profiles.agent
+          }
 
           port { container_port = 2024 }
 
@@ -960,7 +1021,7 @@ resource "kubernetes_deployment" "agent_service" {
     }
   }
 
-  depends_on = [kubernetes_service.data_service]
+  depends_on = [kubernetes_deployment.data_service]
 }
 
 resource "kubernetes_service" "agent_service" {
@@ -1017,6 +1078,11 @@ resource "kubernetes_deployment" "ui" {
           name              = local.ui_service_name
           image             = var.ui_image_ref
           image_pull_policy = "IfNotPresent"
+
+          resources {
+            limits   = local.local_resource_profiles.ui
+            requests = local.local_resource_profiles.ui
+          }
 
           port { container_port = 3000 }
 
@@ -1173,8 +1239,8 @@ resource "kubernetes_deployment" "ui" {
 
   depends_on = [
     kubernetes_deployment.auth_service,
-    kubernetes_service.data_service,
-    kubernetes_service.ticket_service,
+    kubernetes_deployment.data_service,
+    kubernetes_deployment.ticket_service,
   ]
 }
 

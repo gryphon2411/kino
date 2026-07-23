@@ -8,17 +8,17 @@ tasks:
       - task --list
 
   bootstrap-local-env:
-    desc: Prepare local Minikube and host entries without provisioning app resources
+    desc: Preflight host capacity, then prepare a 6 CPU / 14 GiB Docker Minikube profile and host entries
     cmds:
       - ansible-playbook playbook.yaml -vv -K
 
   deploy:
-    desc: Provision the infrastructure with Terraform
+    desc: Provision the infrastructure with Terraform (parallelism defaults to the safe value of 2)
     cmds:
       - terraform init
       - terraform validate
       - terraform plan -out=.terraform/kino.plan
-      - terraform apply -auto-approve .terraform/kino.plan
+      - terraform apply -parallelism="${TF_PARALLELISM:-2}" -auto-approve .terraform/kino.plan
 
   deploy-with-vault:
     desc: Provision with Terraform, then bootstrap Vault-backed runtime secrets
@@ -47,6 +47,11 @@ tasks:
     desc: Show access URLs for services
     cmds:
       - minikube service list
+
+  verify-local-capacity:
+    desc: Verify Minikube cgroup limits, workload profiles, active request budget, and OOM/restart evidence
+    cmds:
+      - bash ./scripts/verify-local-capacity.sh
 
   verify-ticket-network-policy:
     desc: Assert the UI/BFF can reach the private ticket service while an ordinary pod cannot
@@ -94,10 +99,20 @@ tasks:
       - kubectl --context minikube -n postgres-system port-forward --address 127.0.0.1 service/postgres 15432:5432
 
   clean:
-    desc: Full reset - delete Minikube cluster and Terraform state
+    desc: Full reset - safely delete only the Minikube profile, then local Terraform state
     cmds:
       - task cleanup-vault-bootstrap || true
-      - terraform destroy -auto-approve
-      - minikube delete || true
-      - rm -rf .terraform terraform.tfstate terraform.tfstate.backup
-      - rm -f terraform.tfstate.*.backup cluster-keys.json terraform-debug.log deploy.log deploy_final_test.log deploy_lint_test.log
+      - |
+        set -eu
+        if kubectl --context minikube version --request-timeout=5s >/dev/null 2>&1; then
+          terraform destroy -auto-approve
+        else
+          echo 'Minikube is unreachable; deleting only its profile before discarding local state.'
+        fi
+        minikube delete --profile minikube || true
+        if minikube status --profile minikube >/dev/null 2>&1; then
+          echo 'Minikube profile still exists; preserving Terraform state.' >&2
+          exit 1
+        fi
+        rm -rf .terraform terraform.tfstate terraform.tfstate.backup
+        rm -f terraform.tfstate.*.backup cluster-keys.json terraform-debug.log deploy.log deploy_final_test.log deploy_lint_test.log

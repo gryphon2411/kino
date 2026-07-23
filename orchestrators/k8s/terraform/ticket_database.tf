@@ -85,6 +85,11 @@ resource "kubernetes_job" "ticket_database_bootstrap" {
           image   = local.auth_database_bootstrap_image_ref
           command = ["/bin/sh", "/scripts/bootstrap-ticket-database.sh"]
 
+          resources {
+            limits   = local.local_resource_profiles.database_job
+            requests = local.local_resource_profiles.database_job
+          }
+
           security_context {
             allow_privilege_escalation = false
 
@@ -201,6 +206,11 @@ resource "kubernetes_job" "ticket_database_migration" {
           name  = "flyway"
           image = local.ticket_database_migration_image_ref
           args  = ["migrate"]
+
+          resources {
+            limits   = local.local_resource_profiles.database_job
+            requests = local.local_resource_profiles.database_job
+          }
 
           security_context {
             allow_privilege_escalation = false

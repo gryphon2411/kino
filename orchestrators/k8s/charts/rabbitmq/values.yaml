@@ -1,5 +1,16 @@
 replicaCount: 1
 service:
-  type: LoadBalancer
+  type: ClusterIP
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 200m
+    memory: 512Mi
+memoryHighWatermark:
+  enabled: true
+  type: absolute
+  value: 384Mi
 extraConfiguration: |
   load_definitions = /app/load_definition.json

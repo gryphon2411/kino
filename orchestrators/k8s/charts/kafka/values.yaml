@@ -6,6 +6,23 @@ service:
 
 clusterId: J1mmUOT9JBz1rNWKu2uZZi
 
+# One combined controller/broker is sufficient for Kino's single-node local
+# lab.  Clients use the stable Kafka Service, not an ordinal controller name.
+controller:
+  replicaCount: 1
+  controllerOnly: false
+  heapOpts: -XX:InitialRAMPercentage=50 -XX:MaxRAMPercentage=50
+  resources:
+    requests:
+      cpu: 300m
+      memory: 512Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+
+broker:
+  replicaCount: 0
+
 overrideConfiguration:
   auto.create.topics.enable: false
 
@@ -14,6 +31,13 @@ metrics:
     enabled: true
     image:
       repository: bitnamilegacy/jmx-exporter
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 50m
+        memory: 128Mi
 
 sasl:
   client:
@@ -27,11 +51,26 @@ defaultInitContainers:
   autoDiscovery:
     image:
       repository: bitnamilegacy/kubectl
+  prepareConfig:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
 
 provisioning:
   enabled: true
   waitForKafka: true
   useHelmHooks: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
   topics:
     - name: title-searches
       partitions: 1

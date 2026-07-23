@@ -27,6 +27,7 @@ Taskfile.yml          # Orchestration (deploy, deploy-with-vault, destroy, clean
 - Terraform >= 1.7
 - Ansible
 - Task (go-task.dev)
+- Docker (the local Minikube driver and the bounded k6 runner)
 
 ## Quick Start
 
@@ -48,7 +49,7 @@ cp .env.example .env
 ```
 
 ```bash
-# Optional local Minikube + /etc/hosts prep
+# Required local Minikube capacity preflight and /etc/hosts prep
 task bootstrap-local-env
 
 # Deploy infrastructure only
@@ -59,6 +60,9 @@ task setup-vault
 
 # Or do both in one step
 task deploy-with-vault
+
+# Verify the live cgroup, Kubernetes request budget, and restart/eviction state
+task verify-local-capacity
 
 # Update Vault-backed secrets only
 task setup-vault
@@ -79,6 +83,45 @@ it with `minikube delete` and then rerun `task bootstrap-local-env`.
 The local MongoDB baseline is `mongo:8.2.12`. This fixed patch tag is compatible
 with the Linux 7 host kernel used by Kino's Docker-backed Minikube workflow;
 do not substitute the moving `mongo:latest` tag.
+
+## Local capacity contract
+
+Kino's full local stack runs only in a Docker-backed Minikube profile with at
+least 6 CPUs and 14 GiB memory. Bootstrap rejects a smaller or non-Docker
+profile, requires 18 GiB `MemAvailable`, 8 GB total/6 GiB free host swap, and
+100 GiB free disk, then configures Minikube's Docker cgroup with no swap.
+
+Every Kino workload, Helm subcomponent, and bootstrap Job has matching CPU and
+memory request/limit values. MongoDB is capped at 2 GiB with a 0.75 GiB
+WiredTiger cache; the IMDb seed uses one worker and 768 MiB. Mongo seed
+completion is a Terraform barrier, so the remaining databases, Helm releases,
+and application pods cannot race the restore. Terraform applies the remaining
+graph with parallelism 2 by default; set `TF_PARALLELISM` only after reviewing
+the rendered capacity budget.
+
+Run `task verify-local-capacity` after deployment and after diagnostics. It
+uses the lower of live node Allocatable and the Docker cgroup as the capacity
+budget (maximum 80% requested), then checks resource profiles, container
+restarts, and OOM/eviction events. This matters because this
+Minikube/Docker combination can advertise more node capacity than its
+container cgroup permits.
+
+For an authenticated ticket lab load test, first deploy a fresh ticket-enabled
+stack and make sure `A1` is available. Then run:
+
+```bash
+KINO_E2E_BASE_URL=http://local.kino.com \
+KINO_E2E_USERNAME=... \
+KINO_E2E_PASSWORD=... \
+task load-test-ticket
+```
+
+The task uses Playwright for one real PKCE login, retains only the opaque BFF
+session in a mode-`0600` temporary file, and runs a 256 MiB/250m k6 container
+against public same-origin BFF routes. It makes 40 seat reads per second for
+three minutes, then sends 25 concurrent requests for `A1`. Exactly one hold is
+expected; the other requests must return `409`, and the hold expires after two
+minutes. The test never calls Fastify, Redis, or PostgreSQL directly.
 
 ## Local PostgreSQL access
 
@@ -317,17 +360,17 @@ Secrets are managed via:
   including the auth-service JWT signing key
 
 Runtime defaults:
-- `playbook.yaml` starts Minikube with conservative defaults (`MINIKUBE_CPUS=4`, `MINIKUBE_MEMORY=7800mb`) unless you override them in the shell or `.env`
+- `playbook.yaml` starts Docker-backed Minikube with `MINIKUBE_CPUS=6` and `MINIKUBE_MEMORY=14G` unless you choose larger values in the shell or `.env`; its Docker cgroup has no swap
 - `mongodb_seed_image_ref` must be the digest-pinned `mongoSeedImageRef` from `jobs/.artifacts/release-manifest.json`
 - enabled service Deployments must receive digest-pinned `*_image_ref` values copied from the corresponding GitHub Actions publish run
 - when Kafka is enabled, the release creates the shared `title-searches` topic if absent during Kafka install or upgrade; this is not in-place reconciliation
 - `mongodb_seed_generation` is the declarative rerun token for the same seed digest; normal releases should not need it
 - `mongodb_seed_job_active_deadline_seconds` defaults to `1800` so the canonical Job budget covers image pull + restore on slower local environments; increase it if needed
-- `deploy` performs `terraform init`, `validate`, `plan`, and `apply`; it does not mutate Vault state
+- `deploy` performs `terraform init`, `validate`, `plan`, and an apply with parallelism 2; it does not mutate Vault state
 - `kubectl rollout restart` is a debugging-only action; release intent belongs in Terraform inputs
 - `setup-vault` and `cleanup-vault-bootstrap` manage the local Vault bootstrap artifacts that live outside Terraform state
 
-Destroying the stack with `task destroy` removes only Terraform-managed resources. Use `task cleanup-vault-bootstrap` to remove the local Vault bootstrap artifacts created by `setup-vault`. `task clean` runs both flows and deletes Minikube and local state files, but it stops if `terraform destroy` fails so state is not discarded underneath live resources.
+Destroying the stack with `task destroy` removes only Terraform-managed resources. Use `task cleanup-vault-bootstrap` to remove the local Vault bootstrap artifacts created by `setup-vault`. `task clean` runs both flows, deletes only the `minikube` profile, confirms that profile is gone, and only then removes local Terraform state. It does not use Minikube's global `--purge` option.
 
 Never commit:
 - `.env`

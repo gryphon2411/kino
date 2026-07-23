@@ -54,6 +54,12 @@ resource "kubernetes_stateful_set" "mongodb" {
         container {
           name  = "mongodb"
           image = "mongo:8.2.12"
+          args  = ["--wiredTigerCacheSizeGB", "0.75"]
+
+          resources {
+            limits   = local.local_resource_profiles.mongodb
+            requests = local.local_resource_profiles.mongodb
+          }
 
           port {
             name           = "default"
@@ -104,6 +110,11 @@ resource "kubernetes_stateful_set" "mongodb" {
 resource "kubernetes_job" "mongodb_init" {
   count = var.enable_mongodb ? 1 : 0
 
+  # The seed is a deployment barrier, not a best-effort background import.
+  # Keep the provider behaviour explicit so a later provider upgrade cannot
+  # accidentally make the rest of the stack race the restore.
+  wait_for_completion = true
+
   metadata {
     name      = "mongodb-init-${substr(sha256("${coalesce(var.mongodb_seed_image_ref, "unset")}:${var.mongodb_seed_generation}"), 0, 8)}"
     namespace = kubernetes_namespace.mongodb_system[0].metadata[0].name
@@ -132,6 +143,11 @@ resource "kubernetes_job" "mongodb_init" {
           name              = "kino-mongo-seed"
           image             = var.mongodb_seed_image_ref
           image_pull_policy = "IfNotPresent"
+
+          resources {
+            limits   = local.local_resource_profiles.mongo_seed
+            requests = local.local_resource_profiles.mongo_seed
+          }
 
           env {
             name  = "MONGO_URI_FORMAT"
@@ -165,7 +181,7 @@ resource "kubernetes_job" "mongodb_init" {
 
           env {
             name  = "MONGO_RESTORE_WORKERS"
-            value = "4"
+            value = "1"
           }
 
           env {
@@ -240,6 +256,11 @@ resource "kubernetes_stateful_set" "postgres" {
           name  = "postgres"
           image = local.postgres_image_ref
 
+          resources {
+            limits   = local.local_resource_profiles.postgres
+            requests = local.local_resource_profiles.postgres
+          }
+
           port { container_port = 5432 }
 
           env {
@@ -295,7 +316,10 @@ resource "kubernetes_stateful_set" "postgres" {
     }
   }
 
-  depends_on = [kubernetes_secret.postgres_creds]
+  depends_on = [
+    terraform_data.mongodb_seed_complete,
+    kubernetes_secret.postgres_creds,
+  ]
 }
 
 resource "kubernetes_service" "postgres" {
@@ -374,6 +398,11 @@ resource "kubernetes_stateful_set" "redis" {
           name  = "redis-stack"
           image = local.redis_image_ref
 
+          resources {
+            limits   = local.local_resource_profiles.redis
+            requests = local.local_resource_profiles.redis
+          }
+
           port { container_port = 6379 }
           port { container_port = 8001 }
 
@@ -401,6 +430,7 @@ resource "kubernetes_stateful_set" "redis" {
   }
 
   depends_on = [
+    terraform_data.mongodb_seed_complete,
     kubernetes_secret.redis_creds,
     kubernetes_secret.redis_acl,
   ]

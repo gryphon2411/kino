@@ -4,8 +4,9 @@
   connection: local
   gather_facts: false
   vars:
-    minikube_cpus: "{{ lookup('env', 'MINIKUBE_CPUS') | default('4', true) }}"
-    minikube_memory: "{{ lookup('env', 'MINIKUBE_MEMORY') | default('7800mb', true) }}"
+    minikube_cpus: "{{ lookup('env', 'MINIKUBE_CPUS') | default('6', true) }}"
+    # GNU numfmt uses uppercase IEC suffixes; Minikube accepts the same value.
+    minikube_memory: "{{ lookup('env', 'MINIKUBE_MEMORY') | default('14G', true) }}"
     deploy_environment: "{{ lookup('env', 'TF_VAR_environment') | default('local', true) }}"
     ingress_host: "{{ 'dev.kino.com' if deploy_environment == 'dev' else 'local.kino.com' }}"
     terraform_dir: "{{ playbook_dir }}"
@@ -18,22 +19,144 @@
         - helm
         - minikube
         - terraform
+        - docker
+        - numfmt
       register: tool_check
       failed_when: tool_check.rc != 0
       changed_when: false
 
+    - name: Require a six-CPU local profile or larger
+      ansible.builtin.assert:
+        that: minikube_cpus | int >= 6
+        fail_msg: >-
+          Kino's full local stack requires at least 6 Minikube CPUs. Set
+          MINIKUBE_CPUS=6 or higher before bootstrapping.
+
     - name: Check Minikube status
-      ansible.builtin.command: minikube status
+      ansible.builtin.command: minikube status --profile minikube
       register: minikube_status
       failed_when: false
       changed_when: false
 
-    - name: Start Minikube
+    - name: Convert requested Minikube memory to bytes
+      ansible.builtin.command:
+        argv:
+          - numfmt
+          - --from=iec
+          - "{{ minikube_memory }}"
+      register: minikube_memory_bytes
+      changed_when: false
+
+    - name: Require a fourteen-GiB local profile or larger
+      ansible.builtin.assert:
+        that: minikube_memory_bytes.stdout | int >= 15032385536
+        fail_msg: >-
+          Kino's full local stack requires at least 14 GiB of Minikube memory.
+          Set MINIKUBE_MEMORY=14G or higher before bootstrapping.
+
+    - name: Read available host memory
+      ansible.builtin.shell: "awk '/MemAvailable:/ { print $2 * 1024 }' /proc/meminfo"
+      register: host_memory_available
+      changed_when: false
+
+    - name: Read host swap capacity and free swap
+      ansible.builtin.shell: >-
+        awk '/SwapTotal:/ { total = $2 * 1024 } /SwapFree:/ { free = $2 * 1024 }
+        END { print total, free }' /proc/meminfo
+      register: host_swap
+      changed_when: false
+
+    - name: Read free space for the local Docker and Minikube data
+      ansible.builtin.command:
+        argv: [df, -B1, --output=avail, /]
+      register: host_disk
+      changed_when: false
+
+    - name: Require enough host capacity before creating the cluster
+      ansible.builtin.assert:
+        that:
+          - host_memory_available.stdout | int >= 19327352832
+          # Linux may report a nominal 8 GiB swap device one page smaller.
+          # Require eight decimal GB, which still rejects undersized swap
+          # while accepting the host's correctly provisioned 8 GiB file.
+          - host_swap.stdout.split()[0] | int >= 8000000000
+          - host_swap.stdout.split()[1] | int >= 6442450944
+          - host_disk.stdout_lines[-1] | int >= 107374182400
+        fail_msg: >-
+          Kino needs at least 18 GiB MemAvailable, 8 GiB total and 6 GiB free
+          swap, and 100 GiB free disk before starting the 14 GiB local cluster.
+      when: "'host: Running' not in minikube_status.stdout"
+
+    - name: Verify the Docker daemon is available
+      ansible.builtin.command: docker info --format '{{"{{"}}.ServerVersion{{"}}"}}'
+      register: docker_info
+      changed_when: false
+
+    - name: Verify the pinned MongoDB local baseline
+      ansible.builtin.command:
+        argv: [docker, run, --rm, mongo:8.2.12, mongod, --version]
+      register: mongo_version
+      changed_when: false
+
+    - name: Reject a running non-Docker Minikube profile
+      ansible.builtin.command:
+        argv: [docker, inspect, minikube]
+      register: docker_minikube
+      failed_when: false
+      changed_when: false
+
+    - name: Reject a non-Docker profile before changing it
+      ansible.builtin.assert:
+        that: docker_minikube.rc == 0
+        fail_msg: >-
+          The running minikube profile is not Docker-backed. Delete only that
+          profile with `minikube delete --profile minikube`, then bootstrap it
+          again with the Docker driver.
+      when: "'host: Running' in minikube_status.stdout"
+
+    - name: Start Minikube with the Docker driver
       ansible.builtin.command: >-
-        minikube start --cpus={{ minikube_cpus }} --memory={{ minikube_memory }} --cni=calico
+        minikube start --profile=minikube --driver=docker --cpus={{ minikube_cpus }}
+        --memory={{ minikube_memory }} --cni=calico
       register: minikube_start
       when: "'host: Running' not in minikube_status.stdout"
       changed_when: "'Done!' in minikube_start.stdout"
+
+    # Minikube 1.37 records the requested capacity in its profile but may not
+    # apply Docker CPU/swap limits on a cgroup-v2 host. Apply and verify the
+    # runtime cgroup explicitly; it is the effective host safety boundary.
+    - name: Set Minikube CPU, memory, and no-swap Docker cgroup limits
+      ansible.builtin.command:
+        argv:
+          - docker
+          - update
+          - --cpus={{ minikube_cpus }}
+          - --memory={{ minikube_memory }}
+          - --memory-swap={{ minikube_memory }}
+          - minikube
+      changed_when: true
+
+    - name: Read enforced Docker-backed Minikube cgroup limits
+      ansible.builtin.command:
+        argv:
+          - docker
+          - inspect
+          - --format
+          - '{{"{{"}}.HostConfig.NanoCpus{{"}}"}} {{"{{"}}.HostConfig.Memory{{"}}"}} {{"{{"}}.HostConfig.MemorySwap{{"}}"}}'
+          - minikube
+      register: minikube_cgroup
+      changed_when: false
+
+    - name: Require enforced Minikube capacity and no swap
+      ansible.builtin.assert:
+        that:
+          - minikube_cgroup.stdout.split()[0] | int >= (minikube_cpus | int * 1000000000)
+          - minikube_cgroup.stdout.split()[1] | int >= minikube_memory_bytes.stdout | int
+          - minikube_cgroup.stdout.split()[1] | int == minikube_cgroup.stdout.split()[2] | int
+        fail_msg: >-
+          Docker did not enforce the requested CPU/memory/no-swap cgroup for
+          Minikube. Resolve that before deploying Kino so host pressure cannot
+          be masked by swap or an unbounded node container.
 
     - name: Detect the NetworkPolicy-capable CNI
       ansible.builtin.command: >-
@@ -59,12 +182,12 @@
       changed_when: false
 
     - name: Enable Ingress Addon
-      ansible.builtin.command: minikube addons enable ingress
+      ansible.builtin.command: minikube --profile minikube addons enable ingress
       register: ingress_enable
       changed_when: "'The \\'ingress\\' addon is enabled' not in ingress_enable.stdout"
 
     - name: Get Minikube IP
-      ansible.builtin.command: minikube ip
+      ansible.builtin.command: minikube --profile minikube ip
       register: minikube_ip
       changed_when: false
 
