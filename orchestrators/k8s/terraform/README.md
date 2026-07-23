@@ -76,6 +76,10 @@ enforced in-cluster boundaries. An existing Minikube cluster created without
 Calico is rejected rather than silently running without enforcement; recreate
 it with `minikube delete` and then rerun `task bootstrap-local-env`.
 
+The local MongoDB baseline is `mongo:8.2.12`. This fixed patch tag is compatible
+with the Linux 7 host kernel used by Kino's Docker-backed Minikube workflow;
+do not substitute the moving `mongo:latest` tag.
+
 ## Local PostgreSQL access
 
 After deploying PostgreSQL, start a localhost-only tunnel for `psql` or a
