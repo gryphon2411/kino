@@ -53,6 +53,11 @@ tasks:
     cmds:
       - bash ./scripts/verify-local-capacity.sh
 
+  load-test-ticket:
+    desc: Run the bounded authenticated ticket BFF saturation and same-seat contention test
+    cmds:
+      - bash ./scripts/load-ticket-bff.sh
+
   verify-ticket-network-policy:
     desc: Assert the UI/BFF can reach the private ticket service while an ordinary pod cannot
     cmds:
@@ -74,7 +79,7 @@ tasks:
         kubectl --context minikube -n default exec "$ui_pod" -- \
           node -e "fetch('http://$ticket_service:8085/healthz').then((response) => { if (!response.ok) throw new Error('ticket service returned ' + response.status); }).catch((error) => { console.error(error); process.exit(1); })"
         kubectl --context minikube -n default run kino-ticket-network-policy-probe \
-          --rm --restart=Never --pod-running-timeout=1m --image=busybox:1.36.1 --command -- \
+          --rm -i --restart=Never --pod-running-timeout=1m --image=busybox:1.36.1 --command -- \
           sh -c "if wget -q -T 3 -O- http://$ticket_service:8085/healthz; then echo 'unexpected ticket-service access' >&2; exit 1; fi"
 
   port-forward-postgres:
