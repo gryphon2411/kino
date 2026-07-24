@@ -106,7 +106,7 @@ restarts, and OOM/eviction events. This matters because this
 Minikube/Docker combination can advertise more node capacity than its
 container cgroup permits.
 
-For an authenticated ticket lab load test, first deploy a fresh ticket-enabled
+For an authenticated ticket load test, first deploy a fresh ticket-enabled
 stack and make sure `A1` is available. Then run:
 
 ```bash
@@ -136,7 +136,17 @@ task port-forward-postgres
 The task forwards `127.0.0.1:15432` to the `postgres` Service in
 `postgres-system`. It does not change the deployed topology or expose
 PostgreSQL beyond the local machine. Keep the terminal open while the client is
-connected; press `Ctrl+C` to stop the tunnel.
+connected; press `Ctrl+C` to stop the tunnel. Create a separate pgAdmin server
+registration for each database you need to inspect:
+
+| Database | Username | Password variable | Schema |
+| --- | --- | --- | --- |
+| `kino_auth` | `kino_auth_runtime` | `TF_VAR_auth_database_runtime_password` | `kino_auth` |
+| `kino_ticket` (when ticket service is enabled) | `kino_ticket_runtime` | `TF_VAR_ticket_database_runtime_password` | `kino_ticket` |
+
+Both use host `127.0.0.1` and port `15432`. The runtime roles are deliberately
+database-specific: do not use the auth role for `kino_ticket`, or the ticket
+role for `kino_auth`.
 
 ## Release Handoff
 
@@ -265,7 +275,7 @@ The UI is an OIDC confidential BFF client. Its browser receives only a host-only
 HttpOnly, `SameSite=Lax` opaque session cookie. PKCE state, access tokens, and
 rotating refresh tokens remain server-side in Redis. By default, user title
 requests carry only `kino.data.read` and audience `kino-data-api`. Enabling the
-ticket lab adds `kino.ticket.read`, `kino.ticket.write`, and audience
+ticket service adds `kino.ticket.read`, `kino.ticket.write`, and audience
 `kino-ticket-api` to the BFF client registration and its requested scopes. The
 existing machine audience remains `kino-data-internal`. The canonical OIDC
 issuer is the public gateway origin;
@@ -295,7 +305,7 @@ validate that token type in addition to their existing issuer, audience,
 signature, expiry, and scope checks, so another JWT type from the same issuer
 cannot be used as an access token.
 
-## Ticket allocation lab
+## Ticket allocation
 
 When `enable_ticket_service=true`, Terraform provisions an isolated
 `kino_ticket` PostgreSQL database. The root bootstrap Job creates the database

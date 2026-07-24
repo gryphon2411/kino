@@ -1,4 +1,4 @@
-# Kino is a deliberately small, full-stack local lab.  Keeping the resource
+# Kino is a deliberately small, full-stack local environment. Keeping the resource
 # profiles in one place makes the Docker-backed Minikube budget reviewable and
 # prevents a newly added workload from silently becoming BestEffort.
 locals {

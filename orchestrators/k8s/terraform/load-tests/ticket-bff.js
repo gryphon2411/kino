@@ -86,7 +86,7 @@ export function setup() {
   }
   const a1 = seats.json('seats').filter((seat) => seat.code === 'A1')[0];
   if (!a1 || a1.status !== 'AVAILABLE') {
-    throw new Error('A1 must be available in a fresh ticket lab before the contention test.');
+    throw new Error('A1 must be available in a fresh ticket deployment before the contention test.');
   }
   return { screeningId };
 }

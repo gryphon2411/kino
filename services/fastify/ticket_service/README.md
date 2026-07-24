@@ -1,10 +1,94 @@
 # Kino ticket service
 
-This is Kino's Fastify-first ticket-allocation lab. It owns one fixed screening
+This is Kino's Fastify-first ticket-allocation service. It owns one fixed screening
 for `tt0000001` in PostgreSQL and accepts user JWTs only from Kino's Next.js
 BFF. It is intentionally private: browsers call `/api/tickets/*` on the BFF,
 not this service. Kubernetes also permits ingress only from the UI/BFF pod;
 JWT validation remains the application-layer boundary.
+
+## PostgreSQL allocation persistence model
+
+This logical entity-relationship diagram (ERD) shows the records and fields
+needed to understand seat allocation. It is not the complete physical schema.
+The Flyway [schema migration](../../../orchestrators/k8s/terraform/ticket-db-migrations/V1__ticket_allocation_lab.sql)
+is the authoritative definition of every PostgreSQL column, constraint, seed,
+index, and runtime grant.
+
+`timestamptz` is PostgreSQL shorthand for `timestamp with time zone`; it records
+an absolute moment, which keeps screening, hold-expiry, and confirmation times
+unambiguous across time zones.
+
+```mermaid
+erDiagram
+    SCREENINGS ||--o{ RESERVATIONS : "has"
+    SCREENINGS ||--o{ SCREENING_SEATS : "contains"
+    RESERVATIONS o|--o{ SCREENING_SEATS : "allocates"
+
+    SCREENINGS {
+        uuid id PK
+        text title_id
+        text label
+        timestamptz starts_at
+    }
+
+    RESERVATIONS {
+        uuid id PK
+        uuid screening_id FK
+        text holder_subject
+        text state
+        timestamptz hold_expires_at
+        timestamptz confirmed_at
+    }
+
+    SCREENING_SEATS {
+        uuid screening_id PK, FK
+        text seat_code PK
+        uuid reservation_id FK
+    }
+```
+
+### ERD field guide
+
+| Table | Field | Answers |
+| --- | --- | --- |
+| `screenings` | `id` | “Which showing is this?” Kino currently has one immutable screening. |
+| `screenings` | `title_id` | “Which catalog title is shown?” This is an IMDb/Mongo catalogue reference, not a cross-database foreign key. |
+| `reservations` | `id` | “Which hold or ticket lifecycle is this?” |
+| `reservations` | `screening_id` | “Which showing does this reservation belong to?” |
+| `reservations` | `holder_subject` | “Which authenticated Kino user owns it?” This is the opaque OIDC `sub`, not a Mongo `_id` or username. |
+| `reservations` | `state`, `hold_expires_at`, `confirmed_at` | “Is this a live hold or a confirmed ticket, and when did that state become invalid or final?” Database constraints require a confirmation time only for confirmed reservations. |
+| `screening_seats` | `(screening_id, seat_code)` | “Which physical seat in which showing?” The composite primary key permits each seat to appear once per screening. |
+| `screening_seats` | `reservation_id` | “Which reservation currently owns this seat?” It is `NULL` when no reservation is attached. Its composite foreign key prevents linking a seat to a reservation from another screening. |
+
+### Allocation lifecycle
+
+Read the model in this order:
+
+1. `screenings` identifies the showing and its source-catalogue title.
+2. `screening_seats` is the authoritative seat map. There is deliberately no
+   stored “available” flag: availability is derived from its reservation and
+   the database clock.
+3. A hold creates one `reservations` row in `HELD` state and attaches its seat
+   rows to that reservation. Confirmation changes that same row to `CONFIRMED`.
+
+The allocation transaction locks requested seat rows in a stable code order.
+An unexpired hold or confirmed reservation makes its seats unavailable. An
+expired hold is reclaimed lazily by a later hold: the historical reservation
+remains, while the seat points at the new reservation. Confirmed seats remain
+attached and sold. The fixed service intentionally has no payment records,
+schedule management, cancellation flow, or background expiry worker.
+
+### Ownership and safe inspection
+
+The root PostgreSQL bootstrap creates separate migrator and runtime roles.
+Flyway owns DDL and seed data; `kino_ticket_runtime` receives only the
+column-level `SELECT`, `INSERT`, and `UPDATE` privileges needed by this service.
+It cannot alter schema, read Flyway history, or update immutable seat identity.
+
+`holder_subject` is an opaque user identifier and should be treated as personal
+data. Inspect identifiers, state, expiry, and confirmation timestamps when
+debugging; do not manually change reservations or seat links in a live
+allocation database.
 
 ## Runtime contract
 
@@ -33,7 +117,7 @@ JWT validation remains the application-layer boundary.
 
 The allocation operation locks seat rows in immutable code order and uses
 PostgreSQL `clock_timestamp()` for expiry decisions. Expired holds are reclaimed
-lazily; confirmed seats remain sold. The lab deliberately retains expired
+lazily; confirmed seats remain sold. The service deliberately retains expired
 reservation history and has no expiry worker; introduce retention/cleanup only
 when Kino grows beyond this fixed, short-lived screening. Direct hold requests
 are independently capped at 1 KiB and return `413` when too large.

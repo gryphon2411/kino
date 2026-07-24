@@ -90,9 +90,9 @@ internal title search endpoint exposed by `data_service`.
 The important property is grounding: the agent is supposed to answer from
 catalog search results, not from open-ended model memory.
 
-### 6. Ticket allocation lab
+### 6. Ticket allocation
 
-The `tt0000001` title detail links to a small Fastify-first ticket lab. The
+The `tt0000001` title detail links to a small Fastify-first ticket service. The
 browser calls same-origin Next.js BFF routes; the BFF forwards its server-held
 user JWT to the private Fastify service. That service validates the ticket
 audience and scope, then uses PostgreSQL row locks and database time to hold or

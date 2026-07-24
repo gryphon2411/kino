@@ -7,7 +7,7 @@ service:
 clusterId: J1mmUOT9JBz1rNWKu2uZZi
 
 # One combined controller/broker is sufficient for Kino's single-node local
-# lab.  Clients use the stable Kafka Service, not an ordinal controller name.
+# deployment. Clients use the stable Kafka Service, not an ordinal controller name.
 controller:
   replicaCount: 1
   controllerOnly: false

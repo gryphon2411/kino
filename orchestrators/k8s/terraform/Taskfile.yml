@@ -90,13 +90,23 @@ tasks:
         printf '%s\n' \
           'Starting a localhost-only PostgreSQL tunnel for pgAdmin or psql.' \
           '' \
-          'pgAdmin connection:' \
+          'Shared pgAdmin settings:' \
           '  Host name/address: 127.0.0.1' \
           '  Port:              15432' \
+          '' \
+          'Kino auth connection:' \
           '  Maintenance DB:    kino_auth' \
           '  Username:          kino_auth_runtime' \
           '  Password:          TF_VAR_auth_database_runtime_password from .env' \
           '  Schema:            kino_auth' \
+          '' \
+          'Kino ticket connection (when enable_ticket_service=true):' \
+          '  Maintenance DB:    kino_ticket' \
+          '  Username:          kino_ticket_runtime' \
+          '  Password:          TF_VAR_ticket_database_runtime_password from .env' \
+          '  Schema:            kino_ticket' \
+          '' \
+          'Use the matching database and runtime role; they cannot connect to each other.' \
           '' \
           'Keep this terminal open while connected; press Ctrl+C to stop the tunnel.' \
           '' \
