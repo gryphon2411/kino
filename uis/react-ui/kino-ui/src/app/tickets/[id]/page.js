@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   Alert,
@@ -29,6 +29,13 @@ function seatRowCode(seatCode) {
   return seatCode.replace(/\d+$/, '');
 }
 
+function formatShowtime(startsAt) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(startsAt));
+}
+
 async function responseBody(response) {
   try {
     return await response.json();
@@ -40,7 +47,8 @@ async function responseBody(response) {
 export default function TicketPage() {
   const pathname = usePathname();
   const titleId = pathname.split('/').pop();
-  const [screening, setScreening] = useState(null);
+  const [screenings, setScreenings] = useState([]);
+  const [selectedScreeningId, setSelectedScreeningId] = useState(null);
   const [seats, setSeats] = useState([]);
   const [selected, setSelected] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +56,13 @@ export default function TicketPage() {
   const [error, setError] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const screeningRequestId = useRef(0);
+  const seatRequestId = useRef(0);
+
+  const screening = useMemo(
+    () => screenings.find((candidate) => candidate.id === selectedScreeningId) || null,
+    [screenings, selectedScreeningId]
+  );
 
   const reauthenticateIfNeeded = useCallback(async (response, body) => {
     if (
@@ -63,31 +78,15 @@ export default function TicketPage() {
     return false;
   }, [titleId]);
 
-  const loadSeats = useCallback(async ({ preserveError = false } = {}) => {
+  const loadSeats = useCallback(async (screeningId, { preserveError = false } = {}) => {
+    const requestId = ++seatRequestId.current;
     setLoading(true);
     if (!preserveError) {
       setError(null);
     }
     try {
-      const screeningsResponse = await fetch(
-        `/api/tickets/screenings?titleId=${encodeURIComponent(titleId)}`,
-        { cache: 'no-store' }
-      );
-      const screeningsBody = await responseBody(screeningsResponse);
-      if (await reauthenticateIfNeeded(screeningsResponse, screeningsBody)) {
-        return;
-      }
-      if (!screeningsResponse.ok) {
-        throw new Error(screeningsBody.error || 'Unable to load ticket screenings.');
-      }
-      const nextScreening = screeningsBody.screenings?.[0];
-      if (!nextScreening) {
-        throw new Error('No ticket screening is available for this title.');
-      }
-      setScreening(nextScreening);
-
       const seatsResponse = await fetch(
-        `/api/tickets/screenings/${encodeURIComponent(nextScreening.id)}/seats`,
+        `/api/tickets/screenings/${encodeURIComponent(screeningId)}/seats`,
         { cache: 'no-store' }
       );
       const seatsBody = await responseBody(seatsResponse);
@@ -97,17 +96,72 @@ export default function TicketPage() {
       if (!seatsResponse.ok) {
         throw new Error(seatsBody.error || 'Unable to load seats.');
       }
+      if (seatRequestId.current !== requestId) {
+        return;
+      }
       setSeats(seatsBody.seats || []);
     } catch (loadError) {
+      if (seatRequestId.current !== requestId) {
+        return;
+      }
+      setSeats([]);
       setError(loadError.message);
     } finally {
-      setLoading(false);
+      if (seatRequestId.current === requestId) {
+        setLoading(false);
+      }
     }
-  }, [reauthenticateIfNeeded, titleId]);
+  }, [reauthenticateIfNeeded]);
+
+  const loadScreenings = useCallback(async () => {
+    const requestId = ++screeningRequestId.current;
+    setLoading(true);
+    setError(null);
+    setSeats([]);
+    setScreenings([]);
+    setSelectedScreeningId(null);
+    try {
+      const response = await fetch(
+        `/api/tickets/screenings?titleId=${encodeURIComponent(titleId)}`,
+        { cache: 'no-store' }
+      );
+      const body = await responseBody(response);
+      if (await reauthenticateIfNeeded(response, body)) {
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(body.error || 'Unable to load ticket screenings.');
+      }
+      const nextScreenings = body.screenings || [];
+      const nextScreening = nextScreenings[0];
+      if (!nextScreening) {
+        throw new Error('No ticket screening is available for this title.');
+      }
+      if (screeningRequestId.current !== requestId) {
+        return;
+      }
+      setScreenings(nextScreenings);
+      setSelectedScreeningId(nextScreening.id);
+      await loadSeats(nextScreening.id);
+    } catch (loadError) {
+      if (screeningRequestId.current !== requestId) {
+        return;
+      }
+      setError(loadError.message);
+    } finally {
+      if (screeningRequestId.current === requestId) {
+        setLoading(false);
+      }
+    }
+  }, [loadSeats, reauthenticateIfNeeded, titleId]);
 
   useEffect(() => {
-    void loadSeats();
-  }, [loadSeats]);
+    void loadScreenings();
+    return () => {
+      screeningRequestId.current += 1;
+      seatRequestId.current += 1;
+    };
+  }, [loadScreenings]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
@@ -141,16 +195,23 @@ export default function TicketPage() {
     .map((hold) => new Date(hold.expiresAt).getTime())
     .sort((left, right) => left - right)[0], [holds]);
 
+  const refreshSelectedSeats = useCallback((options) => {
+    if (!selectedScreeningId) {
+      return Promise.resolve();
+    }
+    return loadSeats(selectedScreeningId, options);
+  }, [loadSeats, selectedScreeningId]);
+
   useEffect(() => {
     if (!nextHoldExpiry) {
       return undefined;
     }
     const timeout = window.setTimeout(() => {
       setSelected([]);
-      void loadSeats();
+      void refreshSelectedSeats();
     }, Math.max(0, nextHoldExpiry - Date.now()) + 50);
     return () => window.clearTimeout(timeout);
-  }, [loadSeats, nextHoldExpiry]);
+  }, [nextHoldExpiry, refreshSelectedSeats]);
 
   function toggleSeat(seat) {
     if (seat.status !== 'AVAILABLE' || submitting) {
@@ -163,6 +224,18 @@ export default function TicketPage() {
     setSelected((current) => current.includes(seat.code)
       ? current.filter((code) => code !== seat.code)
       : [...current, seat.code].sort());
+  }
+
+  function selectScreening(screeningId) {
+    if (screeningId === selectedScreeningId || submitting || loading || holds.length > 0) {
+      return;
+    }
+    setSelected([]);
+    setConfirmation(null);
+    setError(null);
+    setSeats([]);
+    setSelectedScreeningId(screeningId);
+    void loadSeats(screeningId);
   }
 
   async function createHold() {
@@ -188,13 +261,13 @@ export default function TicketPage() {
         throw new Error(body.error || 'Unable to hold the selected seats.');
       }
       setSelected([]);
-      await loadSeats();
+      await refreshSelectedSeats();
     } catch (holdError) {
       await refreshAfterWriteFailure(
         holdError,
         'Unable to hold the selected seats.',
         setError,
-        loadSeats
+        refreshSelectedSeats
       );
     } finally {
       setSubmitting(false);
@@ -217,13 +290,13 @@ export default function TicketPage() {
         throw new Error(body.error || 'Unable to confirm the ticket hold.');
       }
       setConfirmation(body);
-      await loadSeats();
+      await refreshSelectedSeats();
     } catch (confirmError) {
       await refreshAfterWriteFailure(
         confirmError,
         'Unable to confirm the ticket hold.',
         setError,
-        loadSeats
+        refreshSelectedSeats
       );
     } finally {
       setSubmitting(false);
@@ -250,6 +323,20 @@ export default function TicketPage() {
           </Alert>
         )}
         <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+          <Typography component="h2" variant="h6" gutterBottom>Choose a showtime</Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 3 }}>
+            {screenings.map((candidate) => (
+              <Button
+                key={candidate.id}
+                aria-pressed={candidate.id === selectedScreeningId}
+                disabled={loading || submitting || holds.length > 0}
+                onClick={() => selectScreening(candidate.id)}
+                variant={candidate.id === selectedScreeningId ? 'contained' : 'outlined'}
+              >
+                {formatShowtime(candidate.startsAt)}
+              </Button>
+            ))}
+          </Stack>
           <Typography component="h2" variant="h6" gutterBottom>Choose seats</Typography>
           <Box sx={{ mx: 'auto', maxWidth: 480 }}>
             <Typography
@@ -305,7 +392,7 @@ export default function TicketPage() {
           >
             Hold seats
           </Button>
-          <Button sx={{ mt: 2, ml: 1 }} disabled={submitting} onClick={() => void loadSeats()}>
+          <Button sx={{ mt: 2, ml: 1 }} disabled={submitting || !screening} onClick={() => void refreshSelectedSeats()}>
             Refresh seats
           </Button>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>

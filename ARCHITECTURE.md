@@ -92,11 +92,11 @@ catalog search results, not from open-ended model memory.
 
 ### 6. Ticket allocation
 
-The `tt0000001` title detail links to a small Fastify-first ticket service. The
-browser calls same-origin Next.js BFF routes; the BFF forwards its server-held
-user JWT to the private Fastify service. That service validates the ticket
-audience and scope, then uses PostgreSQL row locks and database time to hold or
-confirm fixed screening seats.
+Title details with scheduled showtimes link to a small Fastify-first ticket
+service. The browser calls same-origin Next.js BFF routes; the BFF forwards its
+server-held user JWT to the private Fastify service. That service validates the
+ticket audience and scope, then uses PostgreSQL row locks and database time to
+hold or confirm seats for the selected screening.
 
 `kino_ticket` is separate from both Mongo-backed user profiles and `kino_auth`
 OIDC protocol state. It deliberately demonstrates a small transactional

@@ -20,6 +20,9 @@ type SeatRow = QueryResultRow & {
 
 type LockedSeatRow = QueryResultRow & {
   seat_code: string;
+};
+
+type AllocationStateRow = QueryResultRow & {
   active_allocation: boolean;
 };
 
@@ -154,15 +157,8 @@ export class TicketService {
       async (client) => {
         await screeningForId(client, screeningId);
         const lockedSeats = await client.query<LockedSeatRow>(
-          `SELECT s.seat_code,
-                  CASE
-                    WHEN r.id IS NULL THEN FALSE
-                    WHEN r.state = 'CONFIRMED' THEN TRUE
-                    WHEN r.state = 'HELD' AND r.hold_expires_at > clock_timestamp() THEN TRUE
-                    ELSE FALSE
-                  END AS active_allocation
+          `SELECT s.seat_code
              FROM kino_ticket.screening_seats s
-             LEFT JOIN kino_ticket.reservations r ON r.id = s.reservation_id
             WHERE s.screening_id = $1 AND s.seat_code = ANY($2::text[])
             ORDER BY s.seat_code
             FOR UPDATE OF s`,
@@ -171,7 +167,23 @@ export class TicketService {
         if (lockedSeats.rowCount !== seatCodes.length) {
           throw new BadRequestError('unknown_seat', 'One or more requested seats do not exist.');
         }
-        if (lockedSeats.rows.some((seat) => seat.active_allocation)) {
+        // A conflicting hold can commit while this transaction waits for a seat
+        // lock. Query the reservation state in a new statement so PostgreSQL's
+        // Read Committed snapshot includes that committed allocation.
+        const allocationStates = await client.query<AllocationStateRow>(
+          `SELECT CASE
+                    WHEN r.id IS NULL THEN FALSE
+                    WHEN r.state = 'CONFIRMED' THEN TRUE
+                    WHEN r.state = 'HELD' AND r.hold_expires_at > clock_timestamp() THEN TRUE
+                    ELSE FALSE
+                  END AS active_allocation
+             FROM kino_ticket.screening_seats s
+             LEFT JOIN kino_ticket.reservations r ON r.id = s.reservation_id
+            WHERE s.screening_id = $1 AND s.seat_code = ANY($2::text[])
+            ORDER BY s.seat_code`,
+          [screeningId, seatCodes]
+        );
+        if (allocationStates.rows.some((seat) => seat.active_allocation)) {
           throw new ConflictError('seat_unavailable', 'One or more requested seats are unavailable.');
         }
 

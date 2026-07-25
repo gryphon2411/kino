@@ -36,11 +36,17 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
     await pool.query('CREATE SCHEMA kino_ticket');
     await pool.query('GRANT USAGE ON SCHEMA kino_ticket TO kino_ticket_runtime');
     await pool.query('REVOKE CREATE ON SCHEMA public FROM PUBLIC');
-    const migration = await readFile(resolve(
+    const migrationDirectory = resolve(
       import.meta.dirname,
-      '../../../../orchestrators/k8s/terraform/ticket-db-migrations/V1__ticket_allocation_lab.sql'
-    ), 'utf8');
-    await pool.query(migration);
+      '../../../../orchestrators/k8s/terraform/ticket-db-migrations'
+    );
+    for (const migrationName of [
+      'V1__ticket_allocation_lab.sql',
+      'V2__rename_screening.sql',
+      'V3__seed_ticket_showtimes.sql',
+    ]) {
+      await pool.query(await readFile(resolve(migrationDirectory, migrationName), 'utf8'));
+    }
     await pool.query('CREATE TABLE kino_ticket.flyway_schema_history (installed_rank integer)');
     const config = ticketTestConfig({
       databaseUrl: connectionString,
@@ -109,6 +115,51 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
     );
     assert.equal(abortedTable.rows[0].table_name, null);
     const screeningId = '00000000-0000-0000-0000-000000000001';
+    const secondScreeningId = '00000000-0000-0000-0000-000000000002';
+    const seededScreenings = await pool.query<{
+      id: string;
+      title_id: string;
+      label: string;
+    }>(
+      `SELECT id::text, title_id, label
+         FROM kino_ticket.screenings
+        ORDER BY title_id, starts_at`
+    );
+    assert.equal(seededScreenings.rowCount, 6);
+    assert.deepEqual(
+      (await tickets.screenings('tt0000001')).map((screening) => screening.id),
+      [screeningId, secondScreeningId]
+    );
+    assert.deepEqual(
+      (await tickets.screenings('tt0000002')).map((screening) => screening.id),
+      [
+        '00000000-0000-0000-0000-000000000003',
+        '00000000-0000-0000-0000-000000000004',
+      ]
+    );
+    assert.deepEqual(
+      (await tickets.screenings('tt0000003')).map((screening) => screening.id),
+      [
+        '00000000-0000-0000-0000-000000000005',
+        '00000000-0000-0000-0000-000000000006',
+      ]
+    );
+    assert.ok(seededScreenings.rows.every((screening) => screening.label === 'Kino allocation'));
+    const seatCounts = await pool.query<{ seat_count: number }>(
+      `SELECT count(*)::integer AS seat_count
+         FROM kino_ticket.screening_seats
+        GROUP BY screening_id`
+    );
+    assert.equal(seatCounts.rowCount, 6);
+    assert.ok(seatCounts.rows.every((screening) => screening.seat_count === 15));
+
+    const [firstScreeningHold, secondScreeningHold] = await Promise.all([
+      tickets.hold(screeningId, 'subject-one', ['A5']),
+      tickets.hold(secondScreeningId, 'subject-two', ['A5']),
+    ]);
+    assert.deepEqual(firstScreeningHold.seatCodes, ['A5']);
+    assert.deepEqual(secondScreeningHold.seatCodes, ['A5']);
+
     const allocations = await Promise.allSettled([
       tickets.hold(screeningId, 'subject-one', ['A1', 'A2']),
       tickets.hold(screeningId, 'subject-two', ['A2', 'A3']),
@@ -142,7 +193,7 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
       connectionString: `postgresql://kino_ticket_runtime:runtime-password@${container.getHost()}:${container.getMappedPort(5432)}/kino_ticket`,
     });
     const runtimeTickets = new TicketService(runtimePool, config);
-    assert.equal((await runtimeTickets.screenings('tt0000001')).length, 1);
+    assert.equal((await runtimeTickets.screenings('tt0000001')).length, 2);
     assert.equal((await runtimeTickets.seats(screeningId, 'subject-runtime')).seats.length, 15);
     const runtimeHold = await runtimeTickets.hold(screeningId, 'subject-runtime', ['C2']);
     const runtimeConfirmation = await runtimeTickets.confirm(runtimeHold.id, 'subject-runtime');
