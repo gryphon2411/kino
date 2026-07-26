@@ -50,9 +50,9 @@ export async function withTransaction<T>(
     await client.query(`SET LOCAL statement_timeout = '${timeouts.statementTimeoutMs}ms'`);
     await client.query(`SET LOCAL transaction_timeout = '${timeouts.transactionTimeoutMs}ms'`);
     const result = await work(client);
-    // Fastify cancellation is cooperative. PostgreSQL queries already in
-    // flight remain bounded by the transaction timeouts above; never commit
-    // their result after the caller has gone away.
+    // Cancellation is cooperative. PostgreSQL queries already in flight
+    // remain bounded by the transaction timeouts above; callers may opt in
+    // only when they have a signal that represents a real cancellation.
     throwIfAborted(signal);
     await client.query('COMMIT');
     return result;

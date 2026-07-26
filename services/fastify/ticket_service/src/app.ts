@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import type { DatabaseError } from 'pg';
 import { createTicketAuthenticator } from './auth.js';
 import type { TicketConfig } from './config.js';
-import { OperationAbortedError, type TicketDatabase } from './database.js';
+import type { TicketDatabase } from './database.js';
 import {
   InsufficientScopeError,
   InvalidTokenError,
@@ -78,7 +78,10 @@ function isRetryableDatabaseError(error: unknown): boolean {
 }
 
 function requestWasAborted(request: FastifyRequest): boolean {
-  return request.signal.aborted;
+  // In Fastify 5, request.signal is aborted when IncomingMessage emits
+  // "close", including a normal completed request body. `aborted` tracks an
+  // actual interrupted incoming request, so it is safe to use for reads.
+  return request.raw.aborted;
 }
 
 export function buildApp(config: TicketConfig, database: TicketDatabase): FastifyInstance {
@@ -270,23 +273,7 @@ export function buildApp(config: TicketConfig, database: TicketDatabase): Fastif
     const { screeningId } = request.params;
     const { seatCodes } = request.body;
     reply.header('Cache-Control', 'private, no-store');
-    try {
-      const reservation = await tickets.hold(
-        screeningId,
-        ticketUser.subject,
-        seatCodes,
-        request.signal
-      );
-      if (requestWasAborted(request)) {
-        return;
-      }
-      return reservation;
-    } catch (error) {
-      if (error instanceof OperationAbortedError && requestWasAborted(request)) {
-        return;
-      }
-      throw error;
-    }
+    return tickets.hold(screeningId, ticketUser.subject, seatCodes);
   });
 
   app.post<{ Params: ReservationParams }>('/v1/reservations/:reservationId/confirm', {
@@ -309,18 +296,7 @@ export function buildApp(config: TicketConfig, database: TicketDatabase): Fastif
     }
     const { reservationId } = request.params;
     reply.header('Cache-Control', 'private, no-store');
-    try {
-      const reservation = await tickets.confirm(reservationId, ticketUser.subject, request.signal);
-      if (requestWasAborted(request)) {
-        return;
-      }
-      return reservation;
-    } catch (error) {
-      if (error instanceof OperationAbortedError && requestWasAborted(request)) {
-        return;
-      }
-      throw error;
-    }
+    return tickets.confirm(reservationId, ticketUser.subject);
   });
 
   return app;

@@ -26,6 +26,68 @@ const database = {
   end: async () => undefined,
 } as unknown as TicketDatabase;
 
+function allocationDatabase() {
+  const queries: string[] = [];
+  const client = {
+    on: () => client,
+    off: () => client,
+    release: () => undefined,
+    query: async (query: string) => {
+      queries.push(query);
+      if (
+        query === 'BEGIN'
+        || query === 'COMMIT'
+        || query === 'ROLLBACK'
+        || query.startsWith('SET LOCAL ')
+      ) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (query.includes('FROM kino_ticket.screenings')) {
+        return {
+          rows: [{
+            id: '00000000-0000-0000-0000-000000000001',
+            title_id: 'tt0000001',
+            label: 'Kino allocation',
+            starts_at: new Date('2030-01-01T20:00:00Z'),
+          }],
+          rowCount: 1,
+        };
+      }
+      if (query.includes('FOR UPDATE OF s')) {
+        return { rows: [{ seat_code: 'A1' }], rowCount: 1 };
+      }
+      if (query.includes('AS active_allocation')) {
+        return { rows: [{ active_allocation: false }], rowCount: 1 };
+      }
+      if (query.includes('INSERT INTO kino_ticket.reservations')) {
+        // Let the ordinary request-body close event occur before COMMIT.
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        return {
+          rows: [{
+            id: '00000000-0000-0000-0000-000000000099',
+            state: 'HELD',
+            hold_expires_at: new Date('2030-01-01T20:02:00Z'),
+            confirmed_at: null,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (query.includes('UPDATE kino_ticket.screening_seats')) {
+        return { rows: [], rowCount: 1 };
+      }
+      throw new Error(`Unexpected allocation query: ${query}`);
+    },
+  };
+  return {
+    database: {
+      query: async () => ({ rows: [], rowCount: 0 }),
+      connect: async () => client,
+      end: async () => undefined,
+    } as unknown as TicketDatabase,
+    queries,
+  };
+}
+
 async function withJwks(
   run: (config: TicketConfig, sign: (scope?: string, options?: TokenOptions) => Promise<string>) => Promise<void>,
   options: { responseStatus?: number; responseDelayMs?: number } = {}
@@ -166,6 +228,42 @@ test('Fastify validates issuer, audience, expiry, and scopes through its configu
       });
       assert.equal(wrongTokenType.statusCode, 401);
       assert.match(String(wrongTokenType.headers['www-authenticate'] ?? ''), /invalid_token/);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+test('Fastify commits and returns a normal network hold request', async () => {
+  await withJwks(async (config, sign) => {
+    const allocation = allocationDatabase();
+    const app = buildApp(config, allocation.database);
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const address = app.server.address();
+    if (!address || typeof address === 'string') {
+      throw new Error('Test ticket server did not bind a TCP port.');
+    }
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:${address.port}/v1/screenings/00000000-0000-0000-0000-000000000001/holds`,
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${await sign('kino.ticket.write')}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ seatCodes: ['A1'] }),
+        }
+      );
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        id: '00000000-0000-0000-0000-000000000099',
+        state: 'HELD',
+        expiresAt: '2030-01-01T20:02:00.000Z',
+        seatCodes: ['A1'],
+      });
+      assert.ok(allocation.queries.includes('COMMIT'));
+      assert.equal(allocation.queries.includes('ROLLBACK'), false);
     } finally {
       await app.close();
     }
