@@ -325,12 +325,13 @@ The allocation runtime requires PostgreSQL 17 or newer: it uses
 before the BFF deadline. Any `postgres_image_ref` override must preserve that
 version requirement.
 
-The educational schedule contains two showtimes each for IMDb titles
-`tt0000001`, `tt0000002`, and `tt0000003`. It uses PostgreSQL row locking and
-database time for two-minute holds; it intentionally does not include payments,
-cancellation, schedule management, or a background expiry worker. The internal
-JWK URI remains Kino's explicit local/dev trust binding rather than OIDC
-Discovery.
+The educational schedule contains three showtimes for IMDb title `tt0000001`
+and two each for `tt0000002` and `tt0000003`. The third `tt0000001` showing
+uses a four-row, five-seat map; the other showings use three rows of five. It
+uses PostgreSQL row locking and database time for two-minute holds; it
+intentionally does not include payments, cancellation, schedule management, or
+a background expiry worker. The internal JWK URI remains Kino's explicit
+local/dev trust binding rather than OIDC Discovery.
 
 ## Agent Service
 

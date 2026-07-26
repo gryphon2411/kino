@@ -54,7 +54,7 @@ function allocationDatabase() {
         };
       }
       if (query.includes('FOR UPDATE OF s')) {
-        return { rows: [{ seat_code: 'A1' }], rowCount: 1 };
+        return { rows: [{ seat_code: 'D1' }], rowCount: 1 };
       }
       if (query.includes('AS active_allocation')) {
         return { rows: [{ active_allocation: false }], rowCount: 1 };
@@ -252,7 +252,7 @@ test('Fastify commits and returns a normal network hold request', async () => {
             authorization: `Bearer ${await sign('kino.ticket.write')}`,
             'content-type': 'application/json',
           },
-          body: JSON.stringify({ seatCodes: ['A1'] }),
+          body: JSON.stringify({ seatCodes: ['D1'] }),
         }
       );
       assert.equal(response.status, 200);
@@ -260,7 +260,7 @@ test('Fastify commits and returns a normal network hold request', async () => {
         id: '00000000-0000-0000-0000-000000000099',
         state: 'HELD',
         expiresAt: '2030-01-01T20:02:00.000Z',
-        seatCodes: ['A1'],
+        seatCodes: ['D1'],
       });
       assert.ok(allocation.queries.includes('COMMIT'));
       assert.equal(allocation.queries.includes('ROLLBACK'), false);

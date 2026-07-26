@@ -9,7 +9,7 @@ import {
   OperationAbortedError,
   withTransaction,
 } from '../src/database.js';
-import { ConflictError } from '../src/errors.js';
+import { BadRequestError, ConflictError } from '../src/errors.js';
 import { TicketService } from '../src/tickets.js';
 import { ticketTestConfig } from './support/config.js';
 
@@ -44,6 +44,7 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
       'V1__ticket_allocation_lab.sql',
       'V2__rename_screening.sql',
       'V3__seed_ticket_showtimes.sql',
+      'V4__add_alternate_ticket_seating.sql',
     ]) {
       await pool.query(await readFile(resolve(migrationDirectory, migrationName), 'utf8'));
     }
@@ -116,6 +117,7 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
     assert.equal(abortedTable.rows[0].table_name, null);
     const screeningId = '00000000-0000-0000-0000-000000000001';
     const secondScreeningId = '00000000-0000-0000-0000-000000000002';
+    const alternateScreeningId = '00000000-0000-0000-0000-000000000007';
     const seededScreenings = await pool.query<{
       id: string;
       title_id: string;
@@ -125,10 +127,10 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
          FROM kino_ticket.screenings
         ORDER BY title_id, starts_at`
     );
-    assert.equal(seededScreenings.rowCount, 6);
+    assert.equal(seededScreenings.rowCount, 7);
     assert.deepEqual(
       (await tickets.screenings('tt0000001')).map((screening) => screening.id),
-      [screeningId, secondScreeningId]
+      [screeningId, secondScreeningId, alternateScreeningId]
     );
     assert.deepEqual(
       (await tickets.screenings('tt0000002')).map((screening) => screening.id),
@@ -150,8 +152,11 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
          FROM kino_ticket.screening_seats
         GROUP BY screening_id`
     );
-    assert.equal(seatCounts.rowCount, 6);
-    assert.ok(seatCounts.rows.every((screening) => screening.seat_count === 15));
+    assert.equal(seatCounts.rowCount, 7);
+    assert.deepEqual(
+      seatCounts.rows.map((screening) => screening.seat_count).sort((left, right) => left - right),
+      [15, 15, 15, 15, 15, 15, 20]
+    );
 
     const [firstScreeningHold, secondScreeningHold] = await Promise.all([
       tickets.hold(screeningId, 'subject-one', ['A5']),
@@ -159,6 +164,17 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
     ]);
     assert.deepEqual(firstScreeningHold.seatCodes, ['A5']);
     assert.deepEqual(secondScreeningHold.seatCodes, ['A5']);
+
+    const alternateScreeningHold = await tickets.hold(
+      alternateScreeningId,
+      'subject-three',
+      ['D1']
+    );
+    assert.deepEqual(alternateScreeningHold.seatCodes, ['D1']);
+    await assert.rejects(
+      tickets.hold(screeningId, 'subject-three', ['D1']),
+      (error: unknown) => error instanceof BadRequestError && error.code === 'unknown_seat'
+    );
 
     const allocations = await Promise.allSettled([
       tickets.hold(screeningId, 'subject-one', ['A1', 'A2']),
@@ -193,8 +209,9 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
       connectionString: `postgresql://kino_ticket_runtime:runtime-password@${container.getHost()}:${container.getMappedPort(5432)}/kino_ticket`,
     });
     const runtimeTickets = new TicketService(runtimePool, config);
-    assert.equal((await runtimeTickets.screenings('tt0000001')).length, 2);
+    assert.equal((await runtimeTickets.screenings('tt0000001')).length, 3);
     assert.equal((await runtimeTickets.seats(screeningId, 'subject-runtime')).seats.length, 15);
+    assert.equal((await runtimeTickets.seats(alternateScreeningId, 'subject-runtime')).seats.length, 20);
     const runtimeHold = await runtimeTickets.hold(screeningId, 'subject-runtime', ['C2']);
     const runtimeConfirmation = await runtimeTickets.confirm(runtimeHold.id, 'subject-runtime');
     assert.equal(runtimeConfirmation.state, 'CONFIRMED');

@@ -11,7 +11,9 @@ import {
 } from './errors.js';
 import { TicketService } from './tickets.js';
 
-const seatCodeSchema = { type: 'string', pattern: '^[A-C][1-5]$' };
+// Kino's seeded maps currently use rows A-D and seats 1-5. The database still
+// determines whether a syntactically valid seat belongs to a screening.
+const seatCodeSchema = { type: 'string', pattern: '^[A-D][1-5]$' };
 const holdRequestBodyLimitBytes = 1024;
 type ScreeningQuerystring = { titleId: string };
 type ScreeningParams = { screeningId: string };

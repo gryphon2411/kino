@@ -1,17 +1,18 @@
 # Kino ticket service
 
-This is Kino's Fastify-first ticket-allocation service. It owns one fixed screening
-for `tt0000001` in PostgreSQL and accepts user JWTs only from Kino's Next.js
-BFF. It is intentionally private: browsers call `/api/tickets/*` on the BFF,
-not this service. Kubernetes also permits ingress only from the UI/BFF pod;
-JWT validation remains the application-layer boundary.
+This is Kino's Fastify-first ticket-allocation service. It owns a fixed
+PostgreSQL sample schedule: three showtimes for `tt0000001` and two each for
+`tt0000002` and `tt0000003`. It accepts user JWTs only from Kino's Next.js BFF.
+It is intentionally private: browsers call `/api/tickets/*` on the BFF, not
+this service. Kubernetes also permits ingress only from the UI/BFF pod; JWT
+validation remains the application-layer boundary.
 
 ## PostgreSQL allocation persistence model
 
 This logical entity-relationship diagram (ERD) shows the records and fields
 needed to understand seat allocation. It is not the complete physical schema.
-The Flyway [schema migration](../../../orchestrators/k8s/terraform/ticket-db-migrations/V1__ticket_allocation_lab.sql)
-is the authoritative definition of every PostgreSQL column, constraint, seed,
+The Flyway [migrations](../../../orchestrators/k8s/terraform/ticket-db-migrations/)
+are the authoritative definition of every PostgreSQL column, constraint, seed,
 index, and runtime grant.
 
 `timestamptz` is PostgreSQL shorthand for `timestamp with time zone`; it records
@@ -51,7 +52,7 @@ erDiagram
 
 | Table | Field | Answers |
 | --- | --- | --- |
-| `screenings` | `id` | “Which showing is this?” Kino currently has one immutable screening. |
+| `screenings` | `id` | “Which showing is this?” Kino seeds a small immutable schedule. |
 | `screenings` | `title_id` | “Which catalog title is shown?” This is an IMDb/Mongo catalogue reference, not a cross-database foreign key. |
 | `reservations` | `id` | “Which hold or ticket lifecycle is this?” |
 | `reservations` | `screening_id` | “Which showing does this reservation belong to?” |
@@ -75,8 +76,8 @@ The allocation transaction locks requested seat rows in a stable code order.
 An unexpired hold or confirmed reservation makes its seats unavailable. An
 expired hold is reclaimed lazily by a later hold: the historical reservation
 remains, while the seat points at the new reservation. Confirmed seats remain
-attached and sold. The fixed service intentionally has no payment records,
-schedule management, cancellation flow, or background expiry worker.
+attached and sold. The service intentionally has no payment records, schedule
+management, cancellation flow, or background expiry worker.
 
 ### Ownership and safe inspection
 
@@ -110,16 +111,15 @@ allocation database.
   individual SQL statement. PostgreSQL applies the configured statement timeout
   to both transactional allocation and read-only queries.
 - Fastify's application-level handler timeout and Node's request/header receive
-  timeouts use the BFF deadline. Write routes pass Fastify's cancellation signal
-  into the transaction boundary, which rolls back instead of committing when the
-  request has already been aborted. PostgreSQL's timeouts retain the bound for a
-  statement that was already in flight when cancellation occurred.
+  timeouts use the BFF deadline. Write routes commit through their transaction
+  boundary; PostgreSQL's timeouts retain the bound for a statement already in
+  flight when a client disconnects.
 
 The allocation operation locks seat rows in immutable code order and uses
 PostgreSQL `clock_timestamp()` for expiry decisions. Expired holds are reclaimed
 lazily; confirmed seats remain sold. The service deliberately retains expired
 reservation history and has no expiry worker; introduce retention/cleanup only
-when Kino grows beyond this fixed, short-lived screening. Direct hold requests
+when Kino grows beyond this fixed, short-lived sample schedule. Direct hold requests
 are independently capped at 1 KiB and return `413` when too large.
 
 On `SIGTERM` or `SIGINT`, the service stops accepting requests, closes Fastify,
