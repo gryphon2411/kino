@@ -36,7 +36,7 @@ erDiagram
         uuid id PK
         uuid screening_id FK
         text holder_subject
-        text state
+        reservation_state state
         timestamptz hold_expires_at
         timestamptz confirmed_at
     }
@@ -57,7 +57,7 @@ erDiagram
 | `reservations` | `id` | “Which hold or ticket lifecycle is this?” |
 | `reservations` | `screening_id` | “Which showing does this reservation belong to?” |
 | `reservations` | `holder_subject` | “Which authenticated Kino user owns it?” This is the opaque OIDC `sub`, not a Mongo `_id` or username. |
-| `reservations` | `state`, `hold_expires_at`, `confirmed_at` | “Is this a live hold or a confirmed ticket, and when did that state become invalid or final?” Database constraints require a confirmation time only for confirmed reservations. |
+| `reservations` | `state`, `hold_expires_at`, `confirmed_at` | “Is this a live hold or a confirmed ticket, and when did that state become invalid or final?” `state` is PostgreSQL's `reservation_state` enum: the intentionally stable `HELD` and `CONFIRMED` values. Database constraints require a confirmation time only for confirmed reservations. |
 | `screening_seats` | `(screening_id, seat_code)` | “Which physical seat in which showing?” The composite primary key permits each seat to appear once per screening. |
 | `screening_seats` | `reservation_id` | “Which reservation currently owns this seat?” It is `NULL` when no reservation is attached. Its composite foreign key prevents linking a seat to a reservation from another screening. |
 
@@ -135,6 +135,7 @@ unprivileged `node` user with no Linux capabilities.
 - [node-postgres transactions](https://node-postgres.com/features/transactions)
 - [node-postgres pool configuration](https://node-postgres.com/apis/pool)
 - [PostgreSQL explicit locking](https://www.postgresql.org/docs/current/explicit-locking.html)
+- [PostgreSQL enumerated types](https://www.postgresql.org/docs/current/datatype-enum.html)
 - [PostgreSQL client connection defaults](https://www.postgresql.org/docs/current/runtime-config-client.html)
 - [PostgreSQL date/time functions](https://www.postgresql.org/docs/current/functions-datetime.html)
 - [RFC 6750 bearer errors](https://www.rfc-editor.org/rfc/rfc6750.html)

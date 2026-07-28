@@ -18,6 +18,11 @@ export type TicketUser = {
   subject: string;
 };
 
+export type TicketAuthenticator = (
+  request: FastifyRequest,
+  requiredScope: string
+) => Promise<TicketUser>;
+
 function bearerToken(request: FastifyRequest): string {
   const authorization = request.headers.authorization;
   const match = authorization && /^Bearer\s+(.+)$/i.exec(authorization);
@@ -50,7 +55,7 @@ function isJwkServiceFailure(error: unknown): boolean {
     || error instanceof TypeError;
 }
 
-export function createTicketAuthenticator(config: TicketConfig) {
+export function createTicketAuthenticator(config: TicketConfig): TicketAuthenticator {
   const jwks = createRemoteJWKSet(new URL(config.authJwkSetUri), {
     // Keep a cold cache or key rotation inside the BFF's end-to-end deadline.
     timeoutDuration: config.jwkTimeoutMs,

@@ -151,7 +151,7 @@ async function withJwks(
   }
 }
 
-test('Fastify validates issuer, audience, expiry, and scopes through its configured JWKS', async () => {
+test('Fastify application validates issuer, audience, expiry, and scopes through its configured JWKS', async () => {
   await withJwks(async (config, sign) => {
     const app = buildApp(config, database);
     try {

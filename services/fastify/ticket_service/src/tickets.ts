@@ -4,6 +4,9 @@ import type { TicketConfig } from './config.js';
 import { withTransaction, type TicketDatabase } from './database.js';
 import { BadRequestError, ConflictError, NotFoundError } from './errors.js';
 
+export const reservationStates = ['HELD', 'CONFIRMED'] as const;
+export type ReservationState = (typeof reservationStates)[number];
+
 type ScreeningRow = QueryResultRow & {
   id: string;
   title_id: string;
@@ -28,7 +31,7 @@ type AllocationStateRow = QueryResultRow & {
 
 type ReservationRow = QueryResultRow & {
   id: string;
-  state: 'HELD' | 'CONFIRMED';
+  state: ReservationState;
   hold_expires_at: Date;
   confirmed_at: Date | null;
 };
@@ -42,7 +45,7 @@ export type Seat = {
 
 export type Reservation = {
   id: string;
-  state: 'HELD' | 'CONFIRMED';
+  state: ReservationState;
   expiresAt: string;
   confirmedAt?: string;
   seatCodes: string[];

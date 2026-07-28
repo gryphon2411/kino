@@ -45,6 +45,7 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
       'V2__rename_screening.sql',
       'V3__seed_ticket_showtimes.sql',
       'V4__add_alternate_ticket_seating.sql',
+      'V5__use_reservation_state_enum.sql',
     ]) {
       await pool.query(await readFile(resolve(migrationDirectory, migrationName), 'utf8'));
     }
@@ -53,6 +54,34 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
       databaseUrl: connectionString,
     });
     const tickets = new TicketService(pool, config);
+    const reservationStateType = await pool.query<{ state_type: string }>(
+      `SELECT format_type(attribute.atttypid, attribute.atttypmod) AS state_type
+         FROM pg_attribute AS attribute
+         JOIN pg_class AS relation ON relation.oid = attribute.attrelid
+         JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+        WHERE namespace.nspname = 'kino_ticket'
+          AND relation.relname = 'reservations'
+          AND attribute.attname = 'state'
+          AND NOT attribute.attisdropped`
+    );
+    assert.deepEqual(reservationStateType.rows, [{ state_type: 'kino_ticket.reservation_state' }]);
+    const reservationStateLabels = await pool.query<{ enumlabel: string }>(
+      `SELECT enum.enumlabel
+         FROM pg_enum AS enum
+         JOIN pg_type AS type ON type.oid = enum.enumtypid
+         JOIN pg_namespace AS namespace ON namespace.oid = type.typnamespace
+        WHERE namespace.nspname = 'kino_ticket'
+          AND type.typname = 'reservation_state'
+        ORDER BY enum.enumsortorder`
+    );
+    assert.deepEqual(
+      reservationStateLabels.rows.map((state) => state.enumlabel),
+      ['HELD', 'CONFIRMED']
+    );
+    await assert.rejects(
+      pool.query("SELECT 'CANCELLED'::kino_ticket.reservation_state"),
+      /invalid input value for enum/
+    );
     const boundedDatabase = createTicketDatabase({
       ...config,
       databaseConnectionTimeoutMs: 100,
