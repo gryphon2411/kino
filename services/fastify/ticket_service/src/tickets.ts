@@ -213,57 +213,59 @@ export class TicketService {
   }
 
   async confirm(reservationId: string, subject: string, signal?: AbortSignal): Promise<Reservation> {
+    const confirmReservation = async (client: PoolClient): Promise<Reservation> => {
+      const ownedReservation = await client.query<{ id: string }>(
+        `SELECT id
+           FROM kino_ticket.reservations
+          WHERE id = $1 AND holder_subject = $2`,
+        [reservationId, subject]
+      );
+      if (ownedReservation.rowCount !== 1) {
+        throw new NotFoundError('The requested reservation was not found.');
+      }
+
+      const lockedSeats = await client.query<{ seat_code: string }>(
+        `SELECT seat_code
+           FROM kino_ticket.screening_seats
+          WHERE reservation_id = $1
+          ORDER BY seat_code
+          FOR UPDATE`,
+        [reservationId]
+      );
+      const parent = await client.query<ReservationRow>(
+        `SELECT id, state, hold_expires_at, confirmed_at
+           FROM kino_ticket.reservations
+          WHERE id = $1 AND holder_subject = $2
+          FOR UPDATE`,
+        [reservationId, subject]
+      );
+      if (parent.rowCount !== 1) {
+        throw new NotFoundError('The requested reservation was not found.');
+      }
+      if (parent.rows[0].state === 'CONFIRMED') {
+        return toReservation(parent.rows[0], lockedSeats.rows.map((seat) => seat.seat_code));
+      }
+
+      const confirmed = await client.query<ReservationRow>(
+        `UPDATE kino_ticket.reservations
+            SET state = 'CONFIRMED', confirmed_at = clock_timestamp()
+          WHERE id = $1
+            AND holder_subject = $2
+            AND state = 'HELD'
+            AND hold_expires_at > clock_timestamp()
+        RETURNING id, state, hold_expires_at, confirmed_at`,
+        [reservationId, subject]
+      );
+      if (confirmed.rowCount !== 1) {
+        throw new ConflictError('hold_expired', 'The ticket hold has expired.');
+      }
+      return toReservation(confirmed.rows[0], lockedSeats.rows.map((seat) => seat.seat_code));
+    };
+
     return withTransaction(
       this.database,
       this.config,
-      async (client) => {
-        const ownedReservation = await client.query<{ id: string }>(
-          `SELECT id
-             FROM kino_ticket.reservations
-            WHERE id = $1 AND holder_subject = $2`,
-          [reservationId, subject]
-        );
-        if (ownedReservation.rowCount !== 1) {
-          throw new NotFoundError('The requested reservation was not found.');
-        }
-
-        const lockedSeats = await client.query<{ seat_code: string }>(
-          `SELECT seat_code
-             FROM kino_ticket.screening_seats
-            WHERE reservation_id = $1
-            ORDER BY seat_code
-            FOR UPDATE`,
-          [reservationId]
-        );
-        const parent = await client.query<ReservationRow>(
-          `SELECT id, state, hold_expires_at, confirmed_at
-             FROM kino_ticket.reservations
-            WHERE id = $1 AND holder_subject = $2
-            FOR UPDATE`,
-          [reservationId, subject]
-        );
-        if (parent.rowCount !== 1) {
-          throw new NotFoundError('The requested reservation was not found.');
-        }
-        if (parent.rows[0].state === 'CONFIRMED') {
-          return toReservation(parent.rows[0], lockedSeats.rows.map((seat) => seat.seat_code));
-        }
-
-        const confirmed = await client.query<ReservationRow>(
-          `UPDATE kino_ticket.reservations
-              SET state = 'CONFIRMED', confirmed_at = clock_timestamp()
-            WHERE id = $1
-              AND holder_subject = $2
-              AND state = 'HELD'
-              AND hold_expires_at > clock_timestamp()
-          RETURNING id, state, hold_expires_at, confirmed_at`,
-          [reservationId, subject]
-        );
-        if (confirmed.rowCount !== 1) {
-          throw new ConflictError('hold_expired', 'The ticket hold has expired.');
-        }
-        return toReservation(confirmed.rows[0], lockedSeats.rows.map((seat) => seat.seat_code));
-      },
+      confirmReservation,
       signal
     );
   }

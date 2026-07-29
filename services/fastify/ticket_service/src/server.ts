@@ -19,22 +19,24 @@ async function start() {
 let shutdownPromise: Promise<number> | undefined;
 
 function shutdown(): Promise<number> {
-  shutdownPromise ??= (async () => {
-    let failed = false;
-    try {
-      await app.close();
-    } catch (error) {
-      failed = true;
-      app.log.error(error, 'ticket-service failed to close Fastify');
-    }
-    try {
-      await database.end();
-    } catch (error) {
-      failed = true;
-      app.log.error(error, 'ticket-service failed to close database connections');
-    }
-    return failed ? 1 : 0;
-  })();
+  if (shutdownPromise === undefined) {
+    shutdownPromise = (async () => {
+      let failed = false;
+      try {
+        await app.close();
+      } catch (error) {
+        failed = true;
+        app.log.error(error, 'ticket-service failed to close Fastify');
+      }
+      try {
+        await database.end();
+      } catch (error) {
+        failed = true;
+        app.log.error(error, 'ticket-service failed to close database connections');
+      }
+      return failed ? 1 : 0;
+    })();
+  }
   return shutdownPromise;
 }
 
