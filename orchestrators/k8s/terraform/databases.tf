@@ -88,7 +88,7 @@ resource "kubernetes_stateful_set" "mongodb" {
             period_seconds        = 5
             # A cold mongosh invocation can exceed the Kubernetes default one
             # second timeout even after mongod is ready to serve traffic.
-            timeout_seconds       = 5
+            timeout_seconds = 5
           }
 
           volume_mount {
