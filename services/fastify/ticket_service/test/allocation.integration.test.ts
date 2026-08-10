@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { GenericContainer, Wait } from 'testcontainers';
 import {
@@ -9,13 +11,31 @@ import {
   OperationAbortedError,
   withTransaction,
 } from '../src/database.js';
-import { BadRequestError, ConflictError } from '../src/errors.js';
+import {
+  BadRequestError,
+  ConflictError,
+  ServiceUnavailableError,
+} from '../src/errors.js';
+import { PrismaClient } from '../src/generated/prisma/client.js';
+import { PrismaSeatPresetRepository } from '../src/prisma-seat-preset-repository.js';
+import { SeatPresetService } from '../src/seat-presets.js';
 import { TicketService } from '../src/tickets.js';
 import { ticketTestConfig } from './support/config.js';
 
 const integrationTest = process.env.RUN_POSTGRES_INTEGRATION_TESTS === 'true'
   ? test
   : test.skip;
+
+async function closedLoopbackPort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('Closed-port test server did not bind a TCP port.');
+  }
+  await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  return address.port;
+}
 
 integrationTest('allocation serializes overlap, lazily reclaims expiry, and protects runtime privileges', async () => {
   const container = await new GenericContainer('postgres:17-alpine')
@@ -31,6 +51,7 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
   const connectionString = `postgresql://postgres:test-password@${container.getHost()}:${container.getMappedPort(5432)}/kino_ticket`;
   const pool = new Pool({ connectionString });
   let runtimePool: Pool | undefined;
+  let runtimePrisma: PrismaClient | undefined;
   try {
     await pool.query('CREATE ROLE kino_ticket_runtime NOLOGIN');
     await pool.query('CREATE SCHEMA kino_ticket');
@@ -46,6 +67,7 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
       'V3__seed_ticket_showtimes.sql',
       'V4__add_alternate_ticket_seating.sql',
       'V5__use_reservation_state_enum.sql',
+      'V6__add_seat_presets.sql',
     ]) {
       await pool.query(await readFile(resolve(migrationDirectory, migrationName), 'utf8'));
     }
@@ -54,6 +76,13 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
       databaseUrl: connectionString,
     });
     const tickets = new TicketService(pool, config);
+    const prisma = new PrismaClient({
+      adapter: new PrismaPg(pool, {
+        schema: 'kino_ticket',
+        disposeExternalPool: false,
+      }),
+    });
+    const seatPresets = new SeatPresetService(new PrismaSeatPresetRepository(prisma));
     const reservationStateType = await pool.query<{ state_type: string }>(
       `SELECT format_type(attribute.atttypid, attribute.atttypmod) AS state_type
          FROM pg_attribute AS attribute
@@ -187,6 +216,29 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
       [15, 15, 15, 15, 15, 15, 20]
     );
 
+    const firstPreset = await seatPresets.create('subject-presets', {
+      name: '  Aisle pair  ',
+      seatCodes: ['A3', 'A2'],
+    });
+    const secondPreset = await seatPresets.create('subject-presets', {
+      name: 'Window pair',
+      seatCodes: ['B5', 'B4'],
+    });
+    assert.deepEqual(
+      await seatPresets.list('subject-presets'),
+      [firstPreset, secondPreset]
+    );
+    assert.deepEqual(await seatPresets.list('another-subject'), []);
+    await assert.rejects(
+      seatPresets.create('subject-presets', {
+        name: 'Aisle pair',
+        seatCodes: ['C1'],
+      }),
+      (error: unknown) => error instanceof ConflictError && error.code === 'preset_name_taken'
+    );
+    await prisma.$disconnect();
+    assert.equal((await pool.query('SELECT 1 AS value')).rows[0].value, 1);
+
     const [firstScreeningHold, secondScreeningHold] = await Promise.all([
       tickets.hold(screeningId, 'subject-one', ['A5']),
       tickets.hold(secondScreeningId, 'subject-two', ['A5']),
@@ -237,13 +289,35 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
     runtimePool = new Pool({
       connectionString: `postgresql://kino_ticket_runtime:runtime-password@${container.getHost()}:${container.getMappedPort(5432)}/kino_ticket`,
     });
+    runtimePrisma = new PrismaClient({
+      adapter: new PrismaPg(runtimePool, {
+        schema: 'kino_ticket',
+        disposeExternalPool: false,
+      }),
+    });
     const runtimeTickets = new TicketService(runtimePool, config);
+    const runtimeSeatPresets = new SeatPresetService(
+      new PrismaSeatPresetRepository(runtimePrisma)
+    );
     assert.equal((await runtimeTickets.screenings('tt0000001')).length, 3);
     assert.equal((await runtimeTickets.seats(screeningId, 'subject-runtime')).seats.length, 15);
     assert.equal((await runtimeTickets.seats(alternateScreeningId, 'subject-runtime')).seats.length, 20);
     const runtimeHold = await runtimeTickets.hold(screeningId, 'subject-runtime', ['C2']);
     const runtimeConfirmation = await runtimeTickets.confirm(runtimeHold.id, 'subject-runtime');
     assert.equal(runtimeConfirmation.state, 'CONFIRMED');
+    const runtimePreset = await runtimeSeatPresets.create('subject-runtime', {
+      name: 'Runtime preset',
+      seatCodes: ['D1', 'D2'],
+    });
+    assert.deepEqual(await runtimeSeatPresets.list('subject-runtime'), [runtimePreset]);
+    await runtimeSeatPresets.delete('subject-runtime', runtimePreset.id);
+    const cascadedSeatRows = await pool.query<{ count: number }>(
+      `SELECT count(*)::integer AS count
+         FROM kino_ticket.seat_preset_seats
+        WHERE seat_preset_id = $1`,
+      [runtimePreset.id]
+    );
+    assert.equal(cascadedSeatRows.rows[0].count, 0);
 
     const client = await runtimePool.connect();
     try {
@@ -259,10 +333,39 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
         client.query('CREATE TABLE public.ticket_runtime_forbidden (id integer)'),
         /permission denied/
       );
+      await assert.rejects(
+        client.query(
+          'DELETE FROM kino_ticket.seat_preset_seats WHERE seat_preset_id = $1',
+          [firstPreset.id]
+        ),
+        /permission denied/
+      );
     } finally {
       client.release();
     }
+
+    const unavailablePort = await closedLoopbackPort();
+    const unavailablePool = new Pool({
+      connectionString: `postgresql://postgres:test-password@127.0.0.1:${unavailablePort}/kino_ticket`,
+      connectionTimeoutMillis: 100,
+    });
+    const unavailablePrisma = new PrismaClient({
+      adapter: new PrismaPg(unavailablePool, {
+        schema: 'kino_ticket',
+        disposeExternalPool: false,
+      }),
+    });
+    try {
+      const unavailableSeatPresets = new SeatPresetService(
+        new PrismaSeatPresetRepository(unavailablePrisma)
+      );
+      await assert.rejects(unavailableSeatPresets.ready(), ServiceUnavailableError);
+    } finally {
+      await unavailablePrisma.$disconnect();
+      await unavailablePool.end();
+    }
   } finally {
+    await runtimePrisma?.$disconnect();
     await runtimePool?.end();
     await pool.end();
     await container.stop();

@@ -13,7 +13,9 @@ import {
   Typography,
 } from '@mui/material';
 import { beginLogin } from '@/app/authentication';
+import SavedSeatGroups from './SavedSeatGroups';
 import { refreshAfterWriteFailure } from './ticket-page-actions';
+import { ticketResponseBody } from './ticket-response';
 
 function ticketReturnTo(titleId) {
   return `/tickets/${encodeURIComponent(titleId)}`;
@@ -36,14 +38,6 @@ function formatShowtime(startsAt) {
   }).format(new Date(startsAt));
 }
 
-async function responseBody(response) {
-  try {
-    return await response.json();
-  } catch {
-    return {};
-  }
-}
-
 export default function TicketPage() {
   const pathname = usePathname();
   const titleId = pathname.split('/').pop();
@@ -58,6 +52,7 @@ export default function TicketPage() {
   const [now, setNow] = useState(Date.now());
   const screeningRequestId = useRef(0);
   const seatRequestId = useRef(0);
+  const reauthenticationStarted = useRef(false);
 
   const screening = useMemo(
     () => screenings.find((candidate) => candidate.id === selectedScreeningId) || null,
@@ -72,7 +67,16 @@ export default function TicketPage() {
         body.code === 'ticket_reauthentication_required'
       ))
     ) {
-      await beginLogin(ticketReturnTo(titleId));
+      if (reauthenticationStarted.current) {
+        return true;
+      }
+      reauthenticationStarted.current = true;
+      try {
+        await beginLogin(ticketReturnTo(titleId));
+      } catch (error) {
+        reauthenticationStarted.current = false;
+        throw error;
+      }
       return true;
     }
     return false;
@@ -89,7 +93,7 @@ export default function TicketPage() {
         `/api/tickets/screenings/${encodeURIComponent(screeningId)}/seats`,
         { cache: 'no-store' }
       );
-      const seatsBody = await responseBody(seatsResponse);
+      const seatsBody = await ticketResponseBody(seatsResponse);
       if (await reauthenticateIfNeeded(seatsResponse, seatsBody)) {
         return;
       }
@@ -125,7 +129,7 @@ export default function TicketPage() {
         `/api/tickets/screenings?titleId=${encodeURIComponent(titleId)}`,
         { cache: 'no-store' }
       );
-      const body = await responseBody(response);
+      const body = await ticketResponseBody(response);
       if (await reauthenticateIfNeeded(response, body)) {
         return;
       }
@@ -253,7 +257,7 @@ export default function TicketPage() {
           body: JSON.stringify({ seatCodes: selected }),
         }
       );
-      const body = await responseBody(response);
+      const body = await ticketResponseBody(response);
       if (await reauthenticateIfNeeded(response, body)) {
         return;
       }
@@ -282,7 +286,7 @@ export default function TicketPage() {
         `/api/tickets/reservations/${encodeURIComponent(reservationId)}/confirm`,
         { method: 'POST' }
       );
-      const body = await responseBody(response);
+      const body = await ticketResponseBody(response);
       if (await reauthenticateIfNeeded(response, body)) {
         return;
       }
@@ -399,6 +403,16 @@ export default function TicketPage() {
             Select up to eight seats. Holds expire after two minutes.
           </Typography>
         </Paper>
+        <SavedSeatGroups
+          actionsDisabled={loading || submitting || holds.length > 0}
+          onReplaceSelection={(seatCodes) => {
+            setSelected([...seatCodes]);
+            setError(null);
+          }}
+          reauthenticateIfNeeded={reauthenticateIfNeeded}
+          seats={seats}
+          selectedSeatCodes={selected}
+        />
         {holds.map((hold) => (
           <Paper key={hold.id} variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
             <Typography component="h2" variant="h6">Seats on hold</Typography>

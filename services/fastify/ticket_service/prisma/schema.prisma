@@ -1,0 +1,33 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["kino_ticket"]
+}
+
+model SeatPreset {
+  id            String           @id @default(uuid()) @db.Uuid
+  holderSubject String           @map("holder_subject")
+  name          String
+  createdAt     DateTime         @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  seats         SeatPresetSeat[]
+
+  @@unique([holderSubject, name], map: "seat_presets_holder_subject_name_unique")
+  @@map("seat_presets")
+  @@schema("kino_ticket")
+}
+
+model SeatPresetSeat {
+  seatPresetId String     @map("seat_preset_id") @db.Uuid
+  seatCode     String     @map("seat_code")
+  seatPreset   SeatPreset @relation(fields: [seatPresetId], references: [id], onDelete: Cascade)
+
+  @@id([seatPresetId, seatCode])
+  @@map("seat_preset_seats")
+  @@schema("kino_ticket")
+}

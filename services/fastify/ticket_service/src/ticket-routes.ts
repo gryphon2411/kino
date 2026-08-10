@@ -1,11 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { TicketAuthenticator } from './auth.js';
 import { requestWasAborted } from './request-abort.js';
+import { seatPresetRoutes } from './seat-preset-routes.js';
+import type { SeatPresetOperations } from './seat-presets.js';
+import { seatCodeSchema, ticketErrorResponses } from './ticket-route-schemas.js';
 import { reservationStates, type TicketService } from './tickets.js';
 
-// Kino's seeded maps currently use rows A-D and seats 1-5. The database still
-// determines whether a syntactically valid seat belongs to a screening.
-const seatCodeSchema = { type: 'string', pattern: '^[A-D][1-5]$' };
 const holdRequestBodyLimitBytes = 1024;
 type ScreeningQuerystring = { titleId: string };
 type ScreeningParams = { screeningId: string };
@@ -14,12 +14,7 @@ type ReservationParams = { reservationId: string };
 type TicketRoutesOptions = {
   tickets: TicketService;
   authenticate: TicketAuthenticator;
-};
-const errorSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['error'],
-  properties: { error: { type: 'string' } },
+  seatPresets: SeatPresetOperations;
 };
 const screeningSchema = {
   type: 'object',
@@ -44,21 +39,15 @@ const reservationSchema = {
     seatCodes: { type: 'array', items: seatCodeSchema },
   },
 };
-const ticketErrorResponses = {
-  400: errorSchema,
-  401: errorSchema,
-  403: errorSchema,
-  404: errorSchema,
-  409: errorSchema,
-  413: errorSchema,
-  500: errorSchema,
-  503: errorSchema,
-};
-
 export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (
   app,
-  { tickets, authenticate }
+  { tickets, authenticate, seatPresets }
 ) => {
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('Cache-Control', 'private, no-store');
+    return payload;
+  });
+
   app.get<{ Querystring: ScreeningQuerystring }>('/v1/screenings', {
     schema: {
       querystring: {
@@ -129,13 +118,12 @@ export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (
         ...ticketErrorResponses,
       },
     },
-  }, async (request, reply) => {
+  }, async (request) => {
     const ticketUser = await authenticate(request, 'kino.ticket.read');
     if (requestWasAborted(request)) {
       return;
     }
     const { screeningId } = request.params;
-    reply.header('Cache-Control', 'private, no-store');
     const seats = await tickets.seats(screeningId, ticketUser.subject);
     if (requestWasAborted(request)) {
       return;
@@ -171,14 +159,13 @@ export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (
         ...ticketErrorResponses,
       },
     },
-  }, async (request, reply) => {
+  }, async (request) => {
     const ticketUser = await authenticate(request, 'kino.ticket.write');
     if (requestWasAborted(request)) {
       return;
     }
     const { screeningId } = request.params;
     const { seatCodes } = request.body;
-    reply.header('Cache-Control', 'private, no-store');
     return tickets.hold(screeningId, ticketUser.subject, seatCodes);
   });
 
@@ -195,13 +182,14 @@ export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (
         ...ticketErrorResponses,
       },
     },
-  }, async (request, reply) => {
+  }, async (request) => {
     const ticketUser = await authenticate(request, 'kino.ticket.write');
     if (requestWasAborted(request)) {
       return;
     }
     const { reservationId } = request.params;
-    reply.header('Cache-Control', 'private, no-store');
     return tickets.confirm(reservationId, ticketUser.subject);
   });
+
+  await app.register(seatPresetRoutes, { authenticate, seatPresets });
 };

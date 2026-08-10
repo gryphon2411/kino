@@ -5,12 +5,14 @@ on:
     branches: [master]
     paths:
       - services/fastify/ticket_service/**
+      - orchestrators/k8s/terraform/ticket-db-migrations/**
       - .github/workflows/kino-ticket-service.yaml
       - .github/scripts/**
   pull_request:
     branches: [master]
     paths:
       - services/fastify/ticket_service/**
+      - orchestrators/k8s/terraform/ticket-db-migrations/**
       - .github/workflows/kino-ticket-service.yaml
       - .github/scripts/**
   workflow_dispatch:
@@ -51,9 +53,10 @@ jobs:
         working-directory: services/fastify/ticket_service
         run: npm ci
 
-      - name: Type-check and test
+      - name: Validate Prisma schema, type-check, and test
         working-directory: services/fastify/ticket_service
         run: |
+          npm run prisma:validate
           npm run typecheck
           npm run test:integration
 

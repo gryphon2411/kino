@@ -10,6 +10,10 @@ import {
   TicketError,
 } from './errors.js';
 import { requestWasAborted } from './request-abort.js';
+import type {
+  SeatPresetOperations,
+  SeatPresetReadiness,
+} from './seat-presets.js';
 import { TicketService } from './tickets.js';
 import { ticketRoutes } from './ticket-routes.js';
 
@@ -33,7 +37,11 @@ function isRetryableDatabaseError(error: unknown): boolean {
     ));
 }
 
-export function buildApp(config: TicketConfig, database: TicketDatabase): FastifyInstance {
+export function buildApp(
+  config: TicketConfig,
+  database: TicketDatabase,
+  seatPresets: SeatPresetOperations & SeatPresetReadiness
+): FastifyInstance {
   const app = Fastify({
     logger: true,
     requestTimeout: config.requestTimeoutMs,
@@ -90,6 +98,7 @@ export function buildApp(config: TicketConfig, database: TicketDatabase): Fastif
   app.get('/readyz', async (request, reply) => {
     try {
       await database.query('SELECT 1');
+      await seatPresets.ready();
       if (requestWasAborted(request)) {
         return;
       }
@@ -102,7 +111,7 @@ export function buildApp(config: TicketConfig, database: TicketDatabase): Fastif
     }
   });
 
-  app.register(ticketRoutes, { tickets, authenticate });
+  app.register(ticketRoutes, { tickets, authenticate, seatPresets });
 
   return app;
 }

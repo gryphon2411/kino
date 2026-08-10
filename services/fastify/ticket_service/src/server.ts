@@ -1,10 +1,21 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { buildApp } from './app.js';
 import { getTicketConfig } from './config.js';
 import { createTicketDatabase } from './database.js';
+import { PrismaClient } from './generated/prisma/client.js';
+import { PrismaSeatPresetRepository } from './prisma-seat-preset-repository.js';
+import { SeatPresetService } from './seat-presets.js';
 
 const config = getTicketConfig();
 const database = createTicketDatabase(config);
-const app = buildApp(config, database);
+const prisma = new PrismaClient({
+  adapter: new PrismaPg(database, {
+    schema: 'kino_ticket',
+    disposeExternalPool: false,
+  }),
+});
+const seatPresets = new SeatPresetService(new PrismaSeatPresetRepository(prisma));
+const app = buildApp(config, database, seatPresets);
 
 async function start() {
   try {
@@ -27,6 +38,12 @@ function shutdown(): Promise<number> {
       } catch (error) {
         failed = true;
         app.log.error(error, 'ticket-service failed to close Fastify');
+      }
+      try {
+        await prisma.$disconnect();
+      } catch (error) {
+        failed = true;
+        app.log.error(error, 'ticket-service failed to disconnect Prisma');
       }
       try {
         await database.end();

@@ -27,7 +27,7 @@ function dependencies(overrides = {}) {
   };
 }
 
-test('ticket proxy rejects an oversized chunked hold body after session lookup', async () => {
+test('ticket proxy rejects an oversized chunked saved-seat-group body after session lookup', async () => {
   const steps = [];
   const body = new ReadableStream({
     start(controller) {
@@ -36,7 +36,7 @@ test('ticket proxy rejects an oversized chunked hold body after session lookup',
       controller.close();
     },
   });
-  const response = await ticketProxy(sessionRequest, 'v1/screenings/example/holds', {
+  const response = await ticketProxy(sessionRequest, 'v1/seat-presets', {
     body: () => {
       steps.push('body');
       return readTextWithinLimit(body, null, 4);

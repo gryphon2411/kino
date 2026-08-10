@@ -6,6 +6,13 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { buildApp } from '../src/app.js';
 import type { TicketConfig } from '../src/config.js';
 import type { TicketDatabase } from '../src/database.js';
+import type {
+  SeatPresetOperations,
+  SeatPresetRepository,
+  SeatPresetReadiness,
+} from '../src/seat-presets.js';
+import { SeatPresetService } from '../src/seat-presets.js';
+import { ServiceUnavailableError } from '../src/errors.js';
 import { ticketTestConfig } from './support/config.js';
 
 const issuer = 'http://local.kino.com';
@@ -25,6 +32,31 @@ const database = {
   },
   end: async () => undefined,
 } as unknown as TicketDatabase;
+
+const emptySeatPresets: SeatPresetOperations & SeatPresetReadiness = {
+  list: async () => [],
+  create: async () => ({
+    id: '00000000-0000-0000-0000-000000000098',
+    name: 'unused',
+    seatCodes: ['A1'],
+  }),
+  delete: async () => undefined,
+  ready: async () => undefined,
+};
+
+function seatPresetService(overrides: Partial<SeatPresetRepository> = {}) {
+  const repository: SeatPresetRepository = {
+    list: async () => [],
+    create: async (_subject, request) => ({
+      id: '00000000-0000-0000-0000-000000000098',
+      ...request,
+    }),
+    delete: async () => true,
+    ready: async () => undefined,
+    ...overrides,
+  };
+  return new SeatPresetService(repository);
+}
 
 function allocationDatabase() {
   const queries: string[] = [];
@@ -153,7 +185,7 @@ async function withJwks(
 
 test('Fastify application validates issuer, audience, expiry, and scopes through its configured JWKS', async () => {
   await withJwks(async (config, sign) => {
-    const app = buildApp(config, database);
+    const app = buildApp(config, database, emptySeatPresets);
     try {
       const valid = await app.inject({
         method: 'GET',
@@ -161,6 +193,7 @@ test('Fastify application validates issuer, audience, expiry, and scopes through
         headers: { authorization: `Bearer ${await sign('kino.ticket.read')}` },
       });
       assert.equal(valid.statusCode, 200);
+      assert.equal(valid.headers['cache-control'], 'private, no-store');
 
       const caseInsensitiveBearer = await app.inject({
         method: 'GET',
@@ -175,6 +208,7 @@ test('Fastify application validates issuer, audience, expiry, and scopes through
         headers: { authorization: `Bearer ${await sign('kino.ticket.write')}` },
       });
       assert.equal(insufficientScope.statusCode, 403);
+      assert.equal(insufficientScope.headers['cache-control'], 'private, no-store');
       assert.match(String(insufficientScope.headers['www-authenticate'] ?? ''), /insufficient_scope/);
 
       const wrongAudience = await app.inject({
@@ -183,6 +217,7 @@ test('Fastify application validates issuer, audience, expiry, and scopes through
         headers: { authorization: `Bearer ${await sign('kino.ticket.read', { audience: 'wrong-audience' })}` },
       });
       assert.equal(wrongAudience.statusCode, 401);
+      assert.equal(wrongAudience.headers['cache-control'], 'private, no-store');
       assert.match(String(wrongAudience.headers['www-authenticate'] ?? ''), /invalid_token/);
 
       const wrongIssuer = await app.inject({
@@ -237,7 +272,7 @@ test('Fastify application validates issuer, audience, expiry, and scopes through
 test('Fastify commits and returns a normal network hold request', async () => {
   await withJwks(async (config, sign) => {
     const allocation = allocationDatabase();
-    const app = buildApp(config, allocation.database);
+    const app = buildApp(config, allocation.database, emptySeatPresets);
     await app.listen({ port: 0, host: '127.0.0.1' });
     const address = app.server.address();
     if (!address || typeof address === 'string') {
@@ -272,7 +307,11 @@ test('Fastify commits and returns a normal network hold request', async () => {
 
 test('Fastify bounds a slow JWKS lookup before the handler deadline', async () => {
   await withJwks(async (config, sign) => {
-    const app = buildApp({ ...config, jwkTimeoutMs: 100, handlerTimeoutMs: 750 }, database);
+    const app = buildApp(
+      { ...config, jwkTimeoutMs: 100, handlerTimeoutMs: 750 },
+      database,
+      emptySeatPresets
+    );
     try {
       const startedAt = Date.now();
       const response = await app.inject({
@@ -282,6 +321,7 @@ test('Fastify bounds a slow JWKS lookup before the handler deadline', async () =
       });
       assert.equal(response.statusCode, 503);
       assert.deepEqual(response.json(), { error: 'temporarily_unavailable' });
+      assert.equal(response.headers['cache-control'], 'private, no-store');
       assert.ok(Date.now() - startedAt < 500);
     } finally {
       await app.close();
@@ -297,7 +337,7 @@ test('Fastify maps a handler deadline to a retryable response', async () => {
         setTimeout(() => resolve({ rows: [], rowCount: 0 }), 150);
       }),
     } as unknown as TicketDatabase;
-    const app = buildApp({ ...config, handlerTimeoutMs: 50 }, slowDatabase);
+    const app = buildApp({ ...config, handlerTimeoutMs: 50 }, slowDatabase, emptySeatPresets);
     try {
       const response = await app.inject({
         method: 'GET',
@@ -315,7 +355,7 @@ test('Fastify maps a handler deadline to a retryable response', async () => {
 
 test('Fastify reports a configured JWKS endpoint outage without requesting reauthentication', async () => {
   await withJwks(async (config, sign) => {
-    const app = buildApp(config, database);
+    const app = buildApp(config, database, emptySeatPresets);
     try {
       const response = await app.inject({
         method: 'GET',
@@ -333,7 +373,7 @@ test('Fastify reports a configured JWKS endpoint outage without requesting reaut
 
 test('Fastify closes a slow, incomplete hold request at its request deadline', async () => {
   await withJwks(async (config) => {
-    const app = buildApp({ ...config, requestTimeoutMs: 100 }, database);
+    const app = buildApp({ ...config, requestTimeoutMs: 100 }, database, emptySeatPresets);
     await app.listen({ port: 0, host: '127.0.0.1' });
     const address = app.server.address();
     if (!address || typeof address === 'string') {
@@ -379,7 +419,7 @@ test('Fastify maps a PostgreSQL connection failure to a retryable response', asy
       },
       end: async () => undefined,
     } as unknown as TicketDatabase;
-    const app = buildApp(config, unavailableDatabase);
+    const app = buildApp(config, unavailableDatabase, emptySeatPresets);
     try {
       const response = await app.inject({
         method: 'GET',
@@ -405,7 +445,7 @@ test('Fastify maps a terminated PostgreSQL transaction to a retryable response',
       },
       end: async () => undefined,
     } as unknown as TicketDatabase;
-    const app = buildApp(config, unavailableDatabase);
+    const app = buildApp(config, unavailableDatabase, emptySeatPresets);
     try {
       const response = await app.inject({
         method: 'GET',
@@ -422,7 +462,7 @@ test('Fastify maps a terminated PostgreSQL transaction to a retryable response',
 
 test('Fastify normalizes invalid hold input without invoking allocation', async () => {
   await withJwks(async (config) => {
-    const app = buildApp(config, database);
+    const app = buildApp(config, database, emptySeatPresets);
     try {
       const response = await app.inject({
         method: 'POST',
@@ -431,6 +471,7 @@ test('Fastify normalizes invalid hold input without invoking allocation', async 
       });
       assert.equal(response.statusCode, 400);
       assert.deepEqual(response.json(), { error: 'invalid_request' });
+      assert.equal(response.headers['cache-control'], 'private, no-store');
     } finally {
       await app.close();
     }
@@ -439,7 +480,7 @@ test('Fastify normalizes invalid hold input without invoking allocation', async 
 
 test('Fastify rejects an oversized direct hold body before allocation', async () => {
   await withJwks(async (config, sign) => {
-    const app = buildApp(config, database);
+    const app = buildApp(config, database, emptySeatPresets);
     try {
       const response = await app.inject({
         method: 'POST',
@@ -455,6 +496,156 @@ test('Fastify rejects an oversized direct hold body before allocation', async ()
       });
       assert.equal(response.statusCode, 413);
       assert.deepEqual(response.json(), { error: 'request_too_large' });
+      assert.equal(response.headers['cache-control'], 'private, no-store');
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+test('Fastify readiness checks both the allocation pool and saved-seat-group persistence', async () => {
+  const calls: string[] = [];
+  const readinessDatabase = {
+    ...database,
+    query: async (query: string) => {
+      calls.push(query);
+      return { rows: [], rowCount: 1 };
+    },
+  } as unknown as TicketDatabase;
+  const readinessService = seatPresetService({
+    ready: async () => {
+      calls.push('seat-presets');
+    },
+  });
+  const app = buildApp(ticketTestConfig({ databaseUrl: 'postgresql://unused' }), readinessDatabase, readinessService);
+  try {
+    const response = await app.inject({ method: 'GET', url: '/readyz' });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(calls, ['SELECT 1', 'seat-presets']);
+  } finally {
+    await app.close();
+  }
+});
+
+test('Fastify serves private saved seat groups with scoped, normalized CRUD', async () => {
+  await withJwks(async (config, sign) => {
+    const createdRequests: { name: string; seatCodes: string[] }[] = [];
+    const service = seatPresetService({
+      list: async (subject) => [{
+        id: '00000000-0000-0000-0000-000000000097',
+        name: `Saved for ${subject}`,
+        seatCodes: ['A2', 'A3'],
+      }],
+      create: async (_subject, request) => {
+        createdRequests.push(request);
+        return {
+          id: '00000000-0000-0000-0000-000000000098',
+          ...request,
+        };
+      },
+    });
+    const app = buildApp(config, database, service);
+    try {
+      const unauthorized = await app.inject({ method: 'GET', url: '/v1/seat-presets' });
+      assert.equal(unauthorized.statusCode, 401);
+      assert.equal(unauthorized.headers['cache-control'], 'private, no-store');
+
+      const insufficientScope = await app.inject({
+        method: 'GET',
+        url: '/v1/seat-presets',
+        headers: { authorization: `Bearer ${await sign('kino.ticket.write')}` },
+      });
+      assert.equal(insufficientScope.statusCode, 403);
+      assert.equal(insufficientScope.headers['cache-control'], 'private, no-store');
+
+      const list = await app.inject({
+        method: 'GET',
+        url: '/v1/seat-presets',
+        headers: { authorization: `Bearer ${await sign('kino.ticket.read')}` },
+      });
+      assert.equal(list.statusCode, 200);
+      assert.equal(list.headers['cache-control'], 'private, no-store');
+      assert.deepEqual(list.json(), {
+        seatPresets: [{
+          id: '00000000-0000-0000-0000-000000000097',
+          name: 'Saved for opaque-ticket-user',
+          seatCodes: ['A2', 'A3'],
+        }],
+      });
+
+      const created = await app.inject({
+        method: 'POST',
+        url: '/v1/seat-presets',
+        headers: {
+          authorization: `Bearer ${await sign('kino.ticket.write')}`,
+          'content-type': 'application/json',
+        },
+        payload: { name: '  Our aisle seats  ', seatCodes: ['A3', 'A2'] },
+      });
+      assert.equal(created.statusCode, 201);
+      assert.equal(created.headers['cache-control'], 'private, no-store');
+      assert.deepEqual(created.json(), {
+        id: '00000000-0000-0000-0000-000000000098',
+        name: 'Our aisle seats',
+        seatCodes: ['A2', 'A3'],
+      });
+      assert.deepEqual(createdRequests, [{ name: 'Our aisle seats', seatCodes: ['A2', 'A3'] }]);
+
+      const deleted = await app.inject({
+        method: 'DELETE',
+        url: '/v1/seat-presets/00000000-0000-0000-0000-000000000098',
+        headers: { authorization: `Bearer ${await sign('kino.ticket.write')}` },
+      });
+      assert.equal(deleted.statusCode, 204);
+      assert.equal(deleted.body, '');
+      assert.equal(deleted.headers['cache-control'], 'private, no-store');
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+test('Fastify protects every saved-seat-group error response from caching', async () => {
+  await withJwks(async (config, sign) => {
+    const unavailable = seatPresetService({
+      list: async () => {
+        throw new ServiceUnavailableError();
+      },
+    });
+    const app = buildApp(config, database, unavailable);
+    try {
+      const invalid = await app.inject({
+        method: 'POST',
+        url: '/v1/seat-presets',
+        headers: {
+          authorization: `Bearer ${await sign('kino.ticket.write')}`,
+          'content-type': 'application/json',
+        },
+        payload: { name: '   ', seatCodes: ['A1'] },
+      });
+      assert.equal(invalid.statusCode, 400);
+      assert.deepEqual(invalid.json(), { error: 'invalid_preset_name' });
+      assert.equal(invalid.headers['cache-control'], 'private, no-store');
+
+      const tooLarge = await app.inject({
+        method: 'POST',
+        url: '/v1/seat-presets',
+        headers: {
+          authorization: `Bearer ${await sign('kino.ticket.write')}`,
+          'content-type': 'application/json',
+        },
+        payload: JSON.stringify({ name: 'Large request', seatCodes: ['A1'], padding: 'x'.repeat(1024) }),
+      });
+      assert.equal(tooLarge.statusCode, 413);
+      assert.equal(tooLarge.headers['cache-control'], 'private, no-store');
+
+      const unavailableResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/seat-presets',
+        headers: { authorization: `Bearer ${await sign('kino.ticket.read')}` },
+      });
+      assert.equal(unavailableResponse.statusCode, 503);
+      assert.equal(unavailableResponse.headers['cache-control'], 'private, no-store');
     } finally {
       await app.close();
     }

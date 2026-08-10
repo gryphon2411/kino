@@ -99,9 +99,11 @@ ticket audience and scope, then uses PostgreSQL row locks and database time to
 hold or confirm seats for the selected screening.
 
 `kino_ticket` is separate from both Mongo-backed user profiles and `kino_auth`
-OIDC protocol state. It deliberately demonstrates a small transactional
-PostgreSQL domain without adding payments, cancellation, a worker, or a generic
-scheduling system.
+OIDC protocol state. Flyway owns its schema; Prisma owns private saved-seat-group
+CRUD; direct `pg` owns allocation transactions and row locks; both share one
+PostgreSQL pool. It deliberately demonstrates a small transactional PostgreSQL
+domain without adding payments, cancellation, a worker, or a generic scheduling
+system.
 
 ## Codemap
 

@@ -19,7 +19,7 @@ function throwIfAborted(signal?: AbortSignal): void {
   }
 }
 
-export function createTicketDatabase(config: TicketConfig): TicketDatabase {
+export function createTicketDatabase(config: TicketConfig): Pool {
   const pool = new Pool({
     connectionString: config.databaseUrl,
     connectionTimeoutMillis: config.databaseConnectionTimeoutMs,
