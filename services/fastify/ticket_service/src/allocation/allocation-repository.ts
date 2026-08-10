@@ -1,5 +1,5 @@
 import type { PoolClient, QueryResultRow } from 'pg';
-import type { TicketDatabase } from './database.js';
+import type { TicketDatabase } from '../database.js';
 
 export const reservationStates = ['HELD', 'CONFIRMED'] as const;
 export type ReservationState = (typeof reservationStates)[number];
@@ -72,7 +72,7 @@ function toReservation(row: ReservationRow, seatCodes: string[]): Reservation {
   };
 }
 
-export class TicketRepository {
+export class TicketAllocationRepository {
   constructor(private readonly database: TicketDatabase) {}
 
   async screenings(titleId: string): Promise<Screening[]> {
@@ -193,7 +193,7 @@ export class TicketRepository {
     );
   }
 
-  async reservationIsOwned(client: PoolClient, reservationId: string, subject: string): Promise<boolean> {
+  async isReservationOwnedBy(client: PoolClient, reservationId: string, subject: string): Promise<boolean> {
     const result = await client.query<{ id: string }>(
       `SELECT id
          FROM kino_ticket.reservations

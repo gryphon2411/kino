@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Prisma } from '../src/generated/prisma/client.js';
-import { PrismaSeatPresetRepository } from '../src/prisma-seat-preset-repository.js';
+import { PrismaSeatPresetRepository } from '../src/seat-presets/prisma-seat-preset-repository.js';
 import {
   type SeatPresetRepository,
   SeatPresetService,
-} from '../src/seat-presets.js';
+} from '../src/seat-presets/seat-preset-service.js';
 import {
   BadRequestError,
   ConflictError,

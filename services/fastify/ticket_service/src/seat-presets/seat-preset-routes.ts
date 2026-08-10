@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify';
-import type { TicketAuthenticator } from './auth.js';
-import { requestWasAborted } from './request-abort.js';
-import type { SeatPresetOperations } from './seat-presets.js';
-import { seatCodeSchema, ticketErrorResponses } from './ticket-route-schemas.js';
+import type { TicketAuthenticator } from '../auth.js';
+import { requestWasAborted } from '../request-abort.js';
+import { seatCodeSchema, ticketErrorResponses } from '../ticket-route-schemas.js';
+import type { SeatPresetOperations } from './seat-preset-service.js';
 
 const seatPresetRequestBodyLimitBytes = 1024;
 

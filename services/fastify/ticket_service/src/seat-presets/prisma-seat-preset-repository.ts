@@ -1,26 +1,26 @@
 import {
   Prisma,
   type PrismaClient,
-} from './generated/prisma/client.js';
+} from '../generated/prisma/client.js';
 import {
   ConflictError,
   ServiceUnavailableError,
-} from './errors.js';
+} from '../errors.js';
 import type {
-  CreateSeatPreset,
+  CreateSeatPresetInput,
   SeatPreset,
   SeatPresetRepository,
-} from './seat-presets.js';
+} from './seat-preset-service.js';
 
 const ownerNameUniqueConstraint = 'seat_presets_holder_subject_name_unique';
 
-type SeatPresetRow = {
+type SeatPresetWithSeats = {
   id: string;
   name: string;
   seats: { seatCode: string }[];
 };
 
-function toSeatPreset(row: SeatPresetRow): SeatPreset {
+function toSeatPreset(row: SeatPresetWithSeats): SeatPreset {
   return {
     id: row.id,
     name: row.name,
@@ -89,14 +89,14 @@ export class PrismaSeatPresetRepository implements SeatPresetRepository {
     }
   }
 
-  async create(subject: string, request: CreateSeatPreset): Promise<SeatPreset> {
+  async create(subject: string, input: CreateSeatPresetInput): Promise<SeatPreset> {
     try {
       const preset = await this.prisma.seatPreset.create({
         data: {
           holderSubject: subject,
-          name: request.name,
+          name: input.name,
           seats: {
-            create: request.seatCodes.map((seatCode) => ({ seatCode })),
+            create: input.seatCodes.map((seatCode) => ({ seatCode })),
           },
         },
         select: {

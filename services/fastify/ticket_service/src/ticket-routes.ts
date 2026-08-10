@@ -1,10 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { TicketAuthenticator } from './auth.js';
 import { requestWasAborted } from './request-abort.js';
-import { seatPresetRoutes } from './seat-preset-routes.js';
-import type { SeatPresetOperations } from './seat-presets.js';
+import { seatPresetRoutes } from './seat-presets/seat-preset-routes.js';
+import type { SeatPresetOperations } from './seat-presets/seat-preset-service.js';
 import { seatCodeSchema, ticketErrorResponses } from './ticket-route-schemas.js';
-import { reservationStates, type TicketService } from './tickets.js';
+import { reservationStates, type TicketAllocationService } from './allocation/allocation-service.js';
 
 const holdRequestBodyLimitBytes = 1024;
 type ScreeningQuerystring = { titleId: string };
@@ -12,7 +12,7 @@ type ScreeningParams = { screeningId: string };
 type HoldBody = { seatCodes: string[] };
 type ReservationParams = { reservationId: string };
 type TicketRoutesOptions = {
-  tickets: TicketService;
+  ticketAllocation: TicketAllocationService;
   authenticate: TicketAuthenticator;
   seatPresets: SeatPresetOperations;
 };
@@ -41,7 +41,7 @@ const reservationSchema = {
 };
 export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (
   app,
-  { tickets, authenticate, seatPresets }
+  { ticketAllocation, authenticate, seatPresets }
 ) => {
   app.addHook('onSend', async (_request, reply, payload) => {
     reply.header('Cache-Control', 'private, no-store');
@@ -74,7 +74,7 @@ export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (
       return;
     }
     const { titleId } = request.query;
-    const screenings = await tickets.screenings(titleId);
+    const screenings = await ticketAllocation.screenings(titleId);
     if (requestWasAborted(request)) {
       return;
     }
@@ -124,7 +124,7 @@ export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (
       return;
     }
     const { screeningId } = request.params;
-    const seats = await tickets.seats(screeningId, ticketUser.subject);
+    const seats = await ticketAllocation.seats(screeningId, ticketUser.subject);
     if (requestWasAborted(request)) {
       return;
     }
@@ -166,7 +166,7 @@ export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (
     }
     const { screeningId } = request.params;
     const { seatCodes } = request.body;
-    return tickets.hold(screeningId, ticketUser.subject, seatCodes);
+    return ticketAllocation.hold(screeningId, ticketUser.subject, seatCodes);
   });
 
   app.post<{ Params: ReservationParams }>('/v1/reservations/:reservationId/confirm', {
@@ -188,7 +188,7 @@ export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (
       return;
     }
     const { reservationId } = request.params;
-    return tickets.confirm(reservationId, ticketUser.subject);
+    return ticketAllocation.confirm(reservationId, ticketUser.subject);
   });
 
   await app.register(seatPresetRoutes, { authenticate, seatPresets });

@@ -1,8 +1,8 @@
 import {
   BadRequestError,
   NotFoundError,
-} from './errors.js';
-import { isSeatCode } from './seat-code.js';
+} from '../errors.js';
+import { isSeatCode } from '../seat-code.js';
 
 export type SeatPreset = {
   id: string;
@@ -10,14 +10,14 @@ export type SeatPreset = {
   seatCodes: string[];
 };
 
-export type CreateSeatPreset = {
+export type CreateSeatPresetInput = {
   name: string;
   seatCodes: string[];
 };
 
 export interface SeatPresetOperations {
   list(subject: string): Promise<SeatPreset[]>;
-  create(subject: string, request: CreateSeatPreset): Promise<SeatPreset>;
+  create(subject: string, input: CreateSeatPresetInput): Promise<SeatPreset>;
   delete(subject: string, presetId: string): Promise<void>;
 }
 
@@ -27,12 +27,12 @@ export interface SeatPresetReadiness {
 
 export interface SeatPresetRepository {
   list(subject: string): Promise<SeatPreset[]>;
-  create(subject: string, request: CreateSeatPreset): Promise<SeatPreset>;
+  create(subject: string, input: CreateSeatPresetInput): Promise<SeatPreset>;
   delete(subject: string, presetId: string): Promise<boolean>;
   ready(): Promise<void>;
 }
 
-function normalizedName(name: string): string {
+function validateAndNormalizeSeatPresetName(name: string): string {
   const normalized = name.trim();
   const characterCount = Array.from(normalized).length;
   if (characterCount < 1 || characterCount > 40) {
@@ -44,7 +44,7 @@ function normalizedName(name: string): string {
   return normalized;
 }
 
-function normalizedSeatCodes(seatCodes: string[]): string[] {
+function validateAndNormalizeSeatCodes(seatCodes: string[]): string[] {
   if (seatCodes.length < 1 || seatCodes.length > 8) {
     throw new BadRequestError(
       'invalid_seat_codes',
@@ -74,10 +74,10 @@ export class SeatPresetService implements SeatPresetOperations, SeatPresetReadin
     return this.repository.list(subject);
   }
 
-  async create(subject: string, request: CreateSeatPreset): Promise<SeatPreset> {
+  async create(subject: string, input: CreateSeatPresetInput): Promise<SeatPreset> {
     return this.repository.create(subject, {
-      name: normalizedName(request.name),
-      seatCodes: normalizedSeatCodes(request.seatCodes),
+      name: validateAndNormalizeSeatPresetName(input.name),
+      seatCodes: validateAndNormalizeSeatCodes(input.seatCodes),
     });
   }
 

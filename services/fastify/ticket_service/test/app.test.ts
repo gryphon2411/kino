@@ -10,8 +10,8 @@ import type {
   SeatPresetOperations,
   SeatPresetRepository,
   SeatPresetReadiness,
-} from '../src/seat-presets.js';
-import { SeatPresetService } from '../src/seat-presets.js';
+} from '../src/seat-presets/seat-preset-service.js';
+import { SeatPresetService } from '../src/seat-presets/seat-preset-service.js';
 import { ServiceUnavailableError } from '../src/errors.js';
 import { ticketTestConfig } from './support/config.js';
 

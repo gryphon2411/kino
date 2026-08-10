@@ -13,8 +13,8 @@ import { requestWasAborted } from './request-abort.js';
 import type {
   SeatPresetOperations,
   SeatPresetReadiness,
-} from './seat-presets.js';
-import { TicketService } from './tickets.js';
+} from './seat-presets/seat-preset-service.js';
+import { TicketAllocationService } from './allocation/allocation-service.js';
 import { ticketRoutes } from './ticket-routes.js';
 
 function isRetryableDatabaseError(error: unknown): boolean {
@@ -55,7 +55,7 @@ export function buildApp(
       connectionsCheckingInterval: Math.min(config.requestTimeoutMs, 1000),
     },
   });
-  const tickets = new TicketService(database, config);
+  const ticketAllocation = new TicketAllocationService(database, config);
   const authenticate = createTicketAuthenticator(config);
 
   app.setErrorHandler((error, request, reply) => {
@@ -111,7 +111,7 @@ export function buildApp(
     }
   });
 
-  app.register(ticketRoutes, { tickets, authenticate, seatPresets });
+  app.register(ticketRoutes, { ticketAllocation, authenticate, seatPresets });
 
   return app;
 }

@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import type { TicketConfig } from './config.js';
-import { withTransaction, type TicketDatabase } from './database.js';
-import { BadRequestError, ConflictError, NotFoundError } from './errors.js';
+import type { TicketConfig } from '../config.js';
+import { withTransaction, type TicketDatabase } from '../database.js';
+import { BadRequestError, ConflictError, NotFoundError } from '../errors.js';
 import {
-  TicketRepository,
+  TicketAllocationRepository,
   type Reservation,
-} from './ticket-repository.js';
+} from './allocation-repository.js';
 
 export {
   reservationStates,
@@ -14,16 +14,16 @@ export {
   type ReservationState,
   type Seat,
   type Screening,
-} from './ticket-repository.js';
+} from './allocation-repository.js';
 
-export class TicketService {
-  private readonly repository: TicketRepository;
+export class TicketAllocationService {
+  private readonly repository: TicketAllocationRepository;
 
   constructor(
     private readonly database: TicketDatabase,
     private readonly config: TicketConfig
   ) {
-    this.repository = new TicketRepository(database);
+    this.repository = new TicketAllocationRepository(database);
   }
 
   async screenings(titleId: string) {
@@ -84,7 +84,7 @@ export class TicketService {
 
   async confirm(reservationId: string, subject: string, signal?: AbortSignal): Promise<Reservation> {
     const confirmReservation = async (client: PoolClient): Promise<Reservation> => {
-      if (!(await this.repository.reservationIsOwned(client, reservationId, subject))) {
+      if (!(await this.repository.isReservationOwnedBy(client, reservationId, subject))) {
         throw new NotFoundError('The requested reservation was not found.');
       }
 

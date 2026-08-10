@@ -17,9 +17,9 @@ import {
   ServiceUnavailableError,
 } from '../src/errors.js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { PrismaSeatPresetRepository } from '../src/prisma-seat-preset-repository.js';
-import { SeatPresetService } from '../src/seat-presets.js';
-import { TicketService } from '../src/tickets.js';
+import { PrismaSeatPresetRepository } from '../src/seat-presets/prisma-seat-preset-repository.js';
+import { SeatPresetService } from '../src/seat-presets/seat-preset-service.js';
+import { TicketAllocationService } from '../src/allocation/allocation-service.js';
 import { ticketTestConfig } from './support/config.js';
 
 const integrationTest = process.env.RUN_POSTGRES_INTEGRATION_TESTS === 'true'
@@ -75,7 +75,7 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
     const config = ticketTestConfig({
       databaseUrl: connectionString,
     });
-    const tickets = new TicketService(pool, config);
+    const ticketAllocation = new TicketAllocationService(pool, config);
     const prisma = new PrismaClient({
       adapter: new PrismaPg(pool, {
         schema: 'kino_ticket',
@@ -187,18 +187,18 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
     );
     assert.equal(seededScreenings.rowCount, 7);
     assert.deepEqual(
-      (await tickets.screenings('tt0000001')).map((screening) => screening.id),
+      (await ticketAllocation.screenings('tt0000001')).map((screening) => screening.id),
       [screeningId, secondScreeningId, alternateScreeningId]
     );
     assert.deepEqual(
-      (await tickets.screenings('tt0000002')).map((screening) => screening.id),
+      (await ticketAllocation.screenings('tt0000002')).map((screening) => screening.id),
       [
         '00000000-0000-0000-0000-000000000003',
         '00000000-0000-0000-0000-000000000004',
       ]
     );
     assert.deepEqual(
-      (await tickets.screenings('tt0000003')).map((screening) => screening.id),
+      (await ticketAllocation.screenings('tt0000003')).map((screening) => screening.id),
       [
         '00000000-0000-0000-0000-000000000005',
         '00000000-0000-0000-0000-000000000006',
@@ -240,48 +240,48 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
     assert.equal((await pool.query('SELECT 1 AS value')).rows[0].value, 1);
 
     const [firstScreeningHold, secondScreeningHold] = await Promise.all([
-      tickets.hold(screeningId, 'subject-one', ['A5']),
-      tickets.hold(secondScreeningId, 'subject-two', ['A5']),
+      ticketAllocation.hold(screeningId, 'subject-one', ['A5']),
+      ticketAllocation.hold(secondScreeningId, 'subject-two', ['A5']),
     ]);
     assert.deepEqual(firstScreeningHold.seatCodes, ['A5']);
     assert.deepEqual(secondScreeningHold.seatCodes, ['A5']);
 
-    const alternateScreeningHold = await tickets.hold(
+    const alternateScreeningHold = await ticketAllocation.hold(
       alternateScreeningId,
       'subject-three',
       ['D1']
     );
     assert.deepEqual(alternateScreeningHold.seatCodes, ['D1']);
     await assert.rejects(
-      tickets.hold(screeningId, 'subject-three', ['D1']),
+      ticketAllocation.hold(screeningId, 'subject-three', ['D1']),
       (error: unknown) => error instanceof BadRequestError && error.code === 'unknown_seat'
     );
 
     const allocations = await Promise.allSettled([
-      tickets.hold(screeningId, 'subject-one', ['A1', 'A2']),
-      tickets.hold(screeningId, 'subject-two', ['A2', 'A3']),
+      ticketAllocation.hold(screeningId, 'subject-one', ['A1', 'A2']),
+      ticketAllocation.hold(screeningId, 'subject-two', ['A2', 'A3']),
     ]);
 
     assert.equal(allocations.filter((result) => result.status === 'fulfilled').length, 1);
     assert.equal(allocations.filter((result) => result.status === 'rejected').length, 1);
 
-    const expiring = await tickets.hold(screeningId, 'subject-one', ['B1']);
+    const expiring = await ticketAllocation.hold(screeningId, 'subject-one', ['B1']);
     await pool.query(
       `UPDATE kino_ticket.reservations
           SET hold_expires_at = clock_timestamp() - interval '1 second'
         WHERE id = $1`,
       [expiring.id]
     );
-    const reclaimed = await tickets.hold(screeningId, 'subject-two', ['B1']);
+    const reclaimed = await ticketAllocation.hold(screeningId, 'subject-two', ['B1']);
     assert.equal(reclaimed.state, 'HELD');
     await assert.rejects(
-      tickets.confirm(expiring.id, 'subject-one'),
+      ticketAllocation.confirm(expiring.id, 'subject-one'),
       (error: unknown) => error instanceof ConflictError && error.code === 'hold_expired'
     );
 
-    const confirmed = await tickets.hold(screeningId, 'subject-three', ['C1']);
-    const firstConfirmation = await tickets.confirm(confirmed.id, 'subject-three');
-    const repeatedConfirmation = await tickets.confirm(confirmed.id, 'subject-three');
+    const confirmed = await ticketAllocation.hold(screeningId, 'subject-three', ['C1']);
+    const firstConfirmation = await ticketAllocation.confirm(confirmed.id, 'subject-three');
+    const repeatedConfirmation = await ticketAllocation.confirm(confirmed.id, 'subject-three');
     assert.equal(firstConfirmation.state, 'CONFIRMED');
     assert.equal(repeatedConfirmation.state, 'CONFIRMED');
 
@@ -295,15 +295,15 @@ integrationTest('allocation serializes overlap, lazily reclaims expiry, and prot
         disposeExternalPool: false,
       }),
     });
-    const runtimeTickets = new TicketService(runtimePool, config);
+    const runtimeTicketAllocation = new TicketAllocationService(runtimePool, config);
     const runtimeSeatPresets = new SeatPresetService(
       new PrismaSeatPresetRepository(runtimePrisma)
     );
-    assert.equal((await runtimeTickets.screenings('tt0000001')).length, 3);
-    assert.equal((await runtimeTickets.seats(screeningId, 'subject-runtime')).seats.length, 15);
-    assert.equal((await runtimeTickets.seats(alternateScreeningId, 'subject-runtime')).seats.length, 20);
-    const runtimeHold = await runtimeTickets.hold(screeningId, 'subject-runtime', ['C2']);
-    const runtimeConfirmation = await runtimeTickets.confirm(runtimeHold.id, 'subject-runtime');
+    assert.equal((await runtimeTicketAllocation.screenings('tt0000001')).length, 3);
+    assert.equal((await runtimeTicketAllocation.seats(screeningId, 'subject-runtime')).seats.length, 15);
+    assert.equal((await runtimeTicketAllocation.seats(alternateScreeningId, 'subject-runtime')).seats.length, 20);
+    const runtimeHold = await runtimeTicketAllocation.hold(screeningId, 'subject-runtime', ['C2']);
+    const runtimeConfirmation = await runtimeTicketAllocation.confirm(runtimeHold.id, 'subject-runtime');
     assert.equal(runtimeConfirmation.state, 'CONFIRMED');
     const runtimePreset = await runtimeSeatPresets.create('subject-runtime', {
       name: 'Runtime preset',
