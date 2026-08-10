@@ -25,4 +25,10 @@ if (!manifest.source?.qualityGate?.passed) {
   throw new Error("Seed manifest source curated artifact did not pass the quality gate.");
 }
 
+const mongoImage = manifest.mongo?.image;
+if (!/^mongo:\d+\.\d+\.\d+$/.test(mongoImage || "")) {
+  throw new Error("Seed manifest must declare an exact mongo:<major>.<minor>.<patch> image.");
+}
+
 print(manifest.artifacts["seed.archive.gz"].sha256);
+print(mongoImage);

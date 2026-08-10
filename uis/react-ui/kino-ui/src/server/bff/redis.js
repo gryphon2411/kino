@@ -1,5 +1,5 @@
 import { createClient } from 'redis';
-import { getBffConfig } from './config';
+import { getBffConfig } from './config.js';
 
 let client;
 let connecting;

@@ -54,6 +54,12 @@ variable "enable_data_service" {
   default     = true
 }
 
+variable "enable_ticket_service" {
+  type        = bool
+  description = "Enable Kino Fastify ticket allocation service"
+  default     = false
+}
+
 variable "enable_trend_service" {
   type        = bool
   description = "Enable Kino Trend Service"
@@ -171,6 +177,36 @@ variable "data_service_image_ref" {
       && can(regex(".+@sha256:[0-9a-f]{64}$", var.data_service_image_ref))
     )
     error_message = "data_service_image_ref must be a digest-pinned OCI image reference when data-service is enabled."
+  }
+}
+
+variable "ticket_service_image_ref" {
+  type        = string
+  description = "Immutable ticket-service image reference deployed by Kubernetes"
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_ticket_service || (
+      var.ticket_service_image_ref != null
+      && can(regex(".+@sha256:[0-9a-f]{64}$", var.ticket_service_image_ref))
+    )
+    error_message = "ticket_service_image_ref must be a digest-pinned OCI image reference when ticket-service is enabled."
+  }
+}
+
+variable "ticket_database_migration_image_ref" {
+  type        = string
+  description = "Optional digest-pinned Flyway image override for the ticket migration Job."
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_postgres || !var.enable_ticket_service || (
+      var.ticket_database_migration_image_ref == null
+      || can(regex(".+@sha256:[0-9a-f]{64}$", var.ticket_database_migration_image_ref))
+    )
+    error_message = "ticket_database_migration_image_ref must be a digest-pinned OCI image reference when ticket PostgreSQL is enabled."
   }
 }
 
@@ -309,6 +345,38 @@ variable "auth_database_runtime_password" {
       && trimspace(var.auth_database_runtime_password) != ""
     )
     error_message = "auth_database_runtime_password must be set when auth-service is enabled."
+  }
+}
+
+variable "ticket_database_migrator_password" {
+  type        = string
+  description = "Password for the short-lived ticket database migration role."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_ticket_service || (
+      var.ticket_database_migrator_password != null
+      && trimspace(var.ticket_database_migrator_password) != ""
+    )
+    error_message = "ticket_database_migrator_password must be set when ticket-service is enabled."
+  }
+}
+
+variable "ticket_database_runtime_password" {
+  type        = string
+  description = "Password for the ticket-service runtime role."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_ticket_service || (
+      var.ticket_database_runtime_password != null
+      && trimspace(var.ticket_database_runtime_password) != ""
+    )
+    error_message = "ticket_database_runtime_password must be set when ticket-service is enabled."
   }
 }
 

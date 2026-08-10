@@ -63,8 +63,9 @@ resource "helm_release" "kafka" {
   values     = [file("${path.module}/../charts/kafka/values.yaml")]
   timeout    = 900
 
-  # Avoid timeout during chart installation
-  wait = false
+  # The provisioning hook creates Kino's topic.  Waiting here gives dependent
+  # consumers a real readiness edge rather than only an API-server edge.
+  wait = true
 
   set {
     name  = "image.registry"
@@ -90,6 +91,8 @@ resource "helm_release" "kafka" {
     name  = "sasl.client.passwords"
     value = var.kafka_password
   }
+
+  depends_on = [terraform_data.mongodb_seed_complete]
 }
 
 # RabbitMQ (Helm)
@@ -103,8 +106,8 @@ resource "helm_release" "rabbitmq" {
   namespace  = kubernetes_namespace.rabbitmq_system[0].metadata[0].name
   values     = [file("${path.module}/../charts/rabbitmq/values.yaml")]
 
-  # Avoid timeout during chart installation
-  wait = false
+  wait    = true
+  timeout = 900
 
   set {
     name  = "image.registry"
@@ -141,7 +144,10 @@ resource "helm_release" "rabbitmq" {
     value = local.rabbitmq_admin_password
   }
 
-  depends_on = [kubernetes_secret.rabbitmq_load_definition]
+  depends_on = [
+    terraform_data.mongodb_seed_complete,
+    kubernetes_secret.rabbitmq_load_definition,
+  ]
 }
 
 # Prometheus (Helm)
@@ -155,6 +161,8 @@ resource "helm_release" "prometheus" {
   namespace  = kubernetes_namespace.prometheus_system[0].metadata[0].name
   values     = [file("${path.module}/../charts/prometheus/values.yaml")]
   timeout    = 600
+
+  depends_on = [terraform_data.mongodb_seed_complete]
 }
 
 # Grafana (Helm)
@@ -167,6 +175,9 @@ resource "helm_release" "grafana" {
   version    = "7.0.19"
   namespace  = kubernetes_namespace.grafana_system[0].metadata[0].name
   values     = [file("${path.module}/../charts/grafana/values.yaml")]
+  timeout    = 600
+
+  depends_on = [terraform_data.mongodb_seed_complete]
 }
 
 # Vault (Helm)
@@ -176,6 +187,7 @@ resource "helm_release" "vault" {
   chart      = "vault"
   version    = "0.29.1"
   namespace  = "default"
+  values     = [file("${path.module}/../charts/vault/values.yaml")]
 
   # Avoid deadlock: we unseal AFTER deployment
   wait = false
@@ -189,6 +201,8 @@ resource "helm_release" "vault" {
     name  = "server.standalone.enabled"
     value = "true"
   }
+
+  depends_on = [terraform_data.mongodb_seed_complete]
 }
 
 # External Secrets Operator (Helm)
@@ -199,9 +213,12 @@ resource "helm_release" "external_secrets" {
   version    = "0.12.1"
   namespace  = "default"
   timeout    = 600
+  values     = [file("${path.module}/../charts/external-secrets/values.yaml")]
 
   set {
     name  = "installCRDs"
     value = "true"
   }
+
+  depends_on = [terraform_data.mongodb_seed_complete]
 }

@@ -1,9 +1,11 @@
 package com.kino.data_service;
 
+import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jose.proc.SecurityContext;
+import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +42,11 @@ class DataServiceJwtValidationTests {
         this.encoder = new NimbusJwtEncoder(new ImmutableJWKSet<SecurityContext>(
                 new JWKSet(key)
         ));
-        this.decoder = NimbusJwtDecoder.withPublicKey(key.toRSAPublicKey()).build();
+        this.decoder = NimbusJwtDecoder.withPublicKey(key.toRSAPublicKey())
+                .jwtProcessorCustomizer(processor -> processor.setJWSTypeVerifier(
+                        new DefaultJOSEObjectTypeVerifier<>(new JOSEObjectType("at+jwt"))
+                ))
+                .build();
         this.decoder.setJwtValidator(this.configuration.userJwtValidator());
     }
 
@@ -76,6 +82,7 @@ class DataServiceJwtValidationTests {
                 .build();
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256)
                 .keyId("data-service-test")
+                .type("at+jwt")
                 .build();
         return this.encoder.encode(JwtEncoderParameters.from(header, claims))
                 .getTokenValue();

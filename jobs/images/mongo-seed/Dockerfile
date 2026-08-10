@@ -1,4 +1,4 @@
-FROM mongo:8.0
+FROM mongo:8.2.12
 
 ARG DATASET_VERSION=unknown
 ARG MANIFEST_SHA256=unknown

@@ -1,0 +1,25 @@
+resources:
+  requests:
+    cpu: 125m
+    memory: 192Mi
+  limits:
+    cpu: 125m
+    memory: 192Mi
+
+webhook:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 25m
+      memory: 64Mi
+
+certController:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 25m
+      memory: 64Mi

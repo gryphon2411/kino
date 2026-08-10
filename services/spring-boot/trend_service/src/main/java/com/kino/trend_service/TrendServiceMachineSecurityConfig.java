@@ -1,5 +1,7 @@
 package com.kino.trend_service;
 
+import com.nimbusds.jose.JOSEObjectType;
+import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -78,7 +80,9 @@ public class TrendServiceMachineSecurityConfig {
     public JwtDecoder machineJwtDecoder() {
         NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(
                 this.jwkSetUri
-        ).build();
+        ).jwtProcessorCustomizer(processor -> processor.setJWSTypeVerifier(
+                new DefaultJOSEObjectTypeVerifier<>(new JOSEObjectType("at+jwt"))
+        )).build();
         OAuth2TokenValidator<Jwt> issuerValidator =
                 JwtValidators.createDefaultWithIssuer(this.issuerUri);
         OAuth2TokenValidator<Jwt> audienceValidator =

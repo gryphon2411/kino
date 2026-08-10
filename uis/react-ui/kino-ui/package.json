@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:unit": "node --test tests/unit/**/*.test.mjs",
     "test:e2e:oidc": "playwright test tests/e2e/oidc-bff.spec.js"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "lodash.debounce": "^4.0.8",
     "next": "14.0.3",
     "openid-client": "^6.8.4",
+    "prop-types": "^15.8.1",
     "react": "^18",
     "react-dom": "^18",
     "react-redux": "^9.0.4",

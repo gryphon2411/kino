@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { getBffConfig } from './config';
+import { NextResponse } from 'next/server.js';
+import { getBffConfig } from './config.js';
 
 export const SESSION_COOKIE = 'kino_bff_session';
 export const LOGIN_TRANSACTION_COOKIE = 'kino_bff_login';

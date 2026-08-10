@@ -57,6 +57,10 @@ Before it pushes anything, the publish step validates that the standalone raw,
 curated, and seed artifacts in `jobs/.artifacts/` all belong to one coherent
 release lineage. If that directory mixes outputs from different runs, publish
 fails fast instead of pushing a stale seed image.
+The seed manifest also records the exact `mongo:<version>` used to create the
+archive. At runtime the seed image verifies that it matches the target server
+before restoring, so changing Kino's MongoDB baseline requires a new local
+seed release rather than an unsupported cross-version restore.
 
 The package-native operator entrypoints now live under
 `jobs/imdb_titles_pipeline/`, with release helpers under

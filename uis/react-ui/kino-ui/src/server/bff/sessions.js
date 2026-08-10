@@ -1,7 +1,7 @@
 import * as oidc from 'openid-client';
-import { getBffConfig } from './config';
-import { redisClient } from './redis';
-import { getOidcConfiguration } from './oidc';
+import { getBffConfig } from './config.js';
+import { redisClient } from './redis.js';
+import { getOidcConfiguration } from './oidc.js';
 
 const SESSION_PREFIX = 'kino:bff:session:';
 const LOGIN_PREFIX = 'kino:bff:login:';

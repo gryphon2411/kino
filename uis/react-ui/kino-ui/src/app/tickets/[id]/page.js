@@ -1,0 +1,450 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  Paper,
+  Stack,
+  Typography,
+} from '@mui/material';
+import { beginLogin } from '@/app/authentication';
+import SavedSeatGroups from './SavedSeatGroups';
+import { refreshAfterWriteFailure } from './ticket-page-actions';
+import { ticketResponseBody } from './ticket-response';
+
+function ticketReturnTo(titleId) {
+  return `/tickets/${encodeURIComponent(titleId)}`;
+}
+
+function formatCountdown(expiresAt, now) {
+  const remaining = Math.max(0, new Date(expiresAt).getTime() - now);
+  const seconds = Math.ceil(remaining / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function seatRowCode(seatCode) {
+  return seatCode.replace(/\d+$/, '');
+}
+
+function formatShowtime(startsAt) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(startsAt));
+}
+
+export default function TicketPage() {
+  const pathname = usePathname();
+  const titleId = pathname.split('/').pop();
+  const [screenings, setScreenings] = useState([]);
+  const [selectedScreeningId, setSelectedScreeningId] = useState(null);
+  const [seats, setSeats] = useState([]);
+  const [selected, setSelected] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [confirmation, setConfirmation] = useState(null);
+  const [now, setNow] = useState(Date.now());
+  const screeningRequestId = useRef(0);
+  const seatRequestId = useRef(0);
+  const reauthenticationStarted = useRef(false);
+
+  const screening = useMemo(
+    () => screenings.find((candidate) => candidate.id === selectedScreeningId) || null,
+    [screenings, selectedScreeningId]
+  );
+
+  const reauthenticateIfNeeded = useCallback(async (response, body) => {
+    if (
+      (response.status === 403 && body.code === 'insufficient_scope') ||
+      (response.status === 401 && (
+        body.code === 'authentication_required' ||
+        body.code === 'ticket_reauthentication_required'
+      ))
+    ) {
+      if (reauthenticationStarted.current) {
+        return true;
+      }
+      reauthenticationStarted.current = true;
+      try {
+        await beginLogin(ticketReturnTo(titleId));
+      } catch (error) {
+        reauthenticationStarted.current = false;
+        throw error;
+      }
+      return true;
+    }
+    return false;
+  }, [titleId]);
+
+  const loadSeats = useCallback(async (screeningId, { preserveError = false } = {}) => {
+    const requestId = ++seatRequestId.current;
+    setLoading(true);
+    if (!preserveError) {
+      setError(null);
+    }
+    try {
+      const seatsResponse = await fetch(
+        `/api/tickets/screenings/${encodeURIComponent(screeningId)}/seats`,
+        { cache: 'no-store' }
+      );
+      const seatsBody = await ticketResponseBody(seatsResponse);
+      if (await reauthenticateIfNeeded(seatsResponse, seatsBody)) {
+        return;
+      }
+      if (!seatsResponse.ok) {
+        throw new Error(seatsBody.error || 'Unable to load seats.');
+      }
+      if (seatRequestId.current !== requestId) {
+        return;
+      }
+      setSeats(seatsBody.seats || []);
+    } catch (loadError) {
+      if (seatRequestId.current !== requestId) {
+        return;
+      }
+      setSeats([]);
+      setError(loadError.message);
+    } finally {
+      if (seatRequestId.current === requestId) {
+        setLoading(false);
+      }
+    }
+  }, [reauthenticateIfNeeded]);
+
+  const loadScreenings = useCallback(async () => {
+    const requestId = ++screeningRequestId.current;
+    setLoading(true);
+    setError(null);
+    setSeats([]);
+    setScreenings([]);
+    setSelectedScreeningId(null);
+    try {
+      const response = await fetch(
+        `/api/tickets/screenings?titleId=${encodeURIComponent(titleId)}`,
+        { cache: 'no-store' }
+      );
+      const body = await ticketResponseBody(response);
+      if (await reauthenticateIfNeeded(response, body)) {
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(body.error || 'Unable to load ticket screenings.');
+      }
+      const nextScreenings = body.screenings || [];
+      const nextScreening = nextScreenings[0];
+      if (!nextScreening) {
+        throw new Error('No ticket screening is available for this title.');
+      }
+      if (screeningRequestId.current !== requestId) {
+        return;
+      }
+      setScreenings(nextScreenings);
+      setSelectedScreeningId(nextScreening.id);
+      await loadSeats(nextScreening.id);
+    } catch (loadError) {
+      if (screeningRequestId.current !== requestId) {
+        return;
+      }
+      setError(loadError.message);
+    } finally {
+      if (screeningRequestId.current === requestId) {
+        setLoading(false);
+      }
+    }
+  }, [loadSeats, reauthenticateIfNeeded, titleId]);
+
+  useEffect(() => {
+    void loadScreenings();
+    return () => {
+      screeningRequestId.current += 1;
+      seatRequestId.current += 1;
+    };
+  }, [loadScreenings]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const holds = useMemo(() => {
+    const grouped = new Map();
+    seats.filter((seat) => seat.status === 'HELD_BY_YOU').forEach((seat) => {
+      const current = grouped.get(seat.reservationId) || {
+        id: seat.reservationId,
+        expiresAt: seat.expiresAt,
+        seatCodes: [],
+      };
+      current.seatCodes.push(seat.code);
+      grouped.set(seat.reservationId, current);
+    });
+    return [...grouped.values()];
+  }, [seats]);
+
+  const seatRows = useMemo(() => {
+    const rows = new Map();
+    seats.forEach((seat) => {
+      const rowCode = seatRowCode(seat.code);
+      rows.set(rowCode, [...(rows.get(rowCode) || []), seat]);
+    });
+    return [...rows.entries()].map(([rowCode, rowSeats]) => ({ rowCode, rowSeats }));
+  }, [seats]);
+
+  const nextHoldExpiry = useMemo(() => holds
+    .map((hold) => new Date(hold.expiresAt).getTime())
+    .sort((left, right) => left - right)[0], [holds]);
+
+  const refreshSelectedSeats = useCallback((options) => {
+    if (!selectedScreeningId) {
+      return Promise.resolve();
+    }
+    return loadSeats(selectedScreeningId, options);
+  }, [loadSeats, selectedScreeningId]);
+
+  useEffect(() => {
+    if (!nextHoldExpiry) {
+      return undefined;
+    }
+    const timeout = window.setTimeout(() => {
+      setSelected([]);
+      void refreshSelectedSeats();
+    }, Math.max(0, nextHoldExpiry - Date.now()) + 50);
+    return () => window.clearTimeout(timeout);
+  }, [nextHoldExpiry, refreshSelectedSeats]);
+
+  function toggleSeat(seat) {
+    if (seat.status !== 'AVAILABLE' || submitting) {
+      return;
+    }
+    if (!selected.includes(seat.code) && selected.length >= 8) {
+      setError('A hold can contain at most eight seats.');
+      return;
+    }
+    setSelected((current) => current.includes(seat.code)
+      ? current.filter((code) => code !== seat.code)
+      : [...current, seat.code].sort());
+  }
+
+  function selectScreening(screeningId) {
+    if (screeningId === selectedScreeningId || submitting || loading || holds.length > 0) {
+      return;
+    }
+    setSelected([]);
+    setConfirmation(null);
+    setError(null);
+    setSeats([]);
+    setSelectedScreeningId(screeningId);
+    void loadSeats(screeningId);
+  }
+
+  async function createHold() {
+    if (!screening || selected.length === 0) {
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/tickets/screenings/${encodeURIComponent(screening.id)}/holds`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seatCodes: selected }),
+        }
+      );
+      const body = await ticketResponseBody(response);
+      if (await reauthenticateIfNeeded(response, body)) {
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(body.error || 'Unable to hold the selected seats.');
+      }
+      setSelected([]);
+      await refreshSelectedSeats();
+    } catch (holdError) {
+      await refreshAfterWriteFailure(
+        holdError,
+        'Unable to hold the selected seats.',
+        setError,
+        refreshSelectedSeats
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function confirmHold(reservationId) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/tickets/reservations/${encodeURIComponent(reservationId)}/confirm`,
+        { method: 'POST' }
+      );
+      const body = await ticketResponseBody(response);
+      if (await reauthenticateIfNeeded(response, body)) {
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(body.error || 'Unable to confirm the ticket hold.');
+      }
+      setConfirmation(body);
+      await refreshSelectedSeats();
+    } catch (confirmError) {
+      await refreshAfterWriteFailure(
+        confirmError,
+        'Unable to confirm the ticket hold.',
+        setError,
+        refreshSelectedSeats
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading && !screening) {
+    return <CircularProgress />;
+  }
+
+  return (
+    <Container maxWidth="md" sx={{ py: { xs: 3, sm: 4 } }}>
+      <Stack spacing={2}>
+        <Box>
+          <Typography component="h1" variant="h4">Tickets</Typography>
+          <Typography color="text.secondary">
+            Choose your seats and confirm your booking before the hold expires.
+          </Typography>
+        </Box>
+        {error && <Alert severity="error">{error}</Alert>}
+        {confirmation && (
+          <Alert severity="success">
+            Booking confirmed for {confirmation.seatCodes.join(', ')}.
+          </Alert>
+        )}
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+          <Typography component="h2" variant="h6" gutterBottom>Choose a showtime</Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 3 }}>
+            {screenings.map((candidate) => (
+              <Button
+                key={candidate.id}
+                aria-pressed={candidate.id === selectedScreeningId}
+                disabled={loading || submitting || holds.length > 0}
+                onClick={() => selectScreening(candidate.id)}
+                variant={candidate.id === selectedScreeningId ? 'contained' : 'outlined'}
+              >
+                {formatShowtime(candidate.startsAt)}
+              </Button>
+            ))}
+          </Stack>
+          <Typography component="h2" variant="h6" gutterBottom>Choose seats</Typography>
+          <Box sx={{ mx: 'auto', maxWidth: 480 }}>
+            <Typography
+              align="center"
+              color="text.secondary"
+              sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}
+            >
+              Screen
+            </Typography>
+            <Box sx={{ bgcolor: 'divider', borderRadius: 1, height: 4, mb: 3, mt: 1, mx: 'auto', width: '70%' }} />
+            <Stack spacing={1}>
+              {seatRows.map(({ rowCode, rowSeats }) => (
+                <Box
+                  key={rowCode}
+                  sx={{
+                    alignItems: 'center',
+                    display: 'grid',
+                    gap: 1,
+                    gridTemplateColumns: '24px repeat(2, minmax(40px, 1fr)) 16px repeat(3, minmax(40px, 1fr))',
+                  }}
+                >
+                  <Typography align="center" color="text.secondary" variant="body2">{rowCode}</Typography>
+                  {rowSeats.slice(0, 2).map((seat) => (
+                    <SeatButton
+                      key={seat.code}
+                      seat={seat}
+                      selected={selected.includes(seat.code)}
+                      selectionLimitReached={selected.length >= 8}
+                      submitting={submitting}
+                      onClick={toggleSeat}
+                    />
+                  ))}
+                  <Box aria-hidden="true" />
+                  {rowSeats.slice(2).map((seat) => (
+                    <SeatButton
+                      key={seat.code}
+                      seat={seat}
+                      selected={selected.includes(seat.code)}
+                      selectionLimitReached={selected.length >= 8}
+                      submitting={submitting}
+                      onClick={toggleSeat}
+                    />
+                  ))}
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+          <Button
+            sx={{ mt: 2 }}
+            variant="contained"
+            disabled={selected.length === 0 || submitting}
+            onClick={createHold}
+          >
+            Hold seats
+          </Button>
+          <Button sx={{ mt: 2, ml: 1 }} disabled={submitting || !screening} onClick={() => void refreshSelectedSeats()}>
+            Refresh seats
+          </Button>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Select up to eight seats. Holds expire after two minutes.
+          </Typography>
+        </Paper>
+        <SavedSeatGroups
+          actionsDisabled={loading || submitting || holds.length > 0}
+          onReplaceSelection={(seatCodes) => {
+            setSelected([...seatCodes]);
+            setError(null);
+          }}
+          reauthenticateIfNeeded={reauthenticateIfNeeded}
+          seats={seats}
+          selectedSeatCodes={selected}
+        />
+        {holds.map((hold) => (
+          <Paper key={hold.id} variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography component="h2" variant="h6">Seats on hold</Typography>
+            <Typography>{hold.seatCodes.join(', ')}</Typography>
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              Confirm within {formatCountdown(hold.expiresAt, now)}
+            </Typography>
+            <Button
+              variant="contained"
+              disabled={submitting || new Date(hold.expiresAt).getTime() <= now}
+              onClick={() => confirmHold(hold.id)}
+            >
+              Confirm booking
+            </Button>
+          </Paper>
+        ))}
+      </Stack>
+    </Container>
+  );
+}
+
+function SeatButton({ seat, selected, selectionLimitReached, submitting, onClick }) {
+  return (
+    <Button
+      aria-label={`Seat ${seat.code}, ${seat.status.toLowerCase().replace(/_/g, ' ')}`}
+      disabled={seat.status !== 'AVAILABLE' || submitting || (!selected && selectionLimitReached)}
+      color={seat.status === 'SOLD' ? 'error' : seat.status === 'HELD' ? 'warning' : 'primary'}
+      onClick={() => onClick(seat)}
+      sx={{ aspectRatio: '1', borderRadius: 1.5, minWidth: 0, p: 0 }}
+      variant={selected ? 'contained' : 'outlined'}
+    >
+      {seat.code.replace(/^[A-Z]+/, '')}
+    </Button>
+  );
+}

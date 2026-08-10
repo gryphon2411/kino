@@ -42,6 +42,15 @@ manual **kino OIDC BFF E2E** workflow; configure its `kino-e2e` environment
 with a non-sensitive `KINO_E2E_USERNAME` variable and a
 `KINO_E2E_PASSWORD` secret.
 
+## Ticket BFF load test
+
+The Terraform workspace contains the bounded end-to-end ticket load test. It
+reuses the same browser credentials to establish an opaque BFF session, then
+loads only the public same-origin ticket routes; it never exposes OAuth tokens
+to the browser or reaches the private Fastify service directly. See the
+Terraform README for prerequisites and run `task load-test-ticket` from
+`orchestrators/k8s/terraform` with the same `KINO_E2E_*` variables.
+
 or:
 
 <!-- #default-branch-switch -->

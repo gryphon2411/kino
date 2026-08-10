@@ -5,11 +5,13 @@ import com.kino.data_service.titles.Title;
 import com.kino.data_service.titles.TitleController;
 import com.kino.data_service.titles.TitleDto;
 import com.kino.data_service.titles.TitleService;
+import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.proc.SecurityContext;
+import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -185,6 +187,7 @@ class DataServiceSecurityTests {
                 .build();
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256)
                 .keyId(key.getKeyID())
+                .type("at+jwt")
                 .build();
         return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }
@@ -197,6 +200,9 @@ class DataServiceSecurityTests {
         JwtDecoder userJwtDecoder() throws Exception {
             NimbusJwtDecoder decoder = NimbusJwtDecoder
                     .withPublicKey(KEY.toRSAPublicKey())
+                    .jwtProcessorCustomizer(processor -> processor.setJWSTypeVerifier(
+                            new DefaultJOSEObjectTypeVerifier<>(new JOSEObjectType("at+jwt"))
+                    ))
                     .build();
             OAuth2TokenValidator<Jwt> issuerValidator =
                     org.springframework.security.oauth2.jwt.JwtValidators

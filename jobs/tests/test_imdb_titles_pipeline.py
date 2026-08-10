@@ -23,7 +23,10 @@ from imdb_titles_pipeline.commons import (  # noqa: E402
     derive_dataset_version,
     header_fingerprint,
 )
-from imdb_titles_pipeline.mongo.definitions import MONGO_SEED_ARCHIVE_NAME  # noqa: E402
+from imdb_titles_pipeline.mongo.definitions import (  # noqa: E402
+    DEFAULT_MONGO_IMAGE,
+    MONGO_SEED_ARCHIVE_NAME,
+)
 from imdb_titles_pipeline.mongo.restore import restore_mongo_seed  # noqa: E402
 from imdb_titles_pipeline.mongo.seed import build_mongo_seed  # noqa: E402
 
@@ -287,7 +290,7 @@ class MongoSeedIntegrationTests(unittest.TestCase):
                         "docker", "run", "-d", "--rm",
                         "--network", network_name,
                         "--name", container_name,
-                        "mongo:8.0", "--bind_ip_all",
+                        DEFAULT_MONGO_IMAGE, "--bind_ip_all",
                     ],
                     check=True,
                     stdout=subprocess.PIPE,

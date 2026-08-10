@@ -1,0 +1,20 @@
+# Vault remains intentionally asynchronous during Terraform apply because it
+# is initialized and unsealed by the following local task.  Its containers are
+# still bounded so that a sealed server cannot crowd out the data plane.
+server:
+  resources:
+    requests:
+      cpu: 150m
+      memory: 256Mi
+    limits:
+      cpu: 150m
+      memory: 256Mi
+
+injector:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 50m
+      memory: 128Mi
