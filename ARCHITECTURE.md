@@ -33,7 +33,7 @@ The canonical runtime shape is:
 - an optional LangGraph agent for grounded title discovery
 - MongoDB as the main runtime datastore
 - PostgreSQL for Authorization Server protocol state
-- PostgreSQL for ticket-seat allocation
+- PostgreSQL for ticket allocation state and saved seat preferences
 - Redis for BFF/session state and service caches
 - Kafka for title-search event streaming
 - RabbitMQ for request/reply style service integration
@@ -223,6 +223,29 @@ Important areas:
 If a change affects how titles are searched, filtered, or exposed to other
 parts of the system, start here.
 
+### `services/fastify/ticket_service`
+
+`ticket_service` is the private transactional boundary for a small, seeded
+ticketing exercise. It is reached only through the Next.js BFF and validates
+the BFF's user access token itself.
+
+Important areas:
+
+- `src/ticket-routes.ts`
+  - parent ticket HTTP boundary, including the shared no-store response policy
+- `src/allocation/`
+  - direct PostgreSQL allocation operations, including the explicit row-lock
+    transaction that creates holds and confirms reservations
+- `src/seat-presets/`
+  - owner-scoped saved-seat-group CRUD through Prisma
+- `src/server.ts`
+  - production composition root for Fastify, the shared PostgreSQL pool, and
+    Prisma
+
+Flyway remains the only schema and seed-data owner. Prisma intentionally serves
+only ordinary saved-seat-group CRUD; direct `pg` keeps the allocation algorithm
+and its PostgreSQL locking semantics explicit.
+
 ### `services/spring-boot/trend_service`
 
 `trend_service` is a Kafka Streams consumer over `TitleSearchEvent` traffic.
@@ -307,9 +330,12 @@ This is the canonical deployment path.
 Important files:
 
 - `services.tf`
-  - deploys auth, data, trend, generative, agent, UI, and ingress wiring
+  - deploys auth, data, ticket, trend, generative, agent, UI, and ingress wiring
 - `databases.tf`
   - MongoDB, Postgres, and Redis resources, plus the Mongo init job
+- `ticket_database.tf`
+  - ticket PostgreSQL bootstrap roles, Flyway migration Job, and runtime
+    credentials
 - `helm.tf`
   - Kafka, RabbitMQ, Prometheus, Grafana, Vault, and External Secrets Operator
 - `variables.tf`
@@ -360,8 +386,8 @@ explicitly starts using them.
 - RabbitMQ is used for synchronous service integration with
   `generative_service`; Kafka is used for event streaming and analytics.
 - Browser, user-token, and machine-token traffic are different security
-  domains. The browser has only a BFF cookie; user JWTs protect title routes;
-  machine JWTs with narrower scopes protect `/internal`.
+  domains. The browser has only a BFF cookie; user JWTs protect title and ticket
+  routes; machine JWTs with narrower scopes protect `/internal`.
 - The BFF treats a refresh as durable only after the rotated token session is
   saved to Redis. If that write fails, it clears the local session and requires
   a new login rather than leaving a stale refresh token in the browser flow.
@@ -382,8 +408,9 @@ explicitly starts using them.
 - Auth vs application behavior:
   - `auth_service` issues identity and tokens; other services enforce them.
 - Public HTTP vs internal HTTP:
-  - the UI uses ingress-routed public paths; internal services use cluster-local
-    addresses and stronger scope checks.
+  - the UI uses ingress-routed public paths; the ticket service is ClusterIP-only
+    and reachable solely from the UI/BFF pod; other internal services use
+    cluster-local addresses and stronger scope checks.
 - Catalog reads vs analytics:
   - `data_service` serves reads; `trend_service` derives returned-title
     aggregates downstream.
@@ -406,6 +433,9 @@ that deployment target.
 - PostgreSQL `kino_auth` stores Authorization Server clients, authorization
   codes, consents, and refresh tokens. A migrator role owns its schema; the
   running auth service has only DML permissions.
+- PostgreSQL `kino_ticket` stores independent screening seat maps, reservation
+  lifecycle state, and owner-scoped saved seat groups. It has separate migrator
+  and runtime roles; Flyway owns its schema and deterministic sample data.
 - Redis default caches are segmented by service database number. Auth-service
   login sessions and opaque Next.js BFF sessions are separate Redis state. The
   BFF has its own Redis ACL, limited to `kino:bff:*`; its access and refresh
@@ -419,6 +449,8 @@ that deployment target.
 ### Testing
 
 - Spring services use focused WebMvc and unit tests.
+- `ticket_service` uses Fastify unit and PostgreSQL integration tests for its
+  HTTP, authorization, allocation, and persistence boundaries.
 - `agent_service` uses pytest for unit and integration-style tests.
 - `jobs/` uses Python test coverage plus CI verification builds against fixture
   data.
@@ -454,6 +486,10 @@ Terraform state.
 - "Change grounded AI discovery"
   - start in `graph`, `tools.search_titles`, `KinoDataServiceClient`, and
     `CuratorResponseMiddleware`
+- "Change ticket holds, confirmations, or seat availability"
+  - start in `services/fastify/ticket_service/src/allocation/`
+- "Change saved ticket seat groups"
+  - start in `services/fastify/ticket_service/src/seat-presets/`
 - "Change deployment topology or wiring"
   - start in `orchestrators/k8s/terraform/services.tf`
 - "Change the source title data or Mongo search shape"
