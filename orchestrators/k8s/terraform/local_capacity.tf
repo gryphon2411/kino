@@ -10,13 +10,14 @@ locals {
 
     database_job = { cpu = "100m", memory = "256Mi" }
 
-    auth       = { cpu = "250m", memory = "512Mi" }
-    data       = { cpu = "250m", memory = "512Mi" }
-    ticket     = { cpu = "150m", memory = "256Mi" }
-    trend      = { cpu = "150m", memory = "384Mi" }
-    generative = { cpu = "250m", memory = "512Mi" }
-    agent      = { cpu = "250m", memory = "512Mi" }
-    ui         = { cpu = "250m", memory = "384Mi" }
+    auth         = { cpu = "250m", memory = "512Mi" }
+    data         = { cpu = "250m", memory = "512Mi" }
+    ticket       = { cpu = "150m", memory = "256Mi" }
+    viewing_plan = { cpu = "150m", memory = "256Mi" }
+    trend        = { cpu = "150m", memory = "384Mi" }
+    generative   = { cpu = "250m", memory = "512Mi" }
+    agent        = { cpu = "250m", memory = "512Mi" }
+    ui           = { cpu = "250m", memory = "384Mi" }
   }
 }
 

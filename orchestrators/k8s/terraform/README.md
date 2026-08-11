@@ -143,6 +143,7 @@ registration for each database you need to inspect:
 | --- | --- | --- | --- |
 | `kino_auth` | `kino_auth_runtime` | `TF_VAR_auth_database_runtime_password` | `kino_auth` |
 | `kino_ticket` (when ticket service is enabled) | `kino_ticket_runtime` | `TF_VAR_ticket_database_runtime_password` | `kino_ticket` |
+| `kino_viewing_plan` (when Viewing Plans is enabled) | `kino_viewing_plan_runtime` | `TF_VAR_viewing_plan_database_runtime_password` | `kino_viewing_plan` |
 
 Both use host `127.0.0.1` and port `15432`. The runtime roles are deliberately
 database-specific: do not use the auth role for `kino_ticket`, or the ticket
@@ -185,6 +186,7 @@ Canonical deployment uses immutable image refs:
 | `enable_auth_service` | `bool` | `true` | Enable Kino Auth Service |
 | `enable_data_service` | `bool` | `true` | Enable Kino Data Service |
 | `enable_ticket_service` | `bool` | `false` | Enable the private Fastify ticket-allocation service |
+| `enable_viewing_plan_service` | `bool` | `false` | Enable the private Express Viewing Plans service |
 | `enable_trend_service` | `bool` | `true` | Enable Kino Trend Service |
 | `enable_generative_service` | `bool` | `true` | Enable Kino Generative Service |
 | `enable_agent_service` | `bool` | `false` | Enable Kino Agent Service |
@@ -198,6 +200,7 @@ Canonical deployment uses immutable image refs:
 | `auth_database_migration_image_ref` | `string` | `null` | Optional digest-pinned Flyway-image override for the auth migration Job; a reviewed built-in digest is used when unset |
 | `data_service_image_ref` | `string` | `null` | Digest-pinned data-service image used by the Deployment when data-service is enabled |
 | `ticket_service_image_ref` | `string` | `null` | Digest-pinned Fastify ticket-service image used by the Deployment when enabled |
+| `viewing_plan_service_image_ref` | `string` | `null` | Digest-pinned Express Viewing Plans image used by the Deployment when enabled |
 | `ticket_database_migration_image_ref` | `string` | `null` | Optional digest-pinned Flyway-image override for the ticket migration Job |
 | `trend_service_image_ref` | `string` | `null` | Digest-pinned trend-service image used by the Deployment when trend-service is enabled |
 | `generative_service_image_ref` | `string` | `null` | Digest-pinned generative-service image used by the Deployment when generative-service is enabled |
@@ -212,6 +215,8 @@ Canonical deployment uses immutable image refs:
 | `auth_database_runtime_password` | `string` | — | Password for the auth-service PostgreSQL DML role (sensitive) |
 | `ticket_database_migrator_password` | `string` | — | Password for the short-lived ticket PostgreSQL migration role (sensitive) |
 | `ticket_database_runtime_password` | `string` | — | Password for the ticket-service PostgreSQL runtime role (sensitive) |
+| `viewing_plan_database_migrator_password` | `string` | — | Password for the short-lived Viewing Plans migration role (sensitive) |
+| `viewing_plan_database_runtime_password` | `string` | — | Password for the Viewing Plans PostgreSQL runtime role (sensitive) |
 | `web_bff_client_secret` | `string` | — | Confidential OIDC secret shared by auth-service and the Next.js BFF (sensitive) |
 | `redis_password` | `string` | — | Redis password (sensitive) |
 | `web_bff_redis_password` | `string` | `null` | Optional operator-controlled Redis ACL password for BFF-only `kino:bff:*` records; Terraform generates a distinct sensitive value when unset |
@@ -332,6 +337,17 @@ uses PostgreSQL row locking and database time for two-minute holds; it
 intentionally does not include payments, cancellation, schedule management, or
 a background expiry worker. The internal JWK URI remains Kino's explicit
 local/dev trust binding rather than OIDC Discovery.
+
+## Viewing Plans
+
+When `enable_viewing_plan_service=true`, Terraform provisions isolated
+`kino_viewing_plan` PostgreSQL storage, narrow migrator/runtime roles, and a
+Flyway Job. The private Express service is ClusterIP-only on port `8085` and
+the UI BFF is its only allowed caller. Enable it with a digest-pinned
+`viewing_plan_service_image_ref` plus the two runtime-role passwords, then run
+`task verify-viewing-plan-network-policy` after deployment. The BFF client
+receives the Viewing Plans read/write scopes and audience only when the feature
+is enabled.
 
 ## Agent Service
 

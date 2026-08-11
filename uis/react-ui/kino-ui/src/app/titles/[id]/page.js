@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Button, CircularProgress, Container, Grid, Card, CardContent, Typography } from '@mui/material';
 import { beginLogin } from '@/app/authentication';
 import { fetchTitle, setTitle, fetchFacts } from '@/app/titles/[id]/slice';
+import ViewingPlanControl from './ViewingPlanControl';
 
 function formatGenres(genres) {
   if (!Array.isArray(genres) || genres.length === 0) {
@@ -157,6 +158,7 @@ export default function TitlePage() {
                   Book tickets · {ticketShowtimeCount} {ticketShowtimeCount === 1 ? 'showtime' : 'showtimes'}
                 </Button>
               )}
+              {title.id === id && <ViewingPlanControl titleId={id} />}
               <Typography variant="body1" gutterBottom>
                 Facts:
               </Typography>

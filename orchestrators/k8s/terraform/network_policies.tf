@@ -147,3 +147,62 @@ resource "kubernetes_network_policy_v1" "ticket_service_ingress" {
     }
   }
 }
+
+# Viewing Plans is private to the UI BFF and needs only PostgreSQL, the
+# authorization service's JWKS endpoint, and cluster DNS.
+resource "kubernetes_network_policy_v1" "viewing_plan_service_ingress" {
+  count = var.enable_viewing_plan_service ? 1 : 0
+
+  metadata { name = "viewing-plan-service-allow-ui-bff" }
+
+  spec {
+    pod_selector { match_labels = { app = local.viewing_plan_service_name } }
+    policy_types = ["Ingress", "Egress"]
+
+    ingress {
+      from {
+        namespace_selector { match_labels = { "kubernetes.io/metadata.name" = "default" } }
+        pod_selector { match_labels = { app = local.ui_service_name } }
+      }
+      ports {
+        port     = "8080"
+        protocol = "TCP"
+      }
+    }
+
+    egress {
+      to {
+        namespace_selector { match_labels = { "kubernetes.io/metadata.name" = "postgres-system" } }
+        pod_selector { match_labels = { app = "postgres" } }
+      }
+      ports {
+        port     = "5432"
+        protocol = "TCP"
+      }
+    }
+    egress {
+      to {
+        namespace_selector { match_labels = { "kubernetes.io/metadata.name" = "default" } }
+        pod_selector { match_labels = { app = local.auth_service_name } }
+      }
+      ports {
+        port     = "8081"
+        protocol = "TCP"
+      }
+    }
+    egress {
+      to {
+        namespace_selector { match_labels = { "kubernetes.io/metadata.name" = "kube-system" } }
+        pod_selector { match_labels = { "k8s-app" = "kube-dns" } }
+      }
+      ports {
+        port     = "53"
+        protocol = "UDP"
+      }
+      ports {
+        port     = "53"
+        protocol = "TCP"
+      }
+    }
+  }
+}

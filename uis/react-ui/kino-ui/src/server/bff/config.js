@@ -14,6 +14,18 @@ function integer(name, fallback) {
   return value;
 }
 
+function viewingPlanInteger(name, fallback) {
+  const value = process.env[name] || fallback;
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return parsed;
+}
+
 export function getBffConfig() {
   const publicOrigin = new URL(
     process.env.BFF_PUBLIC_ORIGIN || 'http://local.kino.com'
@@ -40,6 +52,13 @@ export function getBffConfig() {
     ticketServiceUrl.pathname += '/';
   }
 
+  const viewingPlanServiceUrl = new URL(
+    process.env.VIEWING_PLAN_SERVICE_INTERNAL_URL || 'http://viewing-plan-service:8085'
+  );
+  if (!viewingPlanServiceUrl.pathname.endsWith('/')) {
+    viewingPlanServiceUrl.pathname += '/';
+  }
+
   return {
     publicOrigin,
     issuer,
@@ -56,6 +75,9 @@ export function getBffConfig() {
     ticketServiceUrl,
     ticketServiceEnabled: process.env.TICKET_SERVICE_ENABLED === 'true',
     ticketServiceTimeoutMs: integer('TICKET_SERVICE_TIMEOUT_MS', '5000'),
+    viewingPlanServiceUrl,
+    viewingPlanServiceEnabled: process.env.VIEWING_PLAN_SERVICE_ENABLED === 'true',
+    viewingPlanServiceTimeoutMs: viewingPlanInteger('VIEWING_PLAN_SERVICE_TIMEOUT_MS', '5000'),
     redis: {
       host: process.env.BFF_REDIS_HOST || 'redis-stack.redis-stack-system',
       port: integer('BFF_REDIS_PORT', '6379'),

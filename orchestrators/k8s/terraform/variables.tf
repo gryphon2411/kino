@@ -60,6 +60,12 @@ variable "enable_ticket_service" {
   default     = false
 }
 
+variable "enable_viewing_plan_service" {
+  type        = bool
+  description = "Enable Kino Express Viewing Plans service"
+  default     = false
+}
+
 variable "enable_trend_service" {
   type        = bool
   description = "Enable Kino Trend Service"
@@ -195,6 +201,21 @@ variable "ticket_service_image_ref" {
   }
 }
 
+variable "viewing_plan_service_image_ref" {
+  type        = string
+  description = "Immutable viewing-plan-service image reference deployed by Kubernetes"
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_viewing_plan_service || (
+      var.viewing_plan_service_image_ref != null
+      && can(regex(".+@sha256:[0-9a-f]{64}$", var.viewing_plan_service_image_ref))
+    )
+    error_message = "viewing_plan_service_image_ref must be a digest-pinned OCI image reference when viewing-plan-service is enabled."
+  }
+}
+
 variable "ticket_database_migration_image_ref" {
   type        = string
   description = "Optional digest-pinned Flyway image override for the ticket migration Job."
@@ -207,6 +228,21 @@ variable "ticket_database_migration_image_ref" {
       || can(regex(".+@sha256:[0-9a-f]{64}$", var.ticket_database_migration_image_ref))
     )
     error_message = "ticket_database_migration_image_ref must be a digest-pinned OCI image reference when ticket PostgreSQL is enabled."
+  }
+}
+
+variable "viewing_plan_database_migration_image_ref" {
+  type        = string
+  description = "Optional digest-pinned Flyway image override for the Viewing Plans migration Job."
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_postgres || !var.enable_viewing_plan_service || (
+      var.viewing_plan_database_migration_image_ref == null
+      || can(regex(".+@sha256:[0-9a-f]{64}$", var.viewing_plan_database_migration_image_ref))
+    )
+    error_message = "viewing_plan_database_migration_image_ref must be a digest-pinned OCI image reference when Viewing Plans PostgreSQL is enabled."
   }
 }
 
@@ -377,6 +413,38 @@ variable "ticket_database_runtime_password" {
       && trimspace(var.ticket_database_runtime_password) != ""
     )
     error_message = "ticket_database_runtime_password must be set when ticket-service is enabled."
+  }
+}
+
+variable "viewing_plan_database_migrator_password" {
+  type        = string
+  description = "Password for the short-lived Viewing Plans database migration role."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_viewing_plan_service || (
+      var.viewing_plan_database_migrator_password != null
+      && trimspace(var.viewing_plan_database_migrator_password) != ""
+    )
+    error_message = "viewing_plan_database_migrator_password must be set when viewing-plan-service is enabled."
+  }
+}
+
+variable "viewing_plan_database_runtime_password" {
+  type        = string
+  description = "Password for the Viewing Plans runtime role."
+  sensitive   = true
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_viewing_plan_service || (
+      var.viewing_plan_database_runtime_password != null
+      && trimspace(var.viewing_plan_database_runtime_password) != ""
+    )
+    error_message = "viewing_plan_database_runtime_password must be set when viewing-plan-service is enabled."
   }
 }
 

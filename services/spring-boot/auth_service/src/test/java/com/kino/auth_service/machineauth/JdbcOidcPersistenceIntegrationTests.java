@@ -105,9 +105,15 @@ class JdbcOidcPersistenceIntegrationTests {
     }
 
     @Test
-    void bffAccessTokenClaimsUseBothConfiguredAudiencesAndTicketScopes() throws Exception {
+    void bffAccessTokenClaimsUseConfiguredAudiencesAndOptionalServiceScopes() throws Exception {
         this.bootstrapClients();
         RegisteredClient client = this.registeredClients.findByClientId("kino-web-bff");
+        assertThat(client.getScopes()).contains(
+                "kino.viewing-plan.read", "kino.viewing-plan.write"
+        );
+        assertThat(this.properties.getWebBff().getAudiences()).contains(
+                "kino-viewing-plan-api"
+        );
         CustomUser user = new CustomUser();
         user.username = "kino-user";
         user.oidcSubject = "opaque-kino-subject";
@@ -123,7 +129,8 @@ class JdbcOidcPersistenceIntegrationTests {
                 .principalName("kino-user")
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizedScopes(Set.of(
-                        "kino.data.read", "kino.ticket.read", "kino.ticket.write"
+                        "kino.data.read", "kino.ticket.read", "kino.ticket.write",
+                        "kino.viewing-plan.read", "kino.viewing-plan.write"
                 ))
                 .build();
         when(context.getRegisteredClient()).thenReturn(client);
@@ -138,10 +145,11 @@ class JdbcOidcPersistenceIntegrationTests {
         JwtClaimsSet encodedClaims = claims.build();
         assertThat(jwsHeader.build().getType()).isEqualTo("at+jwt");
         assertThat(encodedClaims.getAudience()).containsExactly(
-                "kino-data-api", "kino-ticket-api"
+                "kino-data-api", "kino-ticket-api", "kino-viewing-plan-api"
         );
         assertThat(encodedClaims.getClaimAsString("scope")).contains(
-                "kino.data.read", "kino.ticket.read", "kino.ticket.write"
+                "kino.data.read", "kino.ticket.read", "kino.ticket.write",
+                "kino.viewing-plan.read", "kino.viewing-plan.write"
         );
         assertThat(encodedClaims.getSubject()).isEqualTo("opaque-kino-subject");
     }
@@ -155,7 +163,10 @@ class JdbcOidcPersistenceIntegrationTests {
 
         RegisteredClient client = this.registeredClients.findByClientId("kino-web-bff");
         assertThat(client.getScopes()).contains("openid", "profile", "kino.data.read");
-        assertThat(client.getScopes()).doesNotContain("kino.ticket.read", "kino.ticket.write");
+        assertThat(client.getScopes()).doesNotContain(
+                "kino.ticket.read", "kino.ticket.write",
+                "kino.viewing-plan.read", "kino.viewing-plan.write"
+        );
         assertThat(this.properties.getWebBff().getAudiences()).containsExactly("kino-data-api");
     }
 
@@ -320,10 +331,11 @@ class JdbcOidcPersistenceIntegrationTests {
         configured.getWebBff().setClientId("kino-web-bff");
         configured.getWebBff().setClientSecret("first-bff-secret");
         configured.getWebBff().setScopes(List.of(
-                "kino.data.read", "kino.ticket.read", "kino.ticket.write"
+                "kino.data.read", "kino.ticket.read", "kino.ticket.write",
+                "kino.viewing-plan.read", "kino.viewing-plan.write"
         ));
         configured.getWebBff().setAudiences(List.of(
-                "kino-data-api", "kino-ticket-api"
+                "kino-data-api", "kino-ticket-api", "kino-viewing-plan-api"
         ));
         configured.getWebBff().setRedirectUri("http://localhost:3000/api/auth/callback");
         return configured;

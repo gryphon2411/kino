@@ -34,6 +34,7 @@ The canonical runtime shape is:
 - MongoDB as the main runtime datastore
 - PostgreSQL for Authorization Server protocol state
 - PostgreSQL for ticket allocation state and saved seat preferences
+- PostgreSQL for optional user-owned viewing plans
 - Redis for BFF/session state and service caches
 - Kafka for title-search event streaming
 - RabbitMQ for request/reply style service integration
@@ -104,6 +105,16 @@ CRUD; direct `pg` owns allocation transactions and row locks; both share one
 PostgreSQL pool. It deliberately demonstrates a small transactional PostgreSQL
 domain without adding payments, cancellation, a worker, or a generic scheduling
 system.
+
+### 7. Viewing plans
+
+`viewing_plan_service` is the active Express example, rather than one of the
+historical Express prototypes. The Next.js BFF uses its server-held user token
+to call the private service for watch/rewatch lifecycle state. The service owns
+an isolated `kino_viewing_plan` PostgreSQL database and never reads the title
+catalog directly; the BFF enriches plans through `data_service`. It remains
+optional in Terraform and intentionally excludes scheduling, reminders, shared
+plans, and social discussion.
 
 ## Codemap
 
@@ -245,6 +256,14 @@ Important areas:
 Flyway remains the only schema and seed-data owner. Prisma intentionally serves
 only ordinary saved-seat-group CRUD; direct `pg` keeps the allocation algorithm
 and its PostgreSQL locking semantics explicit.
+
+### `services/express/viewing_plan_service`
+
+`viewing_plan_service` is the private, owner-scoped PostgreSQL boundary for
+watch and rewatch plans. It uses direct `pg` for a small lifecycle model:
+one Open plan per user/title and immutable Done history. It is reached only
+through the Next.js BFF; title display data remains an explicit `data_service`
+read in that BFF rather than a cross-database dependency.
 
 ### `services/spring-boot/trend_service`
 

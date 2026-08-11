@@ -25,7 +25,7 @@ const DRAWER_WIDTH = 240;
 const LINKS = [
   { text: 'Home', href: '/', icon: HomeIcon },
   { text: 'Starred', href: '/starred', icon: StarIcon },
-  { text: 'Tasks', href: '/tasks', icon: ChecklistIcon },
+  { text: 'Viewing plans', href: '/viewing-plans', icon: ChecklistIcon },
   { text: 'Titles', href: '/titles', icon: LocalMoviesIcon }
 ];
 
