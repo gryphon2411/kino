@@ -481,9 +481,11 @@ end-to-end behavior.
 
 ### Observability
 
-Prometheus and Grafana are part of the current Terraform path. Older diagrams
-may show Elastic or ECK-related components, but those are not the canonical
-deployment path at the moment.
+Prometheus and Grafana are part of the current Terraform path. An optional ECK
+workload stack is available as `orchestrators/k8s/eck-system.yaml`; operators
+apply it manually after installing the ECK CRDs and operator. It is outside the
+canonical Terraform deployment path and is not created or destroyed by
+`task deploy`.
 
 ### Security and secrets
 

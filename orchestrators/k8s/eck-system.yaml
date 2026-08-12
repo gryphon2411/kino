@@ -1,0 +1,477 @@
+# E: Elastic
+# C: Cloud
+#    on
+# K: Kubernenets
+
+# The Elastic Stack (ELK):
+# E: Elasticsearch
+# L: Logstash
+# K: Kibana
+# Beats (Filebeat, Metricbeat)
+
+# minikube start --cpus=max --memory=max
+# kubectl create -f https://download.elastic.co/downloads/eck/2.9.0/crds.yaml
+# kubectl apply -f https://download.elastic.co/downloads/eck/2.9.0/operator.yaml
+# kubectl -n elastic-system get pod elastic-operator-0
+# minikube addons enable metrics-server
+# kubectl apply -f eck-system.yaml (takes ~10min)
+# minikube tunnel
+# minikube service list | grep kino-kb-http | awk '{print $8}' | sed 's/http:\/\//https:\/\//' && echo $(kubectl -n eck-system get secret kino-es-elastic-user -o jsonpath='{.data.elastic}' | base64 --decode)
+# Go to <HTTPS URL>/app/discover
+apiVersion: v1
+kind: Namespace
+metadata:
+  # The ECK operator runs by default in the elastic-system namespace.
+  # It is recommended to choose a dedicated namespace for workloads,
+  # rather than using the elastic-system or the default namespace.
+  name: eck-system
+---
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: kino
+  namespace: eck-system
+spec:
+  version: 8.9.1
+  nodeSets:
+  - name: default
+    count: 1
+    config:
+      # node.roles: [master, data, ingest]  # See https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-node.html#node-roles
+      node.store.allow_mmap: false
+  # Uncomment to allow external access
+  # http:
+  #   service:
+  #     spec:
+  #       type: LoadBalancer
+---
+apiVersion: logstash.k8s.elastic.co/v1alpha1
+kind: Logstash
+metadata:
+  name: kino
+  namespace: eck-system
+spec:
+  count: 1
+  elasticsearchRefs:
+    - name: kino
+      clusterName: kf
+  version: 8.9.1
+  pipelines:
+    - pipeline.id: main
+      config.string: |
+        input {
+          beats {
+            port => 5044
+          }
+        }
+        output {
+          elasticsearch {
+            hosts => [ "${KF_ES_HOSTS}" ]
+            user => "${KF_ES_USER}"
+            password => "${KF_ES_PASSWORD}"
+            ssl_certificate_authorities => "${KF_ES_SSL_CERTIFICATE_AUTHORITY}"
+          }
+        }
+  services:
+    - name: beats
+      service:
+        spec:
+          # Uncomment to allow external access
+          # type: LoadBalancer
+          type: ClusterIP
+          ports:
+            - port: 5044
+              name: "filebeat"
+              protocol: TCP
+              targetPort: 5044
+---
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kino
+  namespace: eck-system
+spec:
+  version: 8.9.1
+  count: 1
+  elasticsearchRef:
+    name: kino
+  http:
+    service:
+      spec:
+        type: LoadBalancer
+---
+apiVersion: beat.k8s.elastic.co/v1beta1
+kind: Beat
+metadata:
+  name: kino-filebeat
+  namespace: eck-system
+spec:
+  type: filebeat
+  version: 8.9.1
+  elasticsearchRef:
+    name: kino
+  kibanaRef: # set up example dashboards packaged with the Beat
+    name: kino
+  config:
+    filebeat.autodiscover:
+     providers:
+       - type: kubernetes
+         node: ${NODE_NAME}
+         hints.enabled: true
+         hints.default_config:
+           type: container
+           paths:
+             - /var/log/containers/*${data.kubernetes.container.id}.log
+    processors:
+    - add_cloud_metadata: {}
+    - add_host_metadata: {}
+  daemonSet:
+  # deployment:
+    # replicas: 1
+    podTemplate:
+      metadata:
+        annotations:
+          # See: https://www.elastic.co/guide/en/beats/filebeat/8.9/filebeat-input-container.html#filebeat-input-container-common-options
+          co.elastic.logs/json.keys_under_root: 'true'
+          co.elastic.logs/json.overwrite_keys: 'true'
+          co.elastic.logs/json.add_error_key: 'true'
+          co.elastic.logs/json.expand_keys: 'true'
+      spec:
+        dnsPolicy: ClusterFirstWithHostNet
+        hostNetwork: true  # Allows to provide richer host metadata
+        serviceAccountName: kino-beat-filebeat
+        automountServiceAccountToken: true
+        terminationGracePeriodSeconds: 30
+        securityContext:
+          runAsUser: 0
+          # If using Red Hat OpenShift uncomment this:
+          # privileged: true
+        containers:
+        - name: filebeat
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          volumeMounts:
+          - name: varlogcontainers
+            mountPath: /var/log/containers
+          - name: varlogpods
+            mountPath: /var/log/pods
+          - name: varlibdockercontainers
+            mountPath: /var/lib/docker/containers
+        volumes:
+        - name: varlogcontainers
+          hostPath:
+            path: /var/log/containers
+        - name: varlogpods
+          hostPath:
+            path: /var/log/pods
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kino-beat-filebeat
+  namespace: eck-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kino-beat-filebeat
+rules:
+- apiGroups: [""]
+  resources: ["namespaces", "pods", "nodes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kino-beat-filebeat
+subjects:
+- kind: ServiceAccount
+  name: kino-beat-filebeat
+  namespace: eck-system
+roleRef:
+  kind: ClusterRole
+  name: kino-beat-filebeat
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: beat.k8s.elastic.co/v1beta1
+kind: Beat
+metadata:
+  name: kino-metricbeat
+  namespace: eck-system
+spec:
+  type: metricbeat
+  version: 8.8.0
+  elasticsearchRef:
+    name: kino
+  kibanaRef:
+    name: kino
+  config:
+    metricbeat:
+      autodiscover:
+        providers:
+        - type: kubernetes
+          node: ${NODE_NAME}
+          hints.enabled: true
+          hints.default_config: {}
+      modules:
+      - module: system
+        period: 10s
+        metricsets:
+        - cpu
+        - load
+        - memory
+        - network
+        - process
+        - process_summary
+        process:
+          include_top_n:
+            by_cpu: 5
+            by_memory: 5
+        processes:
+        - .*
+      - module: system
+        period: 1m
+        metricsets:
+        - filesystem
+        - fsstat
+        processors:
+        - drop_event:
+            when:
+              regexp:
+                system:
+                  filesystem:
+                    mount_point: ^/(sys|cgroup|proc|dev|etc|host|lib)($|/)
+      # Node metrics, from kubelet
+      - module: kubernetes
+        period: 10s
+        node: ${NODE_NAME}
+        hosts:
+        - https://${NODE_NAME}:10250
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        ssl:
+          verification_mode: none
+        metricsets:
+        - node
+        - system
+        - pod
+        - container
+        - volume
+    processors:
+    - add_cloud_metadata: {}
+    - add_host_metadata: {}
+  daemonSet:
+    podTemplate:
+      metadata:
+        annotations:
+          # See: https://www.elastic.co/guide/en/beats/filebeat/8.9/filebeat-input-container.html#filebeat-input-container-common-options
+          co.elastic.logs/json.keys_under_root: 'true'
+          co.elastic.logs/json.overwrite_keys: 'true'
+          co.elastic.logs/json.add_error_key: 'true'
+          co.elastic.logs/json.expand_keys: 'true'
+      spec:
+        dnsPolicy: ClusterFirstWithHostNet
+        hostNetwork: true # Allows to provide richer host metadata
+        serviceAccountName: kino-beat-metricbeat
+        automountServiceAccountToken: true # some older Beat versions are depending on this settings presence in k8s context
+        terminationGracePeriodSeconds: 30
+        securityContext:
+          runAsUser: 0
+        containers:
+        - name: metricbeat
+          args:
+          - -e
+          - -c
+          - /etc/beat.yml
+          - -system.hostfs=/hostfs
+          volumeMounts:
+          - name: cgroup
+            mountPath: /hostfs/sys/fs/cgroup
+          - name: dockersock
+            mountPath: /var/run/docker.sock
+          - name: proc
+            mountPath: /hostfs/proc
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+        volumes:
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+        - name: dockersock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: proc
+          hostPath:
+            path: /proc
+---
+# permissions needed for metricbeat
+# source: https://www.elastic.co/guide/en/beats/metricbeat/current/metricbeat-module-kubernetes.html
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kino-beat-metricbeat
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "namespaces", "events", "pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["statefulsets", "deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["nodes/stats"]
+  verbs: ["get"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kino-beat-metricbeat
+  namespace: eck-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kino-beat-metricbeat
+subjects:
+- kind: ServiceAccount
+  name: kino-beat-metricbeat
+  namespace: eck-system
+roleRef:
+  kind: ClusterRole
+  name: kino-beat-metricbeat
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: beat.k8s.elastic.co/v1beta1
+kind: Beat
+metadata:
+  name: kino-heartbeat
+  namespace: eck-system
+spec:
+  type: heartbeat
+  version: 8.8.0
+  elasticsearchRef:
+    name: kino
+  kibanaRef:
+    name: kino
+  config:
+    heartbeat:
+      autodiscover:
+        providers:
+          - type: kubernetes
+            resource: pod
+            scope: cluster
+            node: ${NODE_NAME}
+            hints.enabled: true
+            templates:
+              - condition: ~
+                config:
+                  - hosts: ["${data.host}:${data.port}"]
+                    name: ${data.kubernetes.pod.name} (${data.kubernetes.container.name})
+                    schedule: '@every 10s'
+                    timeout: 5s
+                    type: tcp
+
+          - type: kubernetes
+            resource: service
+            scope: cluster
+            node: ${NODE_NAME}
+            hints.enabled: true
+            templates:
+              - condition: ~
+                config:
+                  - hosts: ["${data.host}:${data.port}"]
+                    name: ${data.kubernetes.service.name}
+                    schedule: '@every 10s'
+                    timeout: 5s
+                    type: tcp
+
+          - type: kubernetes
+            resource: node
+            node: ${NODE_NAME}
+            scope: cluster
+            templates:
+              # Example, check SSH port of all cluster nodes:
+              - condition: ~
+                config:
+                  - hosts: ["${data.host}:${data.port}"]
+                    name: ${data.kubernetes.node.name}
+                    schedule: '@every 10s'
+                    timeout: 5s
+                    type: tcp
+  deployment:
+    replicas: 1
+    podTemplate:
+      spec:
+        dnsPolicy: ClusterFirstWithHostNet
+        hostNetwork: true # Allows to provide richer host metadata
+        serviceAccountName: kino-beat-heartbeat
+        automountServiceAccountToken: true # some older Beat versions are depending on this settings presence in k8s context
+        terminationGracePeriodSeconds: 30
+        securityContext:
+          runAsUser: 0
+        containers:
+        - name: heartbeat
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kino-beat-heartbeat
+  namespace: eck-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kino-beat-heartbeat
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - namespaces
+  - pods
+  - services
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources:
+    - replicasets
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources:
+    - jobs
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kino-beat-heartbeat
+subjects:
+- kind: ServiceAccount
+  name: kino-beat-heartbeat
+  namespace: eck-system
+roleRef:
+  kind: ClusterRole
+  name: kino-beat-heartbeat
+  apiGroup: rbac.authorization.k8s.io
+---
