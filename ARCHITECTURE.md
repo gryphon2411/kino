@@ -373,17 +373,11 @@ canonical branch, can publish a digest-pinned image reference for Terraform.
 The notable exception is `kino-jobs.yml`: CI validates the dataset pipeline and
 packaging, but official dataset publication remains a local operator workflow.
 
-### Legacy and prototype areas
+### Prototype areas
 
-These directories are useful context, but they are not part of the canonical
-runtime path today:
-
-- `services/express/auth-service`
-- `services/express/ticket_service`
-- `services/nestjs`
-
-Treat them as experiments or historical prototypes unless the deployment path
-explicitly starts using them.
+`services/nestjs` is retained as an experiment and is not part of the
+canonical runtime path. The active Express implementation is
+`services/express/viewing_plan_service`.
 
 ## Architectural Invariants
 
