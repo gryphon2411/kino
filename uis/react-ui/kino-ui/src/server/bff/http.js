@@ -3,6 +3,7 @@ import { getBffConfig } from './config.js';
 
 export const SESSION_COOKIE = 'kino_bff_session';
 export const LOGIN_TRANSACTION_COOKIE = 'kino_bff_login';
+export const LOGOUT_TRANSACTION_COOKIE = 'kino_bff_logout';
 
 export function sessionCookieOptions() {
   return {

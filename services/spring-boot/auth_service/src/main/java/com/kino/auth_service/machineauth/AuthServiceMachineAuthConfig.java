@@ -403,6 +403,7 @@ public class AuthServiceMachineAuthConfig {
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .redirectUri(clientProperties.getRedirectUri())
+                .postLogoutRedirectUri(clientProperties.getPostLogoutRedirectUri())
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
                 .clientSettings(this.webBffClientSettings())

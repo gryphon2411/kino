@@ -5,6 +5,7 @@ import { getOidcConfiguration } from './oidc.js';
 
 const SESSION_PREFIX = 'kino:bff:session:';
 const LOGIN_PREFIX = 'kino:bff:login:';
+const LOGOUT_PREFIX = 'kino:bff:logout:';
 const REFRESH_LOCK_PREFIX = 'kino:bff:refresh-lock:';
 const LOGIN_TTL_SECONDS = 600;
 const REFRESH_LOCK_TTL_SECONDS = 10;
@@ -17,6 +18,10 @@ function sessionKey(sessionId) {
 
 function loginKey(state) {
   return `${LOGIN_PREFIX}${state}`;
+}
+
+function logoutKey(state) {
+  return `${LOGOUT_PREFIX}${state}`;
 }
 
 function refreshLockKey(sessionId) {
@@ -55,17 +60,36 @@ export async function createLoginTransaction(returnTo) {
   return { transactionId, state, codeVerifier, nonce };
 }
 
+export async function createLogoutTransaction() {
+  const redis = await redisClient();
+  const transactionId = crypto.randomUUID();
+  const state = oidc.randomState();
+  await redis.setEx(logoutKey(state), LOGIN_TTL_SECONDS, JSON.stringify({ transactionId }));
+  return { transactionId, state };
+}
+
 export async function consumeLoginTransaction(state, transactionId) {
   if (!state || !transactionId) {
     return null;
   }
+  return consumeTransaction(loginKey(state), transactionId);
+}
+
+export async function consumeLogoutTransaction(state, transactionId) {
+  if (!state || !transactionId) {
+    return null;
+  }
+  return consumeTransaction(logoutKey(state), transactionId);
+}
+
+async function consumeTransaction(key, transactionId) {
   const redis = await redisClient();
   // GETDEL alone is unsafe here: a callback carrying the wrong cookie must
   // not consume the valid transaction. Validate the cookie-bound transaction
   // id and delete the one-time record in the same Redis operation instead.
   const serialized = await redis.eval(
     "local value = redis.call('get', KEYS[1]); if not value then return false end; local ok, transaction = pcall(cjson.decode, value); if not ok or transaction.transactionId ~= ARGV[1] then return false end; redis.call('del', KEYS[1]); return value",
-    { keys: [loginKey(state)], arguments: [transactionId] }
+    { keys: [key], arguments: [transactionId] }
   );
   if (!serialized) {
     return null;
@@ -80,8 +104,8 @@ export async function consumeLoginTransaction(state, transactionId) {
 }
 
 export async function createSession(tokens) {
-  if (!tokens.access_token || !tokens.refresh_token) {
-    throw new Error('The authorization server did not return the required tokens.');
+  if (!tokens.access_token || !tokens.refresh_token || !tokens.id_token) {
+    throw new Error('The authorization server did not return the required OIDC tokens.');
   }
 
   const config = getBffConfig();
@@ -91,6 +115,7 @@ export async function createSession(tokens) {
   const session = {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
+    idToken: tokens.id_token,
     refreshVersion: crypto.randomUUID(),
     accessTokenExpiresAt: now + expiresIn * 1000,
     absoluteExpiresAt: now + config.sessionAbsoluteSeconds * 1000,
@@ -269,23 +294,48 @@ async function accessTokenAfterConcurrentRefresh(sessionId) {
 
 export async function destroySession(sessionId) {
   if (!sessionId) {
-    return;
+    return null;
   }
 
   const redis = await redisClient();
   const serialized = await redis.getDel(sessionKey(sessionId));
   if (!serialized) {
-    return;
+    return null;
   }
 
   const session = JSON.parse(serialized);
+  const logoutTokens = await tokensForLogout(session);
   try {
     await oidc.tokenRevocation(
       await getOidcConfiguration(),
-      session.refreshToken,
+      logoutTokens.refreshToken,
       { token_type_hint: 'refresh_token' }
     );
   } catch {
     // Redis deletion is the local logout guarantee even if the IdP is unavailable.
+  }
+  return { ...session, idToken: logoutTokens.idToken };
+}
+
+async function tokensForLogout(session) {
+  if (session.idToken) {
+    return { idToken: session.idToken, refreshToken: session.refreshToken };
+  }
+
+  try {
+    // Sessions created before RP-initiated logout retained only the access and
+    // refresh tokens. Spring Authorization Server includes a new ID token in
+    // an OpenID Connect refresh response, allowing those short-lived legacy
+    // sessions to end the authorization-server browser session as well.
+    const tokens = await oidc.refreshTokenGrant(
+      await getOidcConfiguration(),
+      session.refreshToken
+    );
+    return {
+      idToken: tokens.id_token,
+      refreshToken: tokens.refresh_token || session.refreshToken,
+    };
+  } catch {
+    return { idToken: null, refreshToken: session.refreshToken };
   }
 }

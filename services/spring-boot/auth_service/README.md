@@ -10,6 +10,8 @@ and uses Redis for short-lived browser login sessions.
 - issues OIDC Authorization Code with PKCE tokens to the confidential Next.js
   BFF client
 - rotates BFF refresh tokens
+- supports RP-initiated OIDC logout for the BFF's registered post-logout
+  callback
 - issues client-credentials JWTs to the agent service
 - publishes OIDC discovery, JWKS, token, revocation, and user-info endpoints
 
@@ -127,6 +129,12 @@ previous refresh token is no longer accepted.
 The access token answers, “May this client call this API, with which scopes,
 and when delegated, on whose behalf?” The OIDC ID token answers, “Which user
 just authenticated to this client?”
+
+When a user signs out, the BFF first deletes its server-held session and
+revokes its refresh token. It then redirects the browser through the OIDC
+end-session endpoint using that ID token and the BFF's registered post-logout
+callback. This ends both the BFF session and the authorization-server browser
+session, so a subsequent protected page requires a new login.
 
 Kino does not require an authorization-consent screen, so
 `oauth2_authorization_consent` is normally empty.

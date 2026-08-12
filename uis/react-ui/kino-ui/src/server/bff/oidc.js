@@ -57,3 +57,12 @@ export async function authorizationUrl(transaction) {
     code_challenge_method: 'S256',
   });
 }
+
+export async function endSessionUrl(transaction, idTokenHint) {
+  const config = getBffConfig();
+  return oidc.buildEndSessionUrl(await getOidcConfiguration(), {
+    id_token_hint: idTokenHint,
+    post_logout_redirect_uri: config.postLogoutRedirectUri,
+    state: transaction.state,
+  }).href;
+}

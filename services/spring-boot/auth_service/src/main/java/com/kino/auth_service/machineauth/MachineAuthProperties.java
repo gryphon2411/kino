@@ -111,6 +111,7 @@ public class MachineAuthProperties {
                 "kino-data-api"
         ));
         private String redirectUri = "http://localhost:3000/api/auth/callback";
+        private String postLogoutRedirectUri = "http://localhost:3000/api/auth/logout/callback";
         private Duration accessTokenTtl = Duration.ofMinutes(5);
         private Duration refreshTokenTtl = Duration.ofHours(8);
 
@@ -120,6 +121,14 @@ public class MachineAuthProperties {
 
         public void setRedirectUri(String redirectUri) {
             this.redirectUri = redirectUri;
+        }
+
+        public String getPostLogoutRedirectUri() {
+            return this.postLogoutRedirectUri;
+        }
+
+        public void setPostLogoutRedirectUri(String postLogoutRedirectUri) {
+            this.postLogoutRedirectUri = postLogoutRedirectUri;
         }
 
         public List<String> getAudiences() {

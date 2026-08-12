@@ -69,6 +69,10 @@ export function getBffConfig() {
       process.env.WEB_BFF_REDIRECT_URI ||
       `${publicOrigin.origin}/api/auth/callback`
     ).href,
+    postLogoutRedirectUri: new URL(
+      process.env.WEB_BFF_POST_LOGOUT_REDIRECT_URI ||
+      `${publicOrigin.origin}/api/auth/logout/callback`
+    ).href,
     scopes: process.env.WEB_BFF_SCOPES ||
       'openid profile kino.data.read',
     dataServiceUrl,

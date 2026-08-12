@@ -25,9 +25,10 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## OIDC BFF browser smoke
 
 The committed Playwright smoke covers login, a protected BFF title request,
-optional short-token refresh checks, and logout. It deliberately requires a
-deployed test environment and disposable credentials rather than storing any
-browser authentication state in the repository:
+optional short-token refresh checks, and RP-initiated OIDC logout. It verifies
+that logout ends both the BFF and authorization-server browser sessions. It
+deliberately requires a deployed test environment and disposable credentials
+rather than storing any browser authentication state in the repository:
 
 ```bash
 KINO_E2E_BASE_URL=http://local.kino.com \

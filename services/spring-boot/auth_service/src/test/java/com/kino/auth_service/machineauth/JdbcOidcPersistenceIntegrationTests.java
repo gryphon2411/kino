@@ -93,6 +93,9 @@ class JdbcOidcPersistenceIntegrationTests {
         this.properties.getWebBff().setRedirectUri(
                 "https://kino.example.test/api/auth/callback"
         );
+        this.properties.getWebBff().setPostLogoutRedirectUri(
+                "https://kino.example.test/api/auth/logout/callback"
+        );
         this.bootstrapClients();
 
         RegisteredClient reconciled = this.registeredClients.findByClientId("kino-web-bff");
@@ -101,6 +104,9 @@ class JdbcOidcPersistenceIntegrationTests {
         )).isTrue();
         assertThat(reconciled.getRedirectUris()).containsExactly(
                 "https://kino.example.test/api/auth/callback"
+        );
+        assertThat(reconciled.getPostLogoutRedirectUris()).containsExactly(
+                "https://kino.example.test/api/auth/logout/callback"
         );
     }
 
@@ -338,6 +344,9 @@ class JdbcOidcPersistenceIntegrationTests {
                 "kino-data-api", "kino-ticket-api", "kino-viewing-plan-api"
         ));
         configured.getWebBff().setRedirectUri("http://localhost:3000/api/auth/callback");
+        configured.getWebBff().setPostLogoutRedirectUri(
+                "http://localhost:3000/api/auth/logout/callback"
+        );
         return configured;
     }
 }

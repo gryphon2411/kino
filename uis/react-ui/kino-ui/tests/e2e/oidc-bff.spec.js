@@ -48,12 +48,17 @@ test('BFF login, protected title access, optional refresh, and logout', async ({
     await expect.poll(() => protectedTitleStatus(page)).toBe(200);
   }
 
-  const logoutStatus = await page.evaluate(async () => {
-    const response = await fetch('/api/auth/logout', { method: 'POST' });
-    return response.status;
-  });
-  expect(logoutStatus).toBe(204);
+  await Promise.all([
+    page.waitForURL(/\/$/),
+    page.getByRole('button', { name: 'Logout' }).click(),
+  ]);
+  await expect(page).toHaveURL(/\/$/);
   await expect.poll(() => protectedTitleStatus(page)).toBe(401);
+
+  // A protected page starts a fresh OIDC flow. It must now show the login
+  // form rather than silently recreating a BFF session from the old IdP one.
+  await page.goto('/titles');
+  await expect(page.locator('input[name="username"]')).toBeVisible();
 });
 
 async function protectedTitleStatus(page) {

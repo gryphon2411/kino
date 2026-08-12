@@ -98,33 +98,6 @@ export default function ViewingPlanControl({ titleId }) {
     }
   }
 
-  async function remove() {
-    if (!plan) {
-      return;
-    }
-    setPending(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/viewing-plans/${encodeURIComponent(plan.id)}`, {
-        method: 'DELETE',
-        cache: 'no-store',
-      });
-      const body = response.status === 204 ? {} : await responseBody(response);
-      if (shouldLogin(response, body)) {
-        await beginLogin(`/titles/${encodeURIComponent(titleId)}`);
-        return;
-      }
-      if (!response.ok) {
-        throw new Error(body.error || 'Unable to remove the viewing plan.');
-      }
-      setPlan(null);
-    } catch (submitError) {
-      setError(submitError.message);
-    } finally {
-      setPending(false);
-    }
-  }
-
   if (!enabled) {
     return null;
   }
@@ -139,7 +112,6 @@ export default function ViewingPlanControl({ titleId }) {
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button disabled={pending} onClick={() => create('WATCH')}>Plan to watch</Button>
           <Button disabled={pending} onClick={() => create('REWATCH')}>Plan to rewatch</Button>
-          <Button color="error" disabled={pending} onClick={remove}>Remove</Button>
           <Button component={Link} href="/viewing-plans" variant="outlined">View plans</Button>
         </Stack>
       </Box>

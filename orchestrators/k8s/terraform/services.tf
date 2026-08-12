@@ -245,6 +245,11 @@ resource "kubernetes_deployment" "auth_service" {
           }
 
           env {
+            name  = "WEB_BFF_POST_LOGOUT_REDIRECT_URI"
+            value = "${local.gateway_origin}/api/auth/logout/callback"
+          }
+
+          env {
             name  = "WEB_BFF_CLIENT_SCOPES"
             value = join(",", local.web_bff_client_scopes)
           }
@@ -1302,6 +1307,11 @@ resource "kubernetes_deployment" "ui" {
           env {
             name  = "WEB_BFF_REDIRECT_URI"
             value = "${local.gateway_origin}/api/auth/callback"
+          }
+
+          env {
+            name  = "WEB_BFF_POST_LOGOUT_REDIRECT_URI"
+            value = "${local.gateway_origin}/api/auth/logout/callback"
           }
 
           env {
