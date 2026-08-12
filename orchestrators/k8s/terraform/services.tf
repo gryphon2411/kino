@@ -1495,6 +1495,20 @@ resource "kubernetes_ingress_v1" "gateway" {
           }
         }
 
+        # Spring Authorization Server's RP-initiated logout endpoint is
+        # origin-level, unlike the API-prefixed authorization endpoints.
+        path {
+          path      = "/connect"
+          path_type = "Prefix"
+
+          backend {
+            service {
+              name = var.environment == "dev" ? "dev-auth-service" : "auth-service"
+              port { number = 8081 }
+            }
+          }
+        }
+
         path {
           path      = "/"
           path_type = "Prefix"
