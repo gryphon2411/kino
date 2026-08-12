@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 import { Pool } from 'pg';
 import { GenericContainer, Wait } from 'testcontainers';
-import { PostgresViewingPlanRepository } from '../src/viewing-plan-repository.js';
+import { PostgresViewingPlanRepository } from '../../src/viewing-plans/viewing-plan-postgres-repository.js';
 
 const integrationTest = process.env.RUN_POSTGRES_INTEGRATION_TESTS === 'true' ? test : test.skip;
 
@@ -24,7 +24,7 @@ integrationTest('runtime role applies the delivered lifecycle migration and priv
     await root.query('REVOKE CREATE ON SCHEMA public FROM PUBLIC');
     const migration = await readFile(resolve(
       import.meta.dirname,
-      '../../../../orchestrators/k8s/terraform/viewing-plan-db-migrations/V1__create_viewing_plans.sql'
+      '../../../../../orchestrators/k8s/terraform/viewing-plan-db-migrations/V1__create_viewing_plans.sql'
     ), 'utf8');
     await root.query(migration);
     runtime = new Pool({

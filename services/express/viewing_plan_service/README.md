@@ -10,6 +10,27 @@ database/schema `kino_viewing_plan`. The root bootstrap Job creates narrow
 migrator/runtime roles, Flyway owns DDL, and the runtime role has only the
 column privileges required for owner-scoped CRUD.
 
+## Structure
+
+The application root composes shared Express concerns. `src/viewing-plans/`
+contains the Viewing Plans HTTP routes, policy service, and PostgreSQL
+repository. This mirrors the active Fastify service's domain-oriented layout
+without adding a generic framework layer.
+
+```text
+src/
+  app.js
+  auth.js
+  config.js
+  database.js
+  errors.js
+  server.js
+  viewing-plans/
+    viewing-plan-routes.js
+    viewing-plan-service.js
+    viewing-plan-postgres-repository.js
+```
+
 ## API
 
 - `GET /v1/viewing-plans?status=OPEN|DONE&page=&size=`

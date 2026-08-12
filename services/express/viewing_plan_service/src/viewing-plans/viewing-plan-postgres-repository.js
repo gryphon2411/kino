@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { OpenPlanExistsError } from './errors.js';
+import { OpenPlanExistsError } from '../errors.js';
 
 const SCHEMA = 'kino_viewing_plan.viewing_plans';
 const OPEN_CONSTRAINT = 'viewing_plans_open_per_holder_title_unique';
@@ -16,7 +16,10 @@ function mapPlan(row) {
   };
 }
 
-/** @implements {import('./viewing-plan-service.js').ViewingPlanRepository} */
+/**
+ * PostgreSQL persistence adapter for Viewing Plans.
+ * @implements {import('./viewing-plan-service.js').ViewingPlanRepository}
+ */
 export class PostgresViewingPlanRepository {
   constructor(database) {
     this.database = database;

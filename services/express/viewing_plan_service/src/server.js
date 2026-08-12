@@ -2,8 +2,8 @@ import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { getViewingPlanConfig } from './config.js';
 import { createViewingPlanDatabase } from './database.js';
-import { PostgresViewingPlanRepository } from './viewing-plan-repository.js';
-import { ViewingPlanService } from './viewing-plan-service.js';
+import { PostgresViewingPlanRepository } from './viewing-plans/viewing-plan-postgres-repository.js';
+import { ViewingPlanService } from './viewing-plans/viewing-plan-service.js';
 
 const config = getViewingPlanConfig();
 const database = createViewingPlanDatabase(config);

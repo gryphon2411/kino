@@ -66,6 +66,7 @@ function translatePrismaError(error: unknown): never {
   throw error;
 }
 
+/** Prisma persistence adapter for saved seat groups. */
 export class PrismaSeatPresetRepository implements SeatPresetRepository {
   constructor(private readonly prisma: PrismaClient) {}
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Prisma } from '../src/generated/prisma/client.js';
-import { PrismaSeatPresetRepository } from '../src/seat-presets/prisma-seat-preset-repository.js';
+import { PrismaSeatPresetRepository } from '../src/seat-presets/seat-preset-prisma-repository.js';
 import {
   type SeatPresetRepository,
   SeatPresetService,

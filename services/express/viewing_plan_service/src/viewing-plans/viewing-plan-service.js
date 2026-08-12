@@ -1,4 +1,4 @@
-import { InvalidRequestError, NotFoundError } from './errors.js';
+import { InvalidRequestError, NotFoundError } from '../errors.js';
 
 export const VIEWING_PLAN_READ_SCOPE = 'kino.viewing-plan.read';
 export const VIEWING_PLAN_WRITE_SCOPE = 'kino.viewing-plan.write';

@@ -265,6 +265,14 @@ one Open plan per user/title and immutable Done history. It is reached only
 through the Next.js BFF; title display data remains an explicit `data_service`
 read in that BFF rather than a cross-database dependency.
 
+Important areas:
+
+- `src/app.js`
+  - composition root for shared Express middleware, health endpoints, and
+    terminal error handling
+- `src/viewing-plans/`
+  - feature-local HTTP routes, lifecycle policy, and PostgreSQL repository
+
 ### `services/spring-boot/trend_service`
 
 `trend_service` is a Kafka Streams consumer over `TitleSearchEvent` traffic.

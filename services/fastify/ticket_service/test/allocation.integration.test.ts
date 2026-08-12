@@ -17,7 +17,7 @@ import {
   ServiceUnavailableError,
 } from '../src/errors.js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { PrismaSeatPresetRepository } from '../src/seat-presets/prisma-seat-preset-repository.js';
+import { PrismaSeatPresetRepository } from '../src/seat-presets/seat-preset-prisma-repository.js';
 import { SeatPresetService } from '../src/seat-presets/seat-preset-service.js';
 import { TicketAllocationService } from '../src/allocation/allocation-service.js';
 import { ticketTestConfig } from './support/config.js';

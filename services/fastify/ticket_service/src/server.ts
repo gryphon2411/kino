@@ -3,7 +3,7 @@ import { buildApp } from './app.js';
 import { getTicketConfig } from './config.js';
 import { createTicketDatabase } from './database.js';
 import { PrismaClient } from './generated/prisma/client.js';
-import { PrismaSeatPresetRepository } from './seat-presets/prisma-seat-preset-repository.js';
+import { PrismaSeatPresetRepository } from './seat-presets/seat-preset-prisma-repository.js';
 import { SeatPresetService } from './seat-presets/seat-preset-service.js';
 
 const config = getTicketConfig();
