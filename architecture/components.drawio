@@ -122,6 +122,9 @@
         <mxCell id="kino-ticket-service-ci-card" parent="6OBKLtMS9dm_GDT3wMll-74" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="Ticket Service CI" vertex="1">
           <mxGeometry height="40" width="120" x="180" y="140" as="geometry" />
         </mxCell>
+        <mxCell id="kino-viewing-plans-ci-card" parent="6OBKLtMS9dm_GDT3wMll-74" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="Viewing Plans CI" vertex="1">
+          <mxGeometry height="40" width="120" x="329.77" y="140" as="geometry" />
+        </mxCell>
         <mxCell id="5aDLnHZ4BrA7_J0G36E8-14" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="5J1yGdSfiFy8ZfKHQvtu-14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.501;entryY=0.006;entryDx=0;entryDy=0;entryPerimeter=0;strokeWidth=2;" target="5J1yGdSfiFy8ZfKHQvtu-7">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
