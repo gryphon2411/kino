@@ -163,6 +163,9 @@
         <mxCell id="5J1yGdSfiFy8ZfKHQvtu-14" parent="WIyWlLk6GJQsqaUBKTNV-1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="&lt;div&gt;JMX Metrics Exporter&lt;br&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry height="40" width="97.22" x="672.81" y="870" as="geometry" />
         </mxCell>
+        <mxCell id="kino-kafka-jmx-metrics-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="5J1yGdSfiFy8ZfKHQvtu-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;strokeWidth=2;" target="5J1yGdSfiFy8ZfKHQvtu-14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         <mxCell id="5J1yGdSfiFy8ZfKHQvtu-4" parent="WIyWlLk6GJQsqaUBKTNV-1" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;fontSize=14;width=63;height=38;strokeColor=#666666;dashed=1;swimlaneFillColor=none;gradientColor=none;" value="&lt;div&gt;kafka-system&lt;/div&gt;" vertex="1">
           <mxGeometry height="450" width="100.28" x="670" y="391.96" as="geometry" />
         </mxCell>
