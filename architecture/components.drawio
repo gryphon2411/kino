@@ -280,9 +280,6 @@
         <mxCell id="5J1yGdSfiFy8ZfKHQvtu-16" parent="WIyWlLk6GJQsqaUBKTNV-1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="Kafka Controller" vertex="1">
           <mxGeometry height="40" width="67.34" x="680.9699999999999" y="552.5" as="geometry" />
         </mxCell>
-        <mxCell id="5J1yGdSfiFy8ZfKHQvtu-20" parent="WIyWlLk6GJQsqaUBKTNV-1" style="shape=datastore;whiteSpace=wrap;html=1;fontSize=14;" value="&lt;div&gt;RocksDB&lt;/div&gt;" vertex="1">
-          <mxGeometry height="60" width="63.45" x="682.69" y="730" as="geometry" />
-        </mxCell>
         <mxCell id="oszAGRmeUgRNV252mCON-20" parent="WIyWlLk6GJQsqaUBKTNV-1" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;fontSize=14;width=130;height=30;strokeColor=#666666;dashed=1;" value="eck-system" vertex="1">
           <mxGeometry height="130" width="642" x="68.28" y="1250" as="geometry" />
         </mxCell>
