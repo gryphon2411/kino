@@ -1,6 +1,6 @@
 <mxfile host="Electron" scale="1" border="0">
   <diagram id="C5RBs43oDa-KdzZeNtuy" name="Page-1">
-    <mxGraphModel dx="1926" dy="1204" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="899" dy="562" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="WIyWlLk6GJQsqaUBKTNV-0" />
         <mxCell id="WIyWlLk6GJQsqaUBKTNV-1" parent="WIyWlLk6GJQsqaUBKTNV-0" />
@@ -391,6 +391,16 @@
             <Array as="points">
               <mxPoint x="405" y="475" />
               <mxPoint x="405" y="990" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="kino-ticket-auth-jwks-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="kino-ticket-service-card" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.25;entryY=1;entryDx=0;entryDy=0;strokeColor=#0072B2;strokeWidth=2;endArrow=open;endFill=0;dashed=0;jumpStyle=arc;jumpSize=6;fontSize=10;labelBackgroundColor=default;" target="tm7WajuBxq1j1ccdad6s-8" value="&lt;div style=&quot;font-size: 10px;&quot;&gt;JWKS&lt;/div&gt;">
+          <mxGeometry relative="1" x="0.8292" y="7" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="240" y="980" />
+              <mxPoint x="240" y="840" />
+              <mxPoint x="287.33" y="840" />
             </Array>
           </mxGeometry>
         </mxCell>
