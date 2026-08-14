@@ -1,0 +1,32 @@
+version: "3"
+
+tasks:
+  default:
+    desc: List available architecture diagram tasks
+    cmds:
+      - task --list
+
+  export:
+    desc: Export and validate an editable draw.io source (defaults to components.drawio)
+    vars:
+      SOURCE: '{{.SOURCE | default "components.drawio"}}'
+      OUTPUT: '{{.OUTPUT | default "components.drawio.svg"}}'
+    cmds:
+      - drawio -x -f svg -e -b 0 -o "{{.OUTPUT}}" "{{.SOURCE}}"
+      - task: validate
+        vars:
+          SOURCE: "{{.SOURCE}}"
+          OUTPUT: "{{.OUTPUT}}"
+
+  validate:
+    desc: Validate an editable draw.io source and its generated SVG
+    vars:
+      SOURCE: '{{.SOURCE | default "components.drawio"}}'
+      OUTPUT: '{{.OUTPUT | default "components.drawio.svg"}}'
+    cmds:
+      - xmllint --noout "{{.SOURCE}}" "{{.OUTPUT}}"
+      - |
+        validation_png="$(mktemp --suffix=.png)"
+        trap 'rm -f "$validation_png"' EXIT
+        rsvg-convert -b white "{{.OUTPUT}}" -o "$validation_png"
+        test -s "$validation_png"

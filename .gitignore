@@ -6,3 +6,4 @@ __pycache__/
 jobs/.venv/
 jobs/.env
 /data/
+architecture/.$*.bkp
