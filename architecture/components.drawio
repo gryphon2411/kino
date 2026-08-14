@@ -374,6 +374,18 @@
             </Array>
           </mxGeometry>
         </mxCell>
+        <mxCell id="kino-ticket-service-group" connectable="0" parent="WIyWlLk6GJQsqaUBKTNV-1" style="group" value="" vertex="1">
+          <mxGeometry height="65" width="143" x="296.6848825065274" y="945" as="geometry" />
+        </mxCell>
+        <mxCell id="kino-ticket-service-shadow" parent="kino-ticket-service-group" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="" vertex="1">
+          <mxGeometry height="40" width="126.89295039164489" x="10.574412532637075" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="kino-ticket-service-card" parent="kino-ticket-service-group" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="&lt;div style=&quot;font-size: 14px;&quot;&gt;Ticket Service&lt;/div&gt;&lt;div style=&quot;font-size: 10px;&quot;&gt;Fastify&lt;/div&gt;" vertex="1">
+          <mxGeometry height="40" width="126.89295039164489" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="kino-ticket-service-fastify-icon" parent="kino-ticket-service-group" style="shape=image;imageAspect=0;aspect=fixed;verticalLabelPosition=bottom;verticalAlign=top;image=data:image/svg+xml,PHN2ZyBzdHlsZT0iY29sb3Itc2NoZW1lOmxpZ2h0IGRhcmsiIGlkPSJMYXllcl8xIiBkYXRhLW5hbWU9IkxheWVyIDEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmlld0JveD0iMCAwIDEwMDAgMTAwMCI+PGRlZnM+PHN0eWxlPi5jbHMtMXtmaWxsOmxpZ2h0LWRhcmsocmdiKDAsMCwwKSxyZ2IoMjU1LDI1NSwyNTUpKTt9PC9zdHlsZT48L2RlZnM+PHBhdGggY2xhc3M9ImNscy0xIiBkPSJNODk5LjEzLDMwMy4yMiw5MjUuODUsMjM0bC0xLjE1LTQuMjhMNjYwLjM2LDI5OS4zOGMyOC4xOC00MC43OCwxOC40OS03My40OCwxOC40OS03My40OHMtODQuNDEsNTMuOTEtMTQ4LjI2LDUyLjQ5UzQ0Ni4xOCwyNjAsMzQ4LjI4LDI5MS4xNnMtMTI1LjU2LDEyNy0xNTMuOTMsMTQ3LjU1Uzc3LDUyNi4zMiw3Nyw1MjYuMzJsLjE5LDEuMkwxNTcuNCw1MDJzLTIyLDIwLjc1LTY4Ljc3LDgzLjc3YzAsMC0uODItLjc1LTIuMTgtMmwuMDcuNDNTMTI0LjEyLDY0MS41OSwxNjEsNjMxYTczLjMxLDczLjMxLDAsMCwwLDEyLjQ1LTUuMTZjMTQuODUsOC4yNywzNC4yNCwxNi40LDU1LjY1LDE4LjY0YTM0My44OCwzNDMuODgsMCwwLDEtMjYuNTgtMzZsMTAtNi41MUwyMTEsNjAzbDMwLjU3LDExLjIyLTMuMzgtMjguNzMuMy0uMTksMzAsMTEtMy43NC0yNi4xM2MzLjgtMiw3LjYxLTMuODcsMTEuNC01LjYzbDMxLjMxLTExOC40NEw0MzcsMzU3Ljg0bC0xMC4yOCwyNS44OWMtMjYuMjUsNjQuNTYtNzUuNTUsNzkuODEtNzUuNTUsNzkuODFsLTIwLjU3LDcuOGMtMTUuMzEsMTguMDktMjEuNzQsMjIuNTQtMjcsODMuMjUsMTIuMzMtMy4xMSwyNC4xMi0zLjgzLDM0LjgtMSw1NS4zMywxNC45LDc0LjQ5LDgxLjU4LDU5LjU5LDEwMC0zLjczLDQuNjItMTIuNjEsMTIuNTItMjMuODIsMjEuNzdIMzUxLjY3bC0uMjksMTguMTktMi4zMSwxLjhIMzI2LjIzbC0uMjksMTcuNzVjLTIsMS41NC00LDMuMDUtNiw0LjUyLTIxLjQ3LjQ1LTQ4LjY1LTE4LjI3LTQ4LjY1LTE4LjI3LDAsMTcsMTQuMTksNDMuMjcsMTQuMTksNDMuMjdsMi41MS0xLjIyTDI4NS44Niw3NDNzNTcuNDYsMzguMzEsOTMuNjMsMjQuMTJjMzIuMTgtMTIuNjEsMTE1LjQ1LTc4LjI4LDE4Ny4zNC0xMDkuMzVsMjE3LjU0LTU3LjMyLDI4LjY5LTc0LjMxTDY0Ny4yOCw1NjkuODVWNTAzLjA5bDE5NC40Ny01MS4yNCwyOC42OS03NC4zMi0yMjMuMTYsNTguOFYzNjkuNThaTTUwNC4zMSw0NDQuNjlsNTEuNjItMTMuNi42OSwyLjU5LTE2LjEsNDEuNzJMNDg3LDQ4OS41Wk01MjIuMTMsNTM0bC01My41LDE0LjEsMTcuMjktNDQuODEsNTEuNjItMTMuNi42OSwyLjU5Wm02OS43MS0xNS01My41MSwxNC4xLDE3LjMtNDQuOCw1MS42Mi0xMy42MS42OSwyLjU5WiIvPjwvc3ZnPg==;imageBorder=none;imageBackground=none;" value="" vertex="1">
+          <mxGeometry height="33" width="33" x="110" as="geometry" />
+        </mxCell>
         <mxCell id="kino-external-gemini-provider-group" connectable="0" parent="WIyWlLk6GJQsqaUBKTNV-1" style="group;rounded=0;glass=0;shadow=0;" value="" vertex="1">
           <mxGeometry height="50" width="175" x="620" y="220" as="geometry" />
         </mxCell>
