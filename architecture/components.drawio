@@ -1,6 +1,6 @@
 <mxfile host="Electron" scale="1" border="0">
   <diagram id="C5RBs43oDa-KdzZeNtuy" name="Page-1">
-    <mxGraphModel dx="364" dy="228" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="518" dy="324" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="WIyWlLk6GJQsqaUBKTNV-0" />
         <mxCell id="WIyWlLk6GJQsqaUBKTNV-1" parent="WIyWlLk6GJQsqaUBKTNV-0" />
@@ -238,8 +238,9 @@
         <mxCell id="qZhWTqzbC0m63ngL0A5b-1" parent="WIyWlLk6GJQsqaUBKTNV-1" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;fontSize=14;width=75;height=40;strokeColor=#666666;dashed=1;swimlaneFillColor=none;gradientColor=none;" value="&lt;div&gt;rabbitmq-system&lt;/div&gt;" vertex="1">
           <mxGeometry height="570" width="95" x="558.31" y="390" as="geometry" />
         </mxCell>
-        <mxCell id="qZhWTqzbC0m63ngL0A5b-3" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="tm7WajuBxq1j1ccdad6s-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;strokeWidth=2;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" target="uHXz1eBy2IgAXNscYZ-x-9">
-          <mxGeometry relative="1" as="geometry">
+        <mxCell id="qZhWTqzbC0m63ngL0A5b-3" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="tm7WajuBxq1j1ccdad6s-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;strokeWidth=2;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;fontSize=10;labelBackgroundColor=default;" target="uHXz1eBy2IgAXNscYZ-x-9" value="&lt;div style=&quot;font-size: 10px;&quot;&gt;RPC&lt;/div&gt;">
+          <mxGeometry relative="1" x="0.3529" as="geometry">
+            <mxPoint as="offset" />
             <mxPoint x="526" y="850" as="targetPoint" />
           </mxGeometry>
         </mxCell>
