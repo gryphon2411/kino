@@ -54,6 +54,9 @@
         <mxCell id="kino-local-imdb-release-pipeline" parent="WIyWlLk6GJQsqaUBKTNV-1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="IMDb titles seed release" vertex="1">
           <mxGeometry height="40" width="240" x="30" y="1450" as="geometry" />
         </mxCell>
+        <mxCell id="kino-mongo-seed-image-artifact" parent="WIyWlLk6GJQsqaUBKTNV-1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="&lt;div style=&quot;font-size: 14px;&quot;&gt;Mongo seed image&lt;/div&gt;&lt;div style=&quot;font-size: 10px;&quot;&gt;OCI · repo@sha256:…&lt;/div&gt;" vertex="1">
+          <mxGeometry height="40" width="190" x="320" y="1450" as="geometry" />
+        </mxCell>
         <mxCell id="6OBKLtMS9dm_GDT3wMll-74" connectable="0" parent="WIyWlLk6GJQsqaUBKTNV-1" style="group" value="" vertex="1">
           <mxGeometry height="150" width="789" x="10" y="1520" as="geometry" />
         </mxCell>
