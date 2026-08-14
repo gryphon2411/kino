@@ -1,6 +1,6 @@
 <mxfile host="Electron" scale="1" border="0">
   <diagram id="C5RBs43oDa-KdzZeNtuy" name="Page-1">
-    <mxGraphModel dx="899" dy="562" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="518" dy="324" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="WIyWlLk6GJQsqaUBKTNV-0" />
         <mxCell id="WIyWlLk6GJQsqaUBKTNV-1" parent="WIyWlLk6GJQsqaUBKTNV-0" />
@@ -192,8 +192,9 @@
         <mxCell id="5J1yGdSfiFy8ZfKHQvtu-18" parent="WIyWlLk6GJQsqaUBKTNV-1" style="shape=datastore;whiteSpace=wrap;html=1;fontSize=14;" value="&lt;div style=&quot;&quot;&gt;&lt;font&gt;kino&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;&quot;&gt;&lt;font&gt;title_basics&lt;/font&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry height="80" width="80" x="35.28" y="640" as="geometry" />
         </mxCell>
-        <mxCell id="JuoMiTnuenw4WhT-gj8Y-0" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="tm7WajuBxq1j1ccdad6s-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;" target="5J1yGdSfiFy8ZfKHQvtu-16">
-          <mxGeometry relative="1" as="geometry">
+        <mxCell id="JuoMiTnuenw4WhT-gj8Y-0" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="tm7WajuBxq1j1ccdad6s-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;fontSize=10;labelBackgroundColor=default;" target="5J1yGdSfiFy8ZfKHQvtu-16" value="&lt;div style=&quot;font-size: 10px;&quot;&gt;TitleSearchEvent&lt;/div&gt;">
+          <mxGeometry relative="1" x="0.5793" as="geometry">
+            <mxPoint as="offset" />
             <Array as="points">
               <mxPoint x="540" y="690" />
               <mxPoint x="540" y="582.48" />
