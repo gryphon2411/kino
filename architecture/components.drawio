@@ -302,7 +302,7 @@
         <mxCell id="kino-bff-redis-db3" parent="WIyWlLk6GJQsqaUBKTNV-1" style="shape=datastore;whiteSpace=wrap;html=1;fontSize=13;fontStyle=0" value="&lt;div style=&quot;font-size: 13px;&quot;&gt;3 DB&lt;/div&gt;&lt;div style=&quot;font-size: 13px;&quot;&gt;BFF&lt;/div&gt;&lt;div style=&quot;font-size: 13px;&quot;&gt;sessions&lt;br style=&quot;font-size: 13px;&quot;&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry height="80" width="80.21695444248678" x="153.3138175773974" y="690" as="geometry" />
         </mxCell>
-        <mxCell id="kino-bff-redis-db3-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="Cltj5rInTBPt047XVchD-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0;exitY=0.75;exitDx=0;exitDy=0;exitPerimeter=0;startArrow=classic;startFill=1;strokeWidth=2;" target="kino-bff-redis-db3">
+        <mxCell id="kino-bff-redis-db3-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="Cltj5rInTBPt047XVchD-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0;exitY=0.75;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;strokeWidth=2;" target="kino-bff-redis-db3">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="kino-auth-redis-db0-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="tm7WajuBxq1j1ccdad6s-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;endArrow=classic;endFill=1;" target="Cltj5rInTBPt047XVchD-6">
