@@ -83,8 +83,17 @@
         <mxCell id="kino-terraform-deployment-frame" parent="WIyWlLk6GJQsqaUBKTNV-1" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;fontSize=14;width=190;height=30;" value="Terraform deployment" vertex="1">
           <mxGeometry height="90" width="779.53" x="10" y="1600" as="geometry" />
         </mxCell>
-        <mxCell id="kino-terraform-apply-to-kubernetes-worker" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="kino-terraform-apply-card" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=classic;endFill=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5048;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" target="5J1yGdSfiFy8ZfKHQvtu-0">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="kino-terraform-apply-to-kubernetes-worker" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="kino-terraform-apply-card" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=classic;endFill=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" target="oszAGRmeUgRNV252mCON-11">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="805" y="1640" />
+              <mxPoint x="805" y="510" />
+              <mxPoint x="755" y="510" />
+              <mxPoint x="755" y="440" />
+              <mxPoint x="640" y="440" />
+              <mxPoint x="640" y="397.24" />
+            </Array>
+          </mxGeometry>
         </mxCell>
         <mxCell id="kino-service-image-digest-handoff" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="5J1yGdSfiFy8ZfKHQvtu-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=classic;endFill=1;exitX=0.5067;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;fontSize=10;labelBackgroundColor=default;" target="kino-terraform-apply-card" value="&lt;div style=&quot;font-size: 10px;&quot;&gt;release manifest · repo@sha256:…&lt;/div&gt;">
           <mxGeometry relative="1" x="-0.3333" as="geometry">
