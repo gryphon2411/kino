@@ -540,6 +540,9 @@
         <mxCell id="kino-ticket-postgres-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="kino-ticket-service-card" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.53125;entryDx=0;entryDy=0;strokeWidth=2;endArrow=classic;endFill=1;" target="kino-ticket-postgres-db">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="kino-viewing-plan-postgres-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="kino-viewing-plan-service-card" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;endArrow=classic;endFill=1;" target="kino-viewing-plan-postgres-db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
