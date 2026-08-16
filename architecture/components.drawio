@@ -410,11 +410,11 @@
           <mxGeometry height="22" width="22" x="113.14621409921669" y="10" as="geometry" />
         </mxCell>
         <mxCell id="kino-agent-auth-machine-token-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="kino-agent-service-card" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;entryPerimeter=0;strokeColor=#0072B2;strokeWidth=2;endArrow=open;endFill=0;dashed=0;jumpStyle=arc;jumpSize=6;fontSize=10;" target="tm7WajuBxq1j1ccdad6s-8" value="&lt;div style=&quot;font-size: 10px;&quot;&gt;client_credentials&lt;/div&gt;&lt;div style=&quot;font-size: 10px;&quot;&gt;POST /oauth2/token&lt;/div&gt;">
-          <mxGeometry relative="1" x="-0.7727" y="41" as="geometry">
-            <mxPoint as="offset" />
+          <mxGeometry relative="1" x="-0.7219" y="22" as="geometry">
+            <mxPoint x="-2" y="-10" as="offset" />
             <Array as="points">
-              <mxPoint x="439" y="680" />
-              <mxPoint x="439" y="920" />
+              <mxPoint x="450" y="680.03" />
+              <mxPoint x="450" y="920.03" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -430,6 +430,16 @@
         </mxCell>
         <mxCell id="kino-data-auth-jwks-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="tm7WajuBxq1j1ccdad6s-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;strokeColor=#0072B2;strokeWidth=2;endArrow=open;endFill=0;dashed=0;fontSize=10;labelBackgroundColor=default;" target="tm7WajuBxq1j1ccdad6s-8" value="&lt;div style=&quot;font-size: 10px;&quot;&gt;JWKS&lt;/div&gt;">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="kino-trend-auth-jwks-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="5J1yGdSfiFy8ZfKHQvtu-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0.9;entryY=0;entryDx=0;entryDy=0;strokeColor=#0072B2;strokeWidth=2;endArrow=open;endFill=0;dashed=0;jumpStyle=arc;jumpSize=6;fontSize=10;labelBackgroundColor=default;" target="tm7WajuBxq1j1ccdad6s-8" value="&lt;div style=&quot;font-size: 10px;&quot;&gt;JWKS&lt;/div&gt;">
+          <mxGeometry relative="1" x="-0.4388" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="440" y="760.03" />
+              <mxPoint x="440" y="890.03" />
+              <mxPoint x="389.79" y="890.03" />
+            </Array>
+          </mxGeometry>
         </mxCell>
         <mxCell id="kino-ticket-service-group" connectable="0" parent="WIyWlLk6GJQsqaUBKTNV-1" style="group" value="" vertex="1">
           <mxGeometry height="65" width="143" x="276.6848825065274" y="1085" as="geometry" />
