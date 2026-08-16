@@ -428,6 +428,9 @@
             </Array>
           </mxGeometry>
         </mxCell>
+        <mxCell id="kino-data-auth-jwks-edge" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="tm7WajuBxq1j1ccdad6s-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;strokeColor=#0072B2;strokeWidth=2;endArrow=open;endFill=0;dashed=0;fontSize=10;labelBackgroundColor=default;" target="tm7WajuBxq1j1ccdad6s-8" value="&lt;div style=&quot;font-size: 10px;&quot;&gt;JWKS&lt;/div&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         <mxCell id="kino-ticket-service-group" connectable="0" parent="WIyWlLk6GJQsqaUBKTNV-1" style="group" value="" vertex="1">
           <mxGeometry height="65" width="143" x="276.6848825065274" y="1085" as="geometry" />
         </mxCell>
