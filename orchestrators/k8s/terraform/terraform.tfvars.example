@@ -2,22 +2,22 @@
 environment = "local"
 
 # Feature Flags
-enable_mongodb            = true
-enable_postgres           = true
-enable_redis              = true
-enable_kafka              = true
-enable_rabbitmq           = true
-enable_auth_service       = true
-enable_data_service       = true
-enable_ticket_service     = false
-enable_viewing_plan_service = false
-enable_trend_service      = true
-enable_generative_service = true
-enable_agent_service      = false
-enable_ui                 = true
-enable_prometheus         = true
-enable_grafana            = true
-enable_ingress            = true
+enable_mongodb              = true
+enable_postgres             = true
+enable_redis                = true
+enable_kafka                = true
+enable_rabbitmq             = true
+enable_auth_service         = true
+enable_data_service         = true
+enable_ticket_service       = true
+enable_viewing_plan_service = true
+enable_trend_service        = true
+enable_generative_service   = true
+enable_agent_service        = true
+enable_ui                   = true
+enable_prometheus           = true
+enable_grafana              = true
+enable_ingress              = true
 
 # Mongo seed bootstrap
 # Copy mongoSeedImageRef from jobs/.artifacts/release-manifest.json
@@ -40,24 +40,20 @@ mongodb_seed_job_active_deadline_seconds = 1800
 # Service image deploy inputs
 # Copy these digest-pinned refs from the corresponding GitHub Actions publish runs.
 # For environment = "dev", use the develop publish digests where a dev workflow exists.
-auth_service_image_ref       = "gryphon2411/kino-auth_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-data_service_image_ref       = "gryphon2411/kino-data_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-# Required when enable_ticket_service = true
-# ticket_service_image_ref = "gryphon2411/kino-ticket_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-# Required when enable_viewing_plan_service = true
-# viewing_plan_service_image_ref = "gryphon2411/kino-viewing_plan_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-trend_service_image_ref      = "gryphon2411/kino-trend_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-generative_service_image_ref = "gryphon2411/kino-generative_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-ui_image_ref                 = "gryphon2411/kino-ui@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-
-# Optional when enable_agent_service = true
-# agent_service_image_ref = "gryphon2411/kino-agent_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+auth_service_image_ref         = "gryphon2411/kino-auth_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+data_service_image_ref         = "gryphon2411/kino-data_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+ticket_service_image_ref       = "gryphon2411/kino-ticket_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+viewing_plan_service_image_ref = "gryphon2411/kino-viewing_plan_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+trend_service_image_ref        = "gryphon2411/kino-trend_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+generative_service_image_ref   = "gryphon2411/kino-generative_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+agent_service_image_ref        = "gryphon2411/kino-agent_service@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+ui_image_ref                   = "gryphon2411/kino-ui@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 # Generative Service
 generative_service_provider = "google_genai"
 # google_genai supports gemini-3.1-flash-lite and gemini-2.0-flash
 # huggingface_hub supports microsoft/Phi-3-mini-4k-instruct and mistralai/Mixtral-8x7B-Instruct-v0.1
-generative_service_model    = "gemini-3.1-flash-lite"
+generative_service_model = "gemini-3.1-flash-lite"
 
 # Agent Service
 agent_service_provider = "google_genai"

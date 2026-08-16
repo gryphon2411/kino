@@ -185,11 +185,11 @@ Canonical deployment uses immutable image refs:
 | `enable_rabbitmq` | `bool` | `true` | Enable RabbitMQ system |
 | `enable_auth_service` | `bool` | `true` | Enable Kino Auth Service |
 | `enable_data_service` | `bool` | `true` | Enable Kino Data Service |
-| `enable_ticket_service` | `bool` | `false` | Enable the private Fastify ticket-allocation service |
-| `enable_viewing_plan_service` | `bool` | `false` | Enable the private Express Viewing Plans service |
+| `enable_ticket_service` | `bool` | `true` | Enable the private Fastify ticket-allocation service |
+| `enable_viewing_plan_service` | `bool` | `true` | Enable the private Express Viewing Plans service |
 | `enable_trend_service` | `bool` | `true` | Enable Kino Trend Service |
 | `enable_generative_service` | `bool` | `true` | Enable Kino Generative Service |
-| `enable_agent_service` | `bool` | `false` | Enable Kino Agent Service |
+| `enable_agent_service` | `bool` | `true` | Enable Kino Agent Service |
 | `enable_ui` | `bool` | `true` | Enable Kino UI |
 | `enable_prometheus` | `bool` | `true` | Enable Prometheus system |
 | `enable_grafana` | `bool` | `true` | Enable Grafana system |

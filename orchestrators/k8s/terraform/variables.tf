@@ -57,13 +57,13 @@ variable "enable_data_service" {
 variable "enable_ticket_service" {
   type        = bool
   description = "Enable Kino Fastify ticket allocation service"
-  default     = false
+  default     = true
 }
 
 variable "enable_viewing_plan_service" {
   type        = bool
   description = "Enable Kino Express Viewing Plans service"
-  default     = false
+  default     = true
 }
 
 variable "enable_trend_service" {
@@ -81,7 +81,7 @@ variable "enable_generative_service" {
 variable "enable_agent_service" {
   type        = bool
   description = "Enable Kino Agent Service"
-  default     = false
+  default     = true
 }
 
 variable "enable_ui" {
