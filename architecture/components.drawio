@@ -97,7 +97,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="kino-service-image-digest-handoff" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="5J1yGdSfiFy8ZfKHQvtu-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=classic;endFill=1;exitX=0.5067;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;fontSize=10;labelBackgroundColor=default;" target="kino-terraform-apply-card" value="&lt;div style=&quot;font-size: 10px;&quot;&gt;release manifest · repo@sha256:…&lt;/div&gt;">
+        <mxCell id="kino-service-image-digest-handoff" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="5J1yGdSfiFy8ZfKHQvtu-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=classic;endFill=1;exitX=0.5067;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;fontSize=10;labelBackgroundColor=default;" target="kino-terraform-apply-card" value="&lt;div style=&quot;font-size: 10px;&quot;&gt;service-image manifests · operator handoff · repo@sha256:…&lt;/div&gt;">
           <mxGeometry relative="1" x="-0.3333" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
