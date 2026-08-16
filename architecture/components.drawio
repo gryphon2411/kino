@@ -315,7 +315,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="Cltj5rInTBPt047XVchD-15" parent="WIyWlLk6GJQsqaUBKTNV-1" style="shape=datastore;whiteSpace=wrap;html=1;fontSize=13;" value="&lt;div style=&quot;font-size: 13px;&quot;&gt;2 DB&lt;/div&gt;&lt;div style=&quot;font-size: 13px;&quot;&gt;Data&lt;/div&gt;&lt;div style=&quot;font-size: 13px;&quot;&gt;cache&lt;br style=&quot;font-size: 13px;&quot;&gt;&lt;/div&gt;" vertex="1">
+        <mxCell id="Cltj5rInTBPt047XVchD-15" parent="WIyWlLk6GJQsqaUBKTNV-1" style="shape=datastore;whiteSpace=wrap;html=1;fontSize=13;" value="&lt;div style=&quot;font-size: 13px;&quot;&gt;2 DB&lt;/div&gt;&lt;div style=&quot;font-size: 13px;&quot;&gt;Data cache&lt;/div&gt;&lt;div style=&quot;font-size: 13px;&quot;&gt;configured&lt;br style=&quot;font-size: 13px;&quot;&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry height="80" width="80.21695444248678" x="153.3138175773974" y="780" as="geometry" />
         </mxCell>
         <mxCell id="Cltj5rInTBPt047XVchD-16" parent="WIyWlLk6GJQsqaUBKTNV-1" style="shape=datastore;whiteSpace=wrap;html=1;fontSize=13;" value="&lt;div style=&quot;font-size: 13px;&quot;&gt;1 DB&lt;/div&gt;&lt;div style=&quot;font-size: 13px;&quot;&gt;Auth users&lt;/div&gt;&lt;div style=&quot;font-size: 13px;&quot;&gt;cache&lt;br style=&quot;font-size: 13px;&quot;&gt;&lt;/div&gt;" vertex="1">
