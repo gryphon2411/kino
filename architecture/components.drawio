@@ -370,6 +370,12 @@
         <mxCell id="kino-eck-elasticsearch-card" parent="WIyWlLk6GJQsqaUBKTNV-1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="Elasticsearch" vertex="1">
           <mxGeometry height="40" width="120" x="131" y="1450" as="geometry" />
         </mxCell>
+        <mxCell id="kino-eck-logstash-replica-cue" parent="WIyWlLk6GJQsqaUBKTNV-1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="Logstash" vertex="1">
+          <mxGeometry height="40" width="120" x="334" y="1460" as="geometry" />
+        </mxCell>
+        <mxCell id="kino-eck-logstash-card" parent="WIyWlLk6GJQsqaUBKTNV-1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="Logstash" vertex="1">
+          <mxGeometry height="40" width="120" x="324" y="1450" as="geometry" />
+        </mxCell>
         <mxCell id="oszAGRmeUgRNV252mCON-22" parent="WIyWlLk6GJQsqaUBKTNV-1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;glass=0;strokeWidth=1;shadow=0;" value="Kibana" vertex="1">
           <mxGeometry height="40" width="120" x="527" y="1460" as="geometry" />
         </mxCell>
