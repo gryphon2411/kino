@@ -126,7 +126,7 @@ export default function TitlePage() {
   return (
     <Container sx={{ padding: 2, margin: 2 }}>
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={6}>
+        <Grid item xs={12}>
           <Card sx={{ padding: 2, margin: 2 }}>
             <CardContent>
               <Typography variant="h2" gutterBottom>
