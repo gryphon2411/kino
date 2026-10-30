@@ -6,44 +6,61 @@ Kino ("Cinema"), derived from German Kino and also reflected in Yiddish as קי�
 
 ## Provision
 
-### Prepare the seed
+Bring up a local Kino environment in this order. If you already have the seed
+and Terraform inputs, start at **Start the cluster**.
 
-Kino runs as a Docker-backed Minikube stack. Start with a released Mongo seed:
-if you already have one, use its digest; otherwise, follow the [IMDb titles
-release guide](jobs/README.md).
+### 1. Prepare the IMDb seed
 
-### Set the Terraform inputs
+Use an existing seed release digest, or publish one from the repository root:
 
-From the repository root, prepare the Terraform inputs:
+```bash
+(cd jobs && task release-imdb-titles-mongo-seed)
+```
+
+Copy `mongoSeedImageRef` from `jobs/.artifacts/release-manifest.json`. Set it as
+`TF_VAR_mongodb_seed_image_ref` in the Terraform `.env` file. See the [IMDb titles release guide](jobs/README.md) for details.
+
+### 2. Fill in Terraform inputs
+
+From the repository root, create `.env` once and edit it before the first deploy:
 
 ```bash
 cd orchestrators/k8s/terraform
-cp .env.example .env
+test -e .env || cp .env.example .env
 ```
 
-Edit `.env` before deploying. Replace the sample image refs with digest-pinned
-refs from the service release workflows, and set `TF_VAR_mongodb_seed_image_ref`
-to the seed digest. Replace the sample passwords and client secrets too. Ticket
-and Viewing Plans are enabled by default, so uncomment and fill their database
-role passwords. The default Google model path also needs `TF_VAR_gemini_api_key`;
-an NVIDIA key is only needed if you switch the agent to NVIDIA.
+- Set `TF_VAR_mongodb_seed_image_ref` to the seed digest from Step 1.
+- Replace each enabled service's sample `TF_VAR_*_image_ref` with its
+  digest-pinned ref from a successful GitHub Actions release run.
+- Replace the sample passwords and client secrets. Ticketing and Viewing Plans
+  are enabled by default, so fill in their database role passwords.
+- Set `TF_VAR_gemini_api_key` for the default Google model. Add an NVIDIA key
+  only if you switch the agent provider to NVIDIA.
 
-### Bootstrap and deploy
+### 3. Start the cluster
 
-Then bootstrap the local cluster, deploy, and bring up Vault-backed model
-secrets:
+From `orchestrators/k8s/terraform/`, run this on first setup and after a
+computer restart:
 
 ```bash
 task bootstrap-local-env
+```
+
+It checks host capacity, starts or prepares the six-CPU / 14-GiB Calico
+Minikube profile, and updates local host entries. Enter your sudo password when
+prompted. The existing profile and Kubernetes resources persist across restarts.
+
+### 4. Deploy Kino and set up Vault
+
+```bash
 task deploy-with-vault
 ```
 
-Bootstrap checks host capacity, prepares the six-CPU / 14-GiB Calico profile,
-and adds the local host entries (sudo password required).
+This runs Terraform deployment, then initializes or unseals Vault and syncs its
+runtime secrets. For later image updates, replace the matching
+`TF_VAR_*_image_ref` in `.env` with the new digest and run `task deploy`.
 
-### Verify and open Kino
-
-Check the deployed capacity and list the service URLs:
+### 5. Verify and open Kino
 
 ```bash
 task verify-local-capacity
@@ -51,8 +68,7 @@ task urls
 ```
 
 Open Kino at [http://local.kino.com](http://local.kino.com). Keep `.env`,
-`cluster-keys.json`, and Terraform state files out of Git. See the [Terraform
-guide](orchestrators/k8s/terraform/README.md) for the full workflow and options.
+`cluster-keys.json`, and Terraform state files out of Git. See the [Terraform guide](orchestrators/k8s/terraform/README.md) for workflow details and options.
 
 ## Components
 ![Kino Components Diagram](/architecture/components.drawio.svg)
