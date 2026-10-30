@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { AppBar, Toolbar, Typography, Drawer, Divider, List, ListItem, ListItemButton,
 ListItemIcon, ListItemText } from '@mui/material';
 import LocalMoviesIcon from '@mui/icons-material/LocalMovies';
-import DashboardIcon from '@mui/icons-material/Dashboard';
 import HomeIcon from '@mui/icons-material/Home';
 import StarIcon from '@mui/icons-material/Star';
 import ChecklistIcon from '@mui/icons-material/Checklist';
@@ -13,6 +12,8 @@ import SupportIcon from '@mui/icons-material/Support';
 import ThemeRegistry from '@/components/ThemeRegistry/ThemeRegistry';
 import MainFragment from '@/components/MainFragment';
 import LogoutButton from '@/components/LogoutButton';
+import Image from 'next/image';
+import kinoIcon from './icon.png';
 
 export const metadata = {
   title: 'Kino',
@@ -42,7 +43,13 @@ export default function RootLayout({ children }) {
           <ThemeRegistry>
             <AppBar position="fixed" sx={{ zIndex: 2000 }}>
               <Toolbar sx={{ backgroundColor: 'background.paper' }}>
-                <DashboardIcon sx={{ color: '#444', mr: 2, transform: 'translateY(-2px)' }} />
+                <Image
+                  src={kinoIcon}
+                  alt=""
+                  width={24}
+                  height={23}
+                  style={{ marginRight: 16, transform: 'translateY(-2px)' }}
+                />
                 <Typography variant="h6" noWrap component="div" color="black">
                   Kino
                 </Typography>
