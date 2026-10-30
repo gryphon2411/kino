@@ -6,8 +6,8 @@ from huggingface_hub import InferenceClient
 
 
 class InferenceClientChatCompletionGenerativeModel:
-    TITLE_FACTS_PROMPT_TEMPLATE = ("List shortly 3 interesting facts "
-                                   "about \"{title_name}\" ({title_year}) {title_type}.")
+    TITLE_FACTS_PROMPT_TEMPLATE = ("List shortly 3 fun facts about"
+                                   "\"{title_name}\" ({title_year}) {title_type}.")
 
     def __init__(self, model_name, access_token=None):
         self._logger = getLogger(self.__class__.__name__)

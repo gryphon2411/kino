@@ -10,7 +10,7 @@ class GoogleGenerativeModel:
     API_HEADERS = {"Content-Type": "application/json"}
     REQUEST_TIMEOUT_SECONDS = 30
     TITLE_FACTS_SYSTEM_INSTRUCTION = "When listing facts, present the facts without introductory or concluding sentences."
-    TITLE_FACTS_PROMPT_TEMPLATE = "List 3 interesting facts about \"{title_name}\" ({title_year}) {title_type}."
+    TITLE_FACTS_PROMPT_TEMPLATE = "List 3 fun facts about \"{title_name}\" ({title_year}) {title_type}."
 
     def __init__(self, model_name, api_key=None):
         self._logger = logging.getLogger(self.__class__.__name__)

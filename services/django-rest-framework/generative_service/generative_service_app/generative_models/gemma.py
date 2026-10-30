@@ -21,7 +21,7 @@ def get_gemma_generative_model():
 class GemmaGenerativeModel:
     ACCESS_TOKEN = apps.get_app_config("generative_service_app").huggingface_hub_access_token
     MODEL_NAME = "google/gemma-2b-it"
-    TITLE_FACTS_PROMPT_TEMPLATE = "List 3 interesting facts about \"{title_name}\" ({title_year})."
+    TITLE_FACTS_PROMPT_TEMPLATE = "List 3 fun facts about \"{title_name}\" ({title_year})."
 
     def __init__(self):
         logger.warning(f"Instantiating '{self.MODEL_NAME}' tokenizer...")
